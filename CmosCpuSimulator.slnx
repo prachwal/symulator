@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CmosCpu.Assembler/CmosCpu.Assembler.csproj" />
+    <Project Path="src/CmosCpu.Bus/CmosCpu.Bus.csproj" />
+    <Project Path="src/CmosCpu.ConsoleApp/CmosCpu.ConsoleApp.csproj" />
+    <Project Path="src/CmosCpu.Core/CmosCpu.Core.csproj" />
+    <Project Path="src/CmosCpu.Cpu/CmosCpu.Cpu.csproj" />
+    <Project Path="src/CmosCpu.Devices/CmosCpu.Devices.csproj" />
+    <Project Path="src/CmosCpu.Memory/CmosCpu.Memory.csproj" />
+    <Project Path="src/CmosCpu.Runtime/CmosCpu.Runtime.csproj" />
+    <Project Path="src/CmosCpu.WpfApp/CmosCpu.WpfApp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CmosCpu.Assembler.Tests/CmosCpu.Assembler.Tests.csproj" />
+    <Project Path="tests/CmosCpu.Bus.Tests/CmosCpu.Bus.Tests.csproj" />
+    <Project Path="tests/CmosCpu.Core.Tests/CmosCpu.Core.Tests.csproj" />
+    <Project Path="tests/CmosCpu.Cpu.Tests/CmosCpu.Cpu.Tests.csproj" />
+    <Project Path="tests/CmosCpu.Devices.Tests/CmosCpu.Devices.Tests.csproj" />
+    <Project Path="tests/CmosCpu.Memory.Tests/CmosCpu.Memory.Tests.csproj" />
+  </Folder>
+</Solution>
