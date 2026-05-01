@@ -1,0 +1,116 @@
+@page "/simulator"
+@using CmosCpu.BlazorApp.Models
+@using CmosCpu.BlazorApp.Components.Simulator
+@using CmosCpu.Core
+@inject CmosCpu.BlazorApp.Services.IBlazorSimulationController Controller
+@implements IDisposable
+
+<div class="sim-page">
+    <div class="sim-status-bar">
+        <span class="sim-status-text">@StatusMessage</span>
+        <span class="sim-status-detail">PC: 0x@State.PC.ToString("X4")</span>
+        <span class="sim-status-detail">Cycles: @State.Cycles</span>
+        <span class="sim-status-detail">State: @(State.Halted ? "HALTED" : "Running")</span>
+        <span class="sim-status-detail">@StatusMessage</span>
+    </div>
+
+    <Toolbar Controller="Controller"
+             OnStep="@(() => { InvokeAsync(StateHasChanged); })"
+             OnRun="@(() => { InvokeAsync(StateHasChanged); })" />
+
+    <div class="sim-panels-row">
+        <div class="sim-panel sim-panel-registers">
+            <CpuRegistersPanel State="State" />
+        </div>
+        <div class="sim-panel sim-panel-flags">
+            <FlagsPanel State="State" />
+        </div>
+        <div class="sim-panel sim-panel-led">
+            <LedPanel State="State" />
+        </div>
+    </div>
+
+    <div class="sim-panels-row">
+        <div class="sim-panel sim-panel-memory">
+            <MemoryViewer State="State" />
+        </div>
+    </div>
+
+    <div class="sim-panels-row sim-panels-bottom">
+        <div class="sim-panel sim-panel-trace">
+            <TraceLog Entries="_traceEntries" OnClear="@ClearTrace" />
+        </div>
+        <div class="sim-panel sim-panel-log">
+            <BusLog Entries="_busEntries" OnClear="@ClearBus" />
+        </div>
+        <div class="sim-panel sim-panel-devices">
+            <DevicesPanel State="State" />
+            <InterruptsPanel State="State" />
+        </div>
+    </div>
+</div>
+
+@code {
+    private UiSimulatorState State { get; set; } = new();
+    private List<TraceEntryViewModel> _traceEntries = new();
+    private List<BusTransactionViewModel> _busEntries = new();
+    private const int MaxTraceEntries = 10000;
+    private string StatusMessage { get; set; } = "Ready";
+
+    protected override void OnInitialized()
+    {
+        Controller.SnapshotChanged += OnSnapshotChanged;
+        Controller.TraceEntryAdded += OnTraceEntryAdded;
+        Controller.BusTransactionAdded += OnBusTransactionAdded;
+        Controller.StatusChanged += OnStatusChanged;
+        State.UpdateFromSnapshot(Controller.GetSnapshot());
+    }
+
+    private void OnSnapshotChanged(object? sender, SimulatorSnapshot snap)
+    {
+        State.UpdateFromSnapshot(snap);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnTraceEntryAdded(object? sender, TraceEntry entry)
+    {
+        _traceEntries.Insert(0, TraceEntryViewModel.FromEntry(entry));
+        if (_traceEntries.Count > MaxTraceEntries)
+            _traceEntries.RemoveAt(_traceEntries.Count - 1);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnBusTransactionAdded(object? sender, BusTransaction tx)
+    {
+        _busEntries.Insert(0, BusTransactionViewModel.FromTransaction(tx));
+        if (_busEntries.Count > 1000)
+            _busEntries.RemoveAt(_busEntries.Count - 1);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnStatusChanged(object? sender, string msg)
+    {
+        StatusMessage = msg;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ClearTrace()
+    {
+        _traceEntries.Clear();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ClearBus()
+    {
+        _busEntries.Clear();
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Controller.SnapshotChanged -= OnSnapshotChanged;
+        Controller.TraceEntryAdded -= OnTraceEntryAdded;
+        Controller.BusTransactionAdded -= OnBusTransactionAdded;
+        Controller.StatusChanged -= OnStatusChanged;
+    }
+}

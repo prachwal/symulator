@@ -1,0 +1,17 @@
+@using CmosCpu.BlazorApp.Models
+
+<div class="sim-panel-header">Interrupts</div>
+<div class="sim-panel-body">
+    <div class="sim-reg-grid">
+        <span class="sim-reg-label">I.Disable:</span><span class="sim-reg-value">@State.InterruptDisable</span>
+        <span class="sim-reg-label">IRQ Pending:</span><span class="sim-reg-value">@State.IrqPending</span>
+        <span class="sim-reg-label">NMI Pending:</span><span class="sim-reg-value">@State.NmiPending</span>
+        <span class="sim-reg-label">RESET Vec:</span><span class="sim-reg-value">@State.ResetVector</span>
+        <span class="sim-reg-label">IRQ Vec:</span><span class="sim-reg-value">@State.IrqVector</span>
+        <span class="sim-reg-label">NMI Vec:</span><span class="sim-reg-value">@State.NmiVector</span>
+    </div>
+</div>
+
+@code {
+    [Parameter] public UiSimulatorState State { get; set; } = null!;
+}

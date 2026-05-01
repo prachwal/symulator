@@ -1,0 +1,31 @@
+.sim-nav {
+    padding: 12px;
+}
+
+.sim-nav-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #569CD6;
+}
+
+.sim-nav-subtitle {
+    font-size: 11px;
+    color: #808080;
+    margin-bottom: 16px;
+}
+
+::deep .sim-nav-link {
+    display: block;
+    padding: 6px 8px;
+    margin: 2px 0;
+    color: #D4D4D4;
+    text-decoration: none;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+::deep .sim-nav-link:hover,
+::deep .sim-nav-link.active {
+    background: #333333;
+    color: #569CD6;
+}

@@ -1,0 +1,54 @@
+@using CmosCpu.BlazorApp.Models
+@using CmosCpu.BlazorApp.Services
+@inject IBlazorSimulationController SimController
+
+<div class="sim-panel-header">Memory Viewer</div>
+<div class="sim-panel-body">
+    <div class="sim-memory-controls">
+        <button class="sim-btn-small" @onclick="GoToPC">Go to PC</button>
+        <button class="sim-btn-small" @onclick="Refresh">Refresh</button>
+    </div>
+    <div class="sim-table-container">
+        <table class="sim-table sim-table-memory">
+            <thead>
+                <tr>
+                    <th>Address</th>
+                    <th>+0</th><th>+1</th><th>+2</th><th>+3</th><th>+4</th><th>+5</th><th>+6</th><th>+7</th>
+                    <th>+8</th><th>+9</th><th>+A</th><th>+B</th><th>+C</th><th>+D</th><th>+E</th><th>+F</th>
+                    <th>ASCII</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in State.MemoryRows)
+                {
+                    <tr class="@row.RowClass">
+                        <td class="sim-mem-addr">@row.AddressText</td>
+                        @for (int c = 0; c < 16; c++)
+                        {
+                            <td class="@(row.IsPc[c] ? "sim-mem-cell-pc" : "sim-mem-cell")">@row.Cells[c]</td>
+                        }
+                        <td class="sim-mem-ascii">@row.AsciiText</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    [Parameter] public UiSimulatorState State { get; set; } = null!;
+
+    private void GoToPC()
+    {
+        var snap = SimController.GetSnapshot();
+        if (snap is not null)
+            State.UpdateFromSnapshot(snap);
+    }
+
+    private void Refresh()
+    {
+        var snap = SimController.GetSnapshot();
+        if (snap is not null)
+            State.UpdateFromSnapshot(snap);
+    }
+}

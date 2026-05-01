@@ -1,0 +1,11 @@
+@using CmosCpu.BlazorApp.Models
+
+<div class="sim-panel-header">Devices</div>
+<div class="sim-panel-body">
+    <TimerPanel State="State" />
+    <RtcPanel State="State" />
+</div>
+
+@code {
+    [Parameter] public UiSimulatorState State { get; set; } = null!;
+}

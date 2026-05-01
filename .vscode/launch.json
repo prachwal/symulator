@@ -40,6 +40,27 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false
+        },
+        {
+            "name": "Run BlazorApp",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build BlazorApp",
+            "program": "${workspaceFolder}/src/CmosCpu.BlazorApp/bin/Debug/net10.0/CmosCpu.BlazorApp.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_URLS": "https://localhost:5001;http://localhost:5000",
+                "ASPNETCORE_ENVIRONMENT": "Development"
+            },
+            "detail": "Launch Blazor web app — open https://localhost:5001/simulator"
+        },
+        {
+            "name": ".NET Core Attach",
+            "type": "coreclr",
+            "request": "attach"
         }
     ]
 }

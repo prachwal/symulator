@@ -1,0 +1,14 @@
+@using CmosCpu.BlazorApp.Models
+
+<div class="sim-panel-header">LED</div>
+<div class="sim-panel-body">
+    <div class="sim-led-container">
+        <div class="sim-led @(State.LedOn ? "sim-led-on" : "sim-led-off")"></div>
+        <span class="sim-led-text @(State.LedOn ? "sim-led-text-on" : "")">@(State.LedOn ? "ON" : "OFF")</span>
+    </div>
+    <div class="sim-reg-label">Address: 0xC000</div>
+</div>
+
+@code {
+    [Parameter] public UiSimulatorState State { get; set; } = null!;
+}

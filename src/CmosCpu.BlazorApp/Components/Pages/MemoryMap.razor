@@ -1,0 +1,64 @@
+@page "/memory-map"
+
+<h3>Memory Map</h3>
+
+<div class="sim-table-container">
+    <table class="sim-table">
+        <thead>
+            <tr>
+                <th>Range</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><code>0x0000 - 0x7FFF</code></td><td>RAM (32 KB)</td></tr>
+            <tr><td><code>0x8000 - 0xBFFF</code></td><td>ROM (16 KB)</td></tr>
+            <tr><td><code>0xC000 - 0xC0FF</code></td><td>I/O mapped devices</td></tr>
+            <tr><td><code>0xFF00 - 0xFFFF</code></td><td>System vectors / reserved</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h4>I/O Device Map</h4>
+
+<div class="sim-table-container">
+    <table class="sim-table">
+        <thead>
+            <tr>
+                <th>Address</th>
+                <th>Device</th>
+                <th>Register</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><code>0xC000</code></td><td>LED</td><td>LED_STATE (0=OFF, 1=ON)</td></tr>
+            <tr><td><code>0xC010</code></td><td>Timer</td><td>TIMER_COUNTER (low byte)</td></tr>
+            <tr><td><code>0xC011</code></td><td>Timer</td><td>TIMER_CONTROL (bit 7 = enable)</td></tr>
+            <tr><td><code>0xC012</code></td><td>Timer</td><td>TIMER_STATUS (bit 0 = fired)</td></tr>
+            <tr><td><code>0xC020</code></td><td>RTC</td><td>SECOND</td></tr>
+            <tr><td><code>0xC021</code></td><td>RTC</td><td>MINUTE</td></tr>
+            <tr><td><code>0xC022</code></td><td>RTC</td><td>HOUR</td></tr>
+            <tr><td><code>0xC023</code></td><td>RTC</td><td>DAY</td></tr>
+            <tr><td><code>0xC024</code></td><td>RTC</td><td>MONTH</td></tr>
+            <tr><td><code>0xC025</code></td><td>RTC</td><td>YEAR</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h4>System Vectors</h4>
+
+<div class="sim-table-container">
+    <table class="sim-table">
+        <thead>
+            <tr>
+                <th>Address</th>
+                <th>Vector</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><code>0xFFFA / 0xFFFB</code></td><td>IRQ vector (lo / hi)</td></tr>
+            <tr><td><code>0xFFFC / 0xFFFD</code></td><td>RESET vector (lo / hi)</td></tr>
+            <tr><td><code>0xFFFE / 0xFFFF</code></td><td>NMI vector (lo / hi)</td></tr>
+        </tbody>
+    </table>
+</div>

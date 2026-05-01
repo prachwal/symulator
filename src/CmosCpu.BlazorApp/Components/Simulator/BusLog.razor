@@ -1,0 +1,38 @@
+@using CmosCpu.BlazorApp.Models
+
+<div class="sim-panel-header">
+    <span>Bus Log</span>
+    <button class="sim-btn-small" @onclick="OnClear">Clear</button>
+</div>
+<div class="sim-panel-body">
+    <div class="sim-table-container">
+        <table class="sim-table">
+            <thead>
+                <tr>
+                    <th>Cycle</th>
+                    <th>Op</th>
+                    <th>Address</th>
+                    <th>Value</th>
+                    <th>Device</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var tx in Entries)
+                {
+                    <tr>
+                        <td>@tx.Cycle</td>
+                        <td><span class="sim-bus-op sim-bus-@tx.Operation.ToLowerInvariant()">@tx.Operation</span></td>
+                        <td>@tx.Address</td>
+                        <td>@tx.Value</td>
+                        <td>@tx.Device</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<BusTransactionViewModel> Entries { get; set; } = new();
+    [Parameter] public EventCallback OnClear { get; set; }
+}

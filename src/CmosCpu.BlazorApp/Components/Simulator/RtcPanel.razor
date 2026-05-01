@@ -1,0 +1,17 @@
+@using CmosCpu.BlazorApp.Models
+
+<div class="sim-subpanel">
+    <div class="sim-subpanel-title">RTC (0xC020-0xC025)</div>
+    <div class="sim-reg-grid">
+        <span class="sim-reg-label">Second:</span><span class="sim-reg-value">@State.RtcSecond</span>
+        <span class="sim-reg-label">Minute:</span><span class="sim-reg-value">@State.RtcMinute</span>
+        <span class="sim-reg-label">Hour:</span><span class="sim-reg-value">@State.RtcHour</span>
+        <span class="sim-reg-label">Day:</span><span class="sim-reg-value">@State.RtcDay</span>
+        <span class="sim-reg-label">Month:</span><span class="sim-reg-value">@State.RtcMonth</span>
+        <span class="sim-reg-label">Year:</span><span class="sim-reg-value">@State.RtcYear</span>
+    </div>
+</div>
+
+@code {
+    [Parameter] public UiSimulatorState State { get; set; } = null!;
+}

@@ -1,0 +1,15 @@
+@using CmosCpu.BlazorApp.Models
+
+<div class="sim-subpanel">
+    <div class="sim-subpanel-title">Timer (0xC010-0xC012)</div>
+    <div class="sim-reg-grid">
+        <span class="sim-reg-label">Counter:</span><span class="sim-reg-value">@State.TimerCounter</span>
+        <span class="sim-reg-label">Control:</span><span class="sim-reg-value">@State.TimerControl</span>
+        <span class="sim-reg-label">Status:</span><span class="sim-reg-value">@State.TimerStatus</span>
+        <span class="sim-reg-label">Running:</span><span class="sim-reg-value">@State.TimerRunning</span>
+    </div>
+</div>
+
+@code {
+    [Parameter] public UiSimulatorState State { get; set; } = null!;
+}

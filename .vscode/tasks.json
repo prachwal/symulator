@@ -109,6 +109,46 @@
             "detail": "Run WPF ViewModel/service tests (Windows only)"
         },
         {
+            "label": "build BlazorApp",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "src/CmosCpu.BlazorApp/CmosCpu.BlazorApp.csproj"
+            ],
+            "group": "build",
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "run BlazorApp",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "run",
+                "--project",
+                "src/CmosCpu.BlazorApp/CmosCpu.BlazorApp.csproj"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": "$msCompile",
+            "detail": "Run Blazor web app — open https://localhost:5001/simulator",
+            "dependsOn": ["build BlazorApp"]
+        },
+        {
+            "label": "test BlazorApp",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "test",
+                "tests/CmosCpu.BlazorApp.Tests/CmosCpu.BlazorApp.Tests.csproj"
+            ],
+            "group": "test",
+            "problemMatcher": "$msCompile",
+            "detail": "Run Blazor service/model unit tests"
+        },
+        {
             "label": "clean",
             "command": "dotnet",
             "type": "process",

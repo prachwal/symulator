@@ -1,0 +1,16 @@
+@using CmosCpu.BlazorApp.Models
+
+<div class="sim-panel-header">Flags</div>
+<div class="sim-panel-body">
+    <div class="sim-flags-grid">
+        <span class="sim-flag @(State.Zero ? "sim-flag-on sim-flag-green" : "sim-flag-off")">Zero</span>
+        <span class="sim-flag @(State.Carry ? "sim-flag-on sim-flag-green" : "sim-flag-off")">Carry</span>
+        <span class="sim-flag @(State.Negative ? "sim-flag-on sim-flag-red" : "sim-flag-off")">Negative</span>
+        <span class="sim-flag @(State.InterruptDisable ? "sim-flag-on sim-flag-yellow" : "sim-flag-off")">I.Disable</span>
+    </div>
+    <div class="sim-flags-text">@State.FlagsText</div>
+</div>
+
+@code {
+    [Parameter] public UiSimulatorState State { get; set; } = null!;
+}
