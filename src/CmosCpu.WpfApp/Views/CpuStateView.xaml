@@ -1,0 +1,8 @@
+<UserControl x:Class="CmosCpu.WpfApp.Views.CpuStateView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="CpuStateControl">
+    <Border Background="#2D2D2D" BorderBrush="#3E3E3E" BorderThickness="1" Padding="4">
+        <TextBlock Text="CPU State view" Foreground="#808080" />
+    </Border>
+</UserControl>

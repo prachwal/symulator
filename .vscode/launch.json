@@ -1,0 +1,45 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run WPF GUI",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build WPF GUI",
+            "program": "${workspaceFolder}/src/CmosCpu.WpfApp/bin/Debug/net10.0-windows/CmosCpu.WpfApp.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "stopAtEntry": false,
+            "detail": "Launch WPF GUI (Windows only)"
+        },
+        {
+            "name": "Run ConsoleApp (blink, 10000 cycles)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build ConsoleApp",
+            "program": "${workspaceFolder}/src/CmosCpu.ConsoleApp/bin/Debug/net10.0/CmosCpu.ConsoleApp.dll",
+            "args": ["--cycles", "10000"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false
+        },
+        {
+            "name": "Run ConsoleApp (examples/blink.asm, with trace)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build ConsoleApp",
+            "program": "${workspaceFolder}/src/CmosCpu.ConsoleApp/bin/Debug/net10.0/CmosCpu.ConsoleApp.dll",
+            "args": [
+                "--program",
+                "${workspaceFolder}/examples/blink.asm",
+                "--cycles",
+                "5000",
+                "--trace"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false
+        }
+    ]
+}

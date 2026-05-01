@@ -19,7 +19,13 @@ public class Simulator : ISimulator
     private readonly RamDevice _vectors;
     private readonly LedDevice _led;
     private readonly TimerDevice? _timer;
+    private readonly SimpleAssembler _assembler = new();
     private readonly ServiceProvider _serviceProvider;
+    private volatile bool _paused;
+    private volatile bool _stopped;
+
+    public event EventHandler<SimulatorSnapshot>? SnapshotChanged;
+    public event EventHandler<TraceEventArgs>? TraceExecuted;
 
     public SystemBus Bus => _bus;
     public CpuCore Cpu => _cpu;
@@ -98,18 +104,38 @@ public class Simulator : ISimulator
 
     public void Step()
     {
+        if (_cpu.Halted) return;
+        ulong before = _cpu.CycleCount;
         _cpu.Step();
         _timer?.Tick();
+        EmitTrace(before);
+        EmitSnapshot();
     }
 
     public void Run(int maxCycles)
     {
+        _paused = false;
+        _stopped = false;
         ulong target = _cpu.CycleCount + (ulong)maxCycles;
-        while (_cpu.CycleCount < target && !_cpu.Halted)
+        while (_cpu.CycleCount < target && !_cpu.Halted && !_paused && !_stopped)
         {
+            ulong before = _cpu.CycleCount;
             _cpu.Step();
             _timer?.Tick();
+            EmitTrace(before);
         }
+        EmitSnapshot();
+    }
+
+    public void Pause()
+    {
+        _paused = true;
+    }
+
+    public void Stop()
+    {
+        _stopped = true;
+        _paused = false;
     }
 
     public SimulatorSnapshot GetSnapshot()
@@ -120,12 +146,95 @@ public class Simulator : ISimulator
         for (int i = 0; i < ramDump.Length; i++)
             dump[(ushort)i] = ramDump[i];
 
+        var memWindow = new List<MemoryCellSnapshot>();
+        ushort startAddr = (ushort)(regs.PC > 0x20 ? regs.PC - 0x20 : 0);
+        for (ushort addr = startAddr; addr < startAddr + 256 && addr < 0xFFFF; addr++)
+        {
+            byte val = _bus.Read(addr);
+            memWindow.Add(new MemoryCellSnapshot
+            {
+                Address = addr,
+                Value = val,
+                IsPC = addr == regs.PC,
+            });
+        }
+
+        TimerSnapshot? timerSnap = null;
+        if (_timer != null)
+        {
+            timerSnap = new TimerSnapshot
+            {
+                Counter = (ushort)(_timer.Read(0xC010)),
+                Control = _timer.Read(0xC011),
+                Status = _timer.Read(0xC012),
+                Running = (_timer.Read(0xC011) & 0x80) != 0,
+                IrqEnabled = _timer.IrqEnabled,
+            };
+        }
+
+        var interruptSnap = new InterruptSnapshot
+        {
+            InterruptDisable = regs.InterruptDisableFlag,
+            ResetVector = (ushort)((_bus.Read(0xFFFD) << 8) | _bus.Read(0xFFFC)),
+            IrqVector = (ushort)((_bus.Read(0xFFFB) << 8) | _bus.Read(0xFFFA)),
+            NmiVector = (ushort)((_bus.Read(0xFFFF) << 8) | _bus.Read(0xFFFE)),
+        };
+
         return new SimulatorSnapshot
         {
             Registers = regs,
             CycleCount = _cpu.CycleCount,
             LedOn = _led.IsOn,
             MemoryDump = dump,
+            MemoryWindow = memWindow.AsReadOnly(),
+            CurrentInstruction = GetCurrentInstruction(),
+            Timer = timerSnap,
+            Interrupts = interruptSnap,
         };
+    }
+
+    private string? GetCurrentInstruction()
+    {
+        if (_cpu.Halted) return "HLT";
+        byte opcode = _bus.Read(_cpu.Registers.PC);
+        if (InstructionInfo.All.TryGetValue((Opcode)opcode, out var info))
+            return info.Mnemonic;
+        return $"?? ({opcode:X2})";
+    }
+
+    private void EmitTrace(ulong beforeCycle)
+    {
+        var regs = _cpu.Registers;
+        byte opcode = _bus.Read((ushort)(regs.PC - 1));
+        string mnemonic = "???";
+        string desc = "";
+        if (InstructionInfo.All.TryGetValue((Opcode)opcode, out var info))
+        {
+            mnemonic = info.Mnemonic;
+            desc = info.Description;
+        }
+
+        TraceExecuted?.Invoke(this, new TraceEventArgs
+        {
+            Entry = new TraceEntry
+            {
+                Cycle = beforeCycle,
+                PC = (ushort)(regs.PC - 1),
+                Opcode = opcode,
+                Mnemonic = mnemonic,
+                A = regs.A,
+                X = regs.X,
+                Y = regs.Y,
+                SP = (ushort)(0x0100 + regs.SP),
+                Flags = regs.Flags.ToString(),
+                Description = desc,
+                IsHalted = regs.Halted,
+            }
+        });
+    }
+
+    private void EmitSnapshot()
+    {
+        SnapshotChanged?.Invoke(this, GetSnapshot());
     }
 }

@@ -1,0 +1,95 @@
+<Window x:Class="CmosCpu.WpfApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:CmosCpu.WpfApp.Views"
+        xmlns:c="clr-namespace:CmosCpu.WpfApp.Converters"
+        Title="CmosCpu Simulator"
+        Width="1200" Height="800"
+        MinWidth="900" MinHeight="600"
+        Background="#1E1E1E" Foreground="#D4D4D4"
+        FontFamily="Consolas, Courier New, monospace"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <c:UShortToHexConverter x:Key="UShortToHex" />
+    </Window.Resources>
+
+    <Grid Margin="4">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="2*" />
+            <RowDefinition Height="3*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <Border Grid.Row="0" Background="#2D2D2D" BorderBrush="#3E3E3E" BorderThickness="1" Padding="4" Margin="0,0,0,4">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Load ASM" Command="{Binding LoadAsmCommand}" Margin="2" Padding="8,2" />
+                <Button Content="Load BIN" Command="{Binding LoadBinCommand}" Margin="2" Padding="8,2" />
+                <Separator Width="2" Margin="4,2" />
+                <Button Content="Reset" Command="{Binding ResetCommand}" Margin="2" Padding="8,2" />
+                <Button Content="Step" Command="{Binding StepCommand}" Margin="2" Padding="8,2" />
+                <Button Content="Run" Command="{Binding RunCommand}" Margin="2" Padding="8,2" />
+                <Button Content="Pause" Command="{Binding PauseCommand}" Margin="2" Padding="8,2" />
+                <Button Content="Stop" Command="{Binding StopCommand}" Margin="2" Padding="8,2" />
+                <Separator Width="2" Margin="4,2" />
+                <Button Content="Clear Trace" Command="{Binding ClearTraceCommand}" Margin="2" Padding="8,2" />
+                <Separator Width="2" Margin="4,2" />
+                <TextBlock Text="Speed:" VerticalAlignment="Center" Style="{StaticResource LabelText}" Margin="4,0" />
+                <ComboBox ItemsSource="{Binding SpeedOptions}" SelectedIndex="{Binding SelectedSpeedIndex}" Width="80" Margin="2" FontSize="11" />
+            </StackPanel>
+        </Border>
+
+        <!-- CPU Registers + Flags + LED + Devices -->
+        <Grid Grid.Row="1" Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="2*" />
+            </Grid.ColumnDefinitions>
+
+            <v:RegistersView Grid.Column="0" DataContext="{Binding Registers}" Margin="0,0,2,0" />
+            <v:FlagsView Grid.Column="1" DataContext="{Binding Flags}" Margin="2,0" />
+            <v:LedView Grid.Column="2" DataContext="{Binding Led}" Margin="2,0" />
+            <v:DevicesView Grid.Column="3" DataContext="{Binding Devices}" Margin="2,0,0,0" />
+        </Grid>
+
+        <!-- Main content: Memory + Logs -->
+        <Grid Grid.Row="2" Grid.RowSpan="2" Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Memory Viewer -->
+            <v:MemoryView Grid.Row="0" Grid.Column="0" DataContext="{Binding Memory}" Margin="0,0,2,2" />
+
+            <!-- Devices / Interrupts -->
+            <v:InterruptsView Grid.Row="0" Grid.Column="1" DataContext="{Binding Interrupts}" Margin="2,0,0,2" />
+
+            <!-- Trace Log -->
+            <v:TraceLogView Grid.Row="1" Grid.Column="0" DataContext="{Binding TraceLog}" Margin="0,2,2,0" />
+
+            <!-- Bus Log -->
+            <v:BusView Grid.Row="1" Grid.Column="1" DataContext="{Binding BusLog}" Margin="2,2,0,0" />
+        </Grid>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="4" Background="#007ACC" Padding="4">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding StatusText}" Foreground="White" FontSize="11" Margin="0,0,16,0" />
+                <TextBlock Text="PC:" Foreground="White" FontSize="11" Margin="0,0,2,0" />
+                <TextBlock Text="{Binding PC, Converter={StaticResource UShortToHex}}" Foreground="White" FontSize="11" Margin="0,0,16,0" />
+                <TextBlock Text="Cycles:" Foreground="White" FontSize="11" Margin="0,0,2,0" />
+                <TextBlock Text="{Binding TotalCycles}" Foreground="White" FontSize="11" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

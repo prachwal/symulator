@@ -1,0 +1,53 @@
+<UserControl x:Class="CmosCpu.WpfApp.Views.RegistersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:CmosCpu.WpfApp.Converters">
+    <UserControl.Resources>
+        <c:ByteToHexConverter x:Key="ByteToHex" />
+        <c:UShortToHexConverter x:Key="UShortToHex" />
+    </UserControl.Resources>
+    <Border Background="#2D2D2D" BorderBrush="#3E3E3E" BorderThickness="1" Padding="6">
+        <StackPanel>
+            <TextBlock Text="CPU Registers" FontWeight="Bold" Foreground="#569CD6" Margin="0,0,0,6" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="A:" Style="{StaticResource LabelText}" />
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding A, Converter={StaticResource ByteToHex}}" Style="{StaticResource HexValue}" />
+
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="X:" Style="{StaticResource LabelText}" />
+                <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding X, Converter={StaticResource ByteToHex}}" Style="{StaticResource HexValue}" />
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Y:" Style="{StaticResource LabelText}" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Y, Converter={StaticResource ByteToHex}}" Style="{StaticResource HexValue}" />
+
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="PC:" Style="{StaticResource LabelText}" />
+                <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding PC, Converter={StaticResource UShortToHex}}" Style="{StaticResource HexValue}" />
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="SP:" Style="{StaticResource LabelText}" />
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SP, Converter={StaticResource UShortToHex}}" Style="{StaticResource HexValue}" />
+
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="Cycles:" Style="{StaticResource LabelText}" />
+                <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding Cycles}" Style="{StaticResource HexValue}" />
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Instr:" Style="{StaticResource LabelText}" />
+                <TextBlock Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding CurrentInstruction}" Foreground="#CE9178" FontSize="12" Margin="2" />
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="State:" Style="{StaticResource LabelText}" />
+                <TextBlock Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding Halted, Converter={StaticResource BoolToOnOff}}" Foreground="#F44747" FontWeight="Bold" Margin="2" />
+            </Grid>
+        </StackPanel>
+    </Border>
+</UserControl>

@@ -8,6 +8,8 @@ public class SystemBus : IBus
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly List<IBusDevice> _devices = new();
 
+    public event EventHandler<BusTransactionEventArgs>? Transaction;
+
     public void AttachDevice(IBusDevice device)
     {
         _devices.Add(device);
@@ -27,6 +29,14 @@ public class SystemBus : IBus
             {
                 byte value = device.Read(address);
                 Logger.Trace("BUS READ  {Address:X4} -> {Value:X2}", address, value);
+                Transaction?.Invoke(this, new BusTransactionEventArgs
+                {
+                    Transaction = new BusTransaction
+                    {
+                        Cycle = 0, Operation = BusOperation.Read, Address = address, Value = value,
+                        DeviceName = device.GetType().Name
+                    }
+                });
                 return value;
             }
         }
@@ -42,6 +52,14 @@ public class SystemBus : IBus
             {
                 device.Write(address, value);
                 Logger.Trace("BUS WRITE {Address:X4} <- {Value:X2}", address, value);
+                Transaction?.Invoke(this, new BusTransactionEventArgs
+                {
+                    Transaction = new BusTransaction
+                    {
+                        Cycle = 0, Operation = BusOperation.Write, Address = address, Value = value,
+                        DeviceName = device.GetType().Name
+                    }
+                });
                 return;
             }
         }

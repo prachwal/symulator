@@ -1,0 +1,23 @@
+<UserControl x:Class="CmosCpu.WpfApp.Views.LedView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:CmosCpu.WpfApp.Converters">
+    <UserControl.Resources>
+        <c:FlagToBrushConverter x:Key="FlagBrush" />
+    </UserControl.Resources>
+    <Border Background="#2D2D2D" BorderBrush="#3E3E3E" BorderThickness="1" Padding="6">
+        <StackPanel>
+            <TextBlock Text="LED" FontWeight="Bold" Foreground="#569CD6" Margin="0,0,0,6" />
+            <StackPanel Orientation="Horizontal" Margin="4">
+                <Ellipse Width="24" Height="24" Margin="0,0,10,0">
+                    <Ellipse.Fill>
+                        <SolidColorBrush Color="{Binding IsOn, Converter={StaticResource FlagBrush}}" />
+                    </Ellipse.Fill>
+                </Ellipse>
+                <TextBlock Text="LED:" VerticalAlignment="Center" Style="{StaticResource LabelText}" Margin="0,0,4,0" />
+                <TextBlock Text="{Binding StateText}" FontWeight="Bold" Foreground="#DCDCAA" FontSize="14" VerticalAlignment="Center" />
+            </StackPanel>
+            <TextBlock Text="Address: 0xC000" Foreground="#808080" FontSize="10" Margin="4,4,0,0" />
+        </StackPanel>
+    </Border>
+</UserControl>
