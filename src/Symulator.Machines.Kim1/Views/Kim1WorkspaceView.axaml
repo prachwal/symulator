@@ -3,52 +3,49 @@
              x:Class="Symulator.Machines.Kim1.Views.Kim1WorkspaceView">
     <DockPanel>
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,0,0,4">
-            <Button Content="Reset" />
-            <Button Content="Step" />
-            <Button Content="Run" />
-            <Button Content="Pause" />
+            <Button Content="Reset" Command="{Binding ResetCommand}" />
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="0,4,0,0">
             <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
-                <Button Content="Enter" />
-                <Button Content="Backspace" />
+                <Button Content="Enter" Command="{Binding KeyPressCommand}" CommandParameter="Enter" />
+                <Button Content="Backspace" Command="{Binding KeyPressCommand}" CommandParameter="Backspace" />
             </StackPanel>
             <TextBlock FontStyle="Italic" Text="{Binding LastKey, StringFormat='Last key: {0}'}" />
             <TextBlock Text="{Binding StatusText}" FontStyle="Italic" />
         </StackPanel>
         <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,*">
             <StackPanel Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Spacing="8">
-                <Border BorderBrush="Gray" BorderThickness="1" Padding="8" Background="#1a1a1a">
+                <Border BorderBrush="#31404F" BorderThickness="1" Padding="8" Background="#1a1a1a">
                     <StackPanel>
-                        <TextBlock Text="6-Digit LED Display" FontWeight="Bold" Foreground="LimeGreen" />
+                        <TextBlock Text="6-Digit LED Display" FontWeight="Bold" Foreground="#4DFF88" />
                         <TextBlock Text="{Binding DisplayText}"
                                    FontFamily="Courier New"
                                    FontSize="28"
-                                   Foreground="LimeGreen"
+                                   Foreground="#4DFF88"
                                    LetterSpacing="4"
                                    HorizontalAlignment="Center" />
                     </StackPanel>
                 </Border>
                 <UniformGrid Columns="4" Rows="4" Margin="4">
-                    <Button Content="D7" />
-                    <Button Content="D8" />
-                    <Button Content="D9" />
-                    <Button Content="A" />
-                    <Button Content="D4" />
-                    <Button Content="D5" />
-                    <Button Content="D6" />
-                    <Button Content="B" />
-                    <Button Content="D1" />
-                    <Button Content="D2" />
-                    <Button Content="D3" />
-                    <Button Content="C" />
-                    <Button Content="D0" />
-                    <Button Content="F" />
-                    <Button Content="E" />
-                    <Button Content="D" />
+                    <Button Content="D7" Command="{Binding KeyPressCommand}" CommandParameter="D7" />
+                    <Button Content="D8" Command="{Binding KeyPressCommand}" CommandParameter="D8" />
+                    <Button Content="D9" Command="{Binding KeyPressCommand}" CommandParameter="D9" />
+                    <Button Content="A" Command="{Binding KeyPressCommand}" CommandParameter="A" />
+                    <Button Content="D4" Command="{Binding KeyPressCommand}" CommandParameter="D4" />
+                    <Button Content="D5" Command="{Binding KeyPressCommand}" CommandParameter="D5" />
+                    <Button Content="D6" Command="{Binding KeyPressCommand}" CommandParameter="D6" />
+                    <Button Content="B" Command="{Binding KeyPressCommand}" CommandParameter="B" />
+                    <Button Content="D1" Command="{Binding KeyPressCommand}" CommandParameter="D1" />
+                    <Button Content="D2" Command="{Binding KeyPressCommand}" CommandParameter="D2" />
+                    <Button Content="D3" Command="{Binding KeyPressCommand}" CommandParameter="D3" />
+                    <Button Content="C" Command="{Binding KeyPressCommand}" CommandParameter="C" />
+                    <Button Content="D0" Command="{Binding KeyPressCommand}" CommandParameter="D0" />
+                    <Button Content="F" Command="{Binding KeyPressCommand}" CommandParameter="F" />
+                    <Button Content="E" Command="{Binding KeyPressCommand}" CommandParameter="E" />
+                    <Button Content="D" Command="{Binding KeyPressCommand}" CommandParameter="D" />
                 </UniformGrid>
             </StackPanel>
-            <Border Grid.Row="0" Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="8" Margin="8,0,0,0">
+            <Border Grid.Row="0" Grid.Column="1" BorderBrush="#31404F" BorderThickness="1" Padding="8" Margin="8,0,0,0" Background="#182028">
                 <StackPanel Spacing="4">
                     <TextBlock FontWeight="Bold">RIOT/6530</TextBlock>
                     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,4,0,0">

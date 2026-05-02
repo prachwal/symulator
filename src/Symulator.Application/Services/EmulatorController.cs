@@ -1,9 +1,12 @@
+using NLog;
 using Symulator.Application.Abstractions;
 
 namespace Symulator.Application.Services;
 
 public sealed class EmulatorController : IEmulatorController, IAsyncDisposable
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     private readonly MachineCatalog _catalog;
     private IMachineSession? _activeSession;
     private EmulatorStateSnapshot? _current;
@@ -42,6 +45,9 @@ public sealed class EmulatorController : IEmulatorController, IAsyncDisposable
         _activeSession.StateChanged += OnSessionStateChanged;
         _activeSession.StatusChanged += OnSessionStatusChanged;
 
+        Logger.Info("Machine selected: {MachineId} from module {ModuleId}", machineId, module.Id);
+
+        await _activeSession.ResetAsync(cancellationToken);
         _current = _activeSession.Current;
         StateChanged?.Invoke(this, _current);
         StatusChanged?.Invoke(this, $"Machine selected: {session.DisplayName}");
@@ -59,27 +65,41 @@ public sealed class EmulatorController : IEmulatorController, IAsyncDisposable
         return _activeSession?.StepInstructionAsync(cancellationToken) ?? Task.CompletedTask;
     }
 
-    public Task RunAsync(CancellationToken cancellationToken = default)
+    public async Task RunAsync(CancellationToken cancellationToken = default)
     {
         if (_activeSession is null)
-            return Task.CompletedTask;
+        {
+            Logger.Warn("RunAsync called with no active session");
+            return;
+        }
 
         StatusChanged?.Invoke(this, "Running...");
-        return _activeSession.RunAsync(cancellationToken);
+        await _activeSession.RunAsync(cancellationToken);
     }
 
-    public Task PauseAsync(CancellationToken cancellationToken = default)
+    public async Task PauseAsync(CancellationToken cancellationToken = default)
     {
         if (_activeSession is null)
-            return Task.CompletedTask;
+        {
+            Logger.Warn("PauseAsync called with no active session");
+            return;
+        }
 
         StatusChanged?.Invoke(this, "Paused");
-        return _activeSession.PauseAsync(cancellationToken);
+        await _activeSession.PauseAsync(cancellationToken);
     }
 
     public Task SendInputAsync(string text, CancellationToken cancellationToken = default)
     {
         return _activeSession?.SendInputAsync(text, cancellationToken) ?? Task.CompletedTask;
+    }
+
+    public Task<MachineCommandResult> ExecuteMachineCommandAsync(string commandId, object? parameter = null, CancellationToken cancellationToken = default)
+    {
+        if (_activeSession is null)
+            return Task.FromResult(MachineCommandResult.Failure("No active session"));
+
+        return _activeSession.ExecuteMachineCommandAsync(commandId, parameter, cancellationToken);
     }
 
     private void OnSessionStateChanged(object? sender, EmulatorStateSnapshot snapshot)

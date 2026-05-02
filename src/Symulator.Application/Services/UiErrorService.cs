@@ -1,9 +1,12 @@
+using NLog;
 using Symulator.Application.Abstractions;
 
 namespace Symulator.Application.Services;
 
 public sealed class UiErrorService : IUiErrorService
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     private readonly List<UiErrorEntry> _errors = new();
     private readonly object _lock = new();
 
@@ -16,6 +19,8 @@ public sealed class UiErrorService : IUiErrorService
 
     public void Report(Exception exception, string context)
     {
+        Logger.Error(exception, "UI error in {Context}", context);
+
         var entry = new UiErrorEntry(
             DateTimeOffset.Now,
             "Error",
@@ -24,16 +29,14 @@ public sealed class UiErrorService : IUiErrorService
             exception.GetType().Name,
             exception.StackTrace);
 
-        lock (_lock)
-        {
-            _errors.Add(entry);
-        }
-
+        lock (_lock) _errors.Add(entry);
         ErrorAdded?.Invoke(this, entry);
     }
 
     public void Report(string message, string? details = null)
     {
+        Logger.Warn("UI warning: {Message}. Details: {Details}", message, details ?? "(none)");
+
         var entry = new UiErrorEntry(
             DateTimeOffset.Now,
             "Warning",
@@ -42,19 +45,12 @@ public sealed class UiErrorService : IUiErrorService
             null,
             null);
 
-        lock (_lock)
-        {
-            _errors.Add(entry);
-        }
-
+        lock (_lock) _errors.Add(entry);
         ErrorAdded?.Invoke(this, entry);
     }
 
     public void Clear()
     {
-        lock (_lock)
-        {
-            _errors.Clear();
-        }
+        lock (_lock) _errors.Clear();
     }
 }

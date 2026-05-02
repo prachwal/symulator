@@ -14,6 +14,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private MachineDescriptor? _selectedMachineDescriptor;
     private bool _isRunning;
     private object? _activePanelViewModel;
+    private string _selectedMachineTitle = string.Empty;
 
     public CpuInspectorViewModel CpuInspector { get; } = new();
 
@@ -41,14 +42,26 @@ public sealed class MainWindowViewModel : ViewModelBase
         set => SetProperty(ref _activePanelViewModel, value);
     }
 
+    public string SelectedMachineTitle
+    {
+        get => _selectedMachineTitle;
+        set => SetProperty(ref _selectedMachineTitle, value);
+    }
+
+    public bool IsMachineSelected => SelectedMachineDescriptor is not null;
+    public bool HasNoMachineSelected => SelectedMachineDescriptor is null;
+
     public MachineDescriptor? SelectedMachineDescriptor
     {
         get => _selectedMachineDescriptor;
         set
         {
-            if (SetProperty(ref _selectedMachineDescriptor, value) && value is not null)
+            if (SetProperty(ref _selectedMachineDescriptor, value))
             {
-                _ = OnMachineSelected(value.Id);
+                OnPropertyChanged(nameof(IsMachineSelected));
+                OnPropertyChanged(nameof(HasNoMachineSelected));
+                if (value is not null)
+                    _ = OnMachineSelected(value.Id);
             }
         }
     }
@@ -103,7 +116,8 @@ public sealed class MainWindowViewModel : ViewModelBase
             }
 
             ActivePanelViewModel = _controller.ActiveSession?.Workspace.ViewModel;
-            StatusText = $"Selected: {_controller.ActiveSession?.DisplayName}";
+            SelectedMachineTitle = _controller.ActiveSession?.DisplayName ?? machineId;
+            StatusText = $"Selected: {SelectedMachineTitle}";
             CpuInspector.UpdateFromSnapshot(_controller.Current?.Cpu);
         }
         catch (Exception ex)

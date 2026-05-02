@@ -16,5 +16,5 @@ public interface IMachineSession : IAsyncDisposable
     Task RunAsync(CancellationToken cancellationToken = default);
     Task PauseAsync(CancellationToken cancellationToken = default);
     Task SendInputAsync(string text, CancellationToken cancellationToken = default);
-    Task ExecuteMachineCommandAsync(string commandId, object? parameter = null, CancellationToken cancellationToken = default);
+    Task<MachineCommandResult> ExecuteMachineCommandAsync(string commandId, object? parameter = null, CancellationToken cancellationToken = default);
 }

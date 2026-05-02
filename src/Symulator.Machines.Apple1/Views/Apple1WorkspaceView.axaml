@@ -3,14 +3,13 @@
              x:Class="Symulator.Machines.Apple1.Views.Apple1WorkspaceView">
     <DockPanel>
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,0,0,4">
-            <Button Content="Boot MON" />
-            <Button Content="Boot BASIC" />
-            <Button Content="Reset" />
-            <Button Content="Clear" />
+            <Button Content="Boot MON" Command="{Binding BootMonCommand}" />
+            <Button Content="Boot BASIC" Command="{Binding BootBasicCommand}" />
+            <Button Content="Clear" Command="{Binding ClearCommand}" />
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="0,4,0,0">
             <DockPanel>
-                <Button DockPanel.Dock="Right" Content="Send" Margin="4,0,0,0" />
+                <Button DockPanel.Dock="Right" Content="Send" Command="{Binding SendCommand}" Margin="4,0,0,0" />
                 <TextBox Text="{Binding InputText}" AcceptsReturn="False" Watermark="Enter command..." />
             </DockPanel>
             <TextBlock Text="{Binding StatusText}" FontStyle="Italic" />
@@ -20,10 +19,11 @@
                 <TextBlock FontWeight="Bold" Text="Terminal - Mode: " />
                 <TextBlock Text="{Binding ModeText}" />
             </StackPanel>
-            <Border BorderBrush="Gray" BorderThickness="1" MinHeight="200">
+            <Border BorderBrush="Gray" BorderThickness="1" MinHeight="200" Background="#050607">
                 <ScrollViewer>
                     <TextBlock Text="{Binding TerminalOutput, Mode=OneWay}"
                                FontFamily="Courier New"
+                               Foreground="#7CFF7C"
                                TextWrapping="Wrap" />
                 </ScrollViewer>
             </Border>
