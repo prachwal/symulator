@@ -4,14 +4,15 @@
 
 | Module | Description |
 |--------|-------------|
-| CmosCpu.Core | Core interfaces (IBus, IBusDevice, ISimulator, IAssembler) and types (CpuRegisters, Opcode, CpuFlags, InstructionInfo, SimulatorSnapshot) |
+| CmosCpu.Core | Core interfaces (IBus, IBusDevice, ISimulator, IAssembler, ICpuCore, IMachine, IMachineProfile, IMemoryMap, IClockedDevice, IResettable) and types (CpuRegisters, Opcode, CpuFlags, MemoryRegion, InstructionInfo, SimulatorSnapshot) |
 | CmosCpu.Bus | System bus implementation that routes reads/writes to registered devices |
-| CmosCpu.Memory | RAM and ROM memory devices implementing IBusDevice |
+| CmosCpu.Memory | RAM, ROM, MemoryMap |
 | CmosCpu.Cpu | CPU core with fetch-decode-execute cycle and minimal ISA |
 | CmosCpu.Devices | I/O devices: LedDevice, TimerDevice, RtcDevice |
 | CmosCpu.Assembler | Simple text assembler with label support |
-| CmosCpu.Runtime | DI container setup and simulator orchestration |
+| CmosCpu.Runtime | Machine, MachineBuilder, adapter, Educational8BitMachineProfile, DI setup |
 | CmosCpu.ConsoleApp | CLI application to load and run programs |
+| CmosCpu.BlazorApp | Blazor Server diagnostic frontend |
 
 ## Dependencies
 
@@ -24,7 +25,84 @@ CmosCpu.Devices -> CmosCpu.Core, CmosCpu.Bus
 CmosCpu.Assembler -> CmosCpu.Core
 CmosCpu.Runtime -> CmosCpu.Core, CmosCpu.Bus, CmosCpu.Memory, CmosCpu.Cpu, CmosCpu.Devices, CmosCpu.Assembler
 CmosCpu.ConsoleApp -> CmosCpu.Runtime
+CmosCpu.BlazorApp -> CmosCpu.Runtime (plus ASP.NET Core)
 ```
+
+## Emulator Contracts
+
+The solution prepares for multi-CPU support with these core contracts:
+
+| Interface | Purpose |
+|-----------|---------|
+| `ICpuCore` | CPU abstraction; extends `IClockedDevice` and `IResettable` |
+| `IClockedDevice` | Device that receives a `Tick(ulong cycle)` call |
+| `IResettable` | Object implementing `Reset()` |
+| `IMachine` | Complete machine with CPU, bus, instruction/cycle stepping, and run loop |
+| `IMachineBuilder` | Builder pattern for assembling a machine |
+| `IMachineProfile` | Named configuration (e.g. "Educational 8-bit machine") |
+| `IMemoryMap` | Address-to-region lookup for visualization |
+| `IBus` | Read/write with device routing |
+
+### ICpuCore
+
+```csharp
+public interface ICpuCore : IClockedDevice, IResettable
+{
+    string Name { get; }
+    CpuRegisters Registers { get; }
+    bool IsHalted { get; }
+    void StepInstruction();
+    void RequestInterrupt(InterruptType type);
+}
+```
+
+### IMachine
+
+```csharp
+public interface IMachine : IResettable
+{
+    ICpuCore Cpu { get; }
+    IBus Bus { get; }
+    ulong Cycle { get; }
+    bool IsRunning { get; }
+    void StepInstruction();
+    void StepCycle();
+    void Run(ulong maxCycles);
+    void Stop();
+}
+```
+
+## Educational8BitMachineProfile
+
+The `Educational8BitMachineProfile` recreates the current machine configuration:
+- CPU: `CmosCpuCoreAdapter` wrapping `CpuCore`
+- RAM: `0x0000 - 0x7FFF`
+- ROM: `0x8000 - 0xBFFF`
+- I/O: `0xC000 - 0xC0FF` (LED at 0xC000, Timer at 0xC010)
+- Vectors: `0xFF00 - 0xFFFF` (reset at 0xFFFC-0xFFFD = 0x8000)
+
+### Using the profile
+
+```csharp
+var builder = new MachineBuilder();
+var profile = new Educational8BitMachineProfile();
+profile.Configure(builder);
+var machine = builder.Build();
+machine.Reset();
+machine.Run(10000);
+```
+
+## Adapter Pattern
+
+The existing `CpuCore` class is wrapped in `CmosCpuCoreAdapter` to implement `ICpuCore` without modifying the original CPU:
+
+| ICpuCore method | CpuCore mapping |
+|-----------------|-----------------|
+| `Reset()` | `CpuCore.Reset()` |
+| `StepInstruction()` | `CpuCore.Step()` |
+| `RequestInterrupt(Reset)` | `CpuCore.Reset()` |
+| `RequestInterrupt(Irq)` | `CpuCore.RequestInterrupt()` |
+| `RequestInterrupt(Nmi)` | `CpuCore.RequestNmi()` |
 
 ## Execution Flow
 
@@ -55,3 +133,13 @@ The SystemBus maintains a list of IBusDevice instances. Each device declares its
 - **IRQ**: Triggered when RequestInterrupt() is called and the InterruptDisable flag is clear. CPU pushes PC (hi then lo) and flags to stack, sets InterruptDisable, reads vector from 0xFFFA-0xFFFB, and jumps to the handler address.
 - **NMI**: Similar to IRQ but reads vector from 0xFFFE-0xFFFF and is not masked by InterruptDisable.
 - **RESET**: Reads vector from 0xFFFC-0xFFFD, clears all registers, sets SP to 0xFF and InterruptDisable flag.
+
+## Future Emulator Direction
+
+This architecture prepares for multiple CPU cores and machine profiles:
+
+- **New CPUs** (e.g. 6502, Z80, 8086) can be implemented as separate classes implementing `ICpuCore`.
+- **New machine profiles** (e.g. `C64Profile`, `ZxSpectrumProfile`) implement `IMachineProfile`.
+- **New I/O devices** implement `IBusDevice` and optionally `IClockedDevice`.
+- The `IMachineBuilder` assembles any combination of CPU + devices.
+- Frontends (Blazor, CLI) consume `IMachine` without knowing the internals.

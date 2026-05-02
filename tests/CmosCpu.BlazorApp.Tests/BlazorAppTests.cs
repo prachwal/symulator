@@ -293,6 +293,19 @@ loop:
         simulator.Cpu.Registers.Halted.Should().BeFalse();
     }
 
+    [TestMethod]
+    public void MachineDi_CanResolveViaProfile()
+    {
+        var profile = new Educational8BitMachineProfile();
+        var builder = new MachineBuilder();
+        profile.Configure(builder);
+        var machine = builder.Build();
+
+        machine.Should().NotBeNull();
+        machine.Cpu.Should().NotBeNull();
+        machine.Cpu.Name.Should().Be("Educational CMOS 8-bit CPU");
+    }
+
     // --- Helpers ---
 
     private static SimulatorSnapshot CreateSnapshot(Action<CpuRegisters>? configureRegs = null, bool ledOn = false)

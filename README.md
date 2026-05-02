@@ -11,22 +11,24 @@ Educational 8-bit CPU simulator inspired by CMOS/TTL-based computers. Built with
 - Text assembler with label support
 - Step and continuous execution modes
 - DI-friendly architecture with NLog logging
-- 76+ unit and integration tests
+- New universal machine abstraction (`IMachine`, `IMachineProfile`, `ICpuCore`)
+- Blazor diagnostic frontend (replaces WPF)
+- 100+ unit and integration tests
 
 ## Project Structure
 
 ```
 CmosCpuSimulator/
 ├─ src/
-│  ├─ CmosCpu.Core/          Core interfaces and types
-│  ├─ CmosCpu.Bus/           System bus implementation
-│  ├─ CmosCpu.Memory/        RAM and ROM devices
+│  ├─ CmosCpu.Core/          Core interfaces, types, and emulator contracts
+│  ├─ CmosCpu.Bus/           System bus implementation (IBus)
+│  ├─ CmosCpu.Memory/        RAM, ROM, MemoryMap
 │  ├─ CmosCpu.Cpu/           CPU core with instruction set
 │  ├─ CmosCpu.Devices/       I/O devices (LED, Timer, RTC)
 │  ├─ CmosCpu.Assembler/     Text assembler
-│  ├─ CmosCpu.Runtime/       DI container and simulator orchestration
+│  ├─ CmosCpu.Runtime/       DI container, Machine, MachineBuilder, profile, adapter
 │  ├─ CmosCpu.ConsoleApp/    CLI application
-│  └─ CmosCpu.WpfApp/        WPF shell (Windows target)
+│  └─ CmosCpu.BlazorApp/     Blazor Server diagnostic frontend
 ├─ tests/                    Unit and integration tests (MSTest + Moq + FluentAssertions)
 ├─ docs/                     Documentation
 ├─ examples/                 Example programs
@@ -69,6 +71,30 @@ With trace logging (instruction-level debug):
 ```bash
 dotnet run --project src/CmosCpu.ConsoleApp -- --program examples/blink.asm --cycles 1000 --trace
 ```
+
+## Run Blazor Frontend
+
+```bash
+dotnet run --project src/CmosCpu.BlazorApp
+```
+
+Navigate to `http://localhost:5113` in your browser.
+
+## Emulator Contracts
+
+The solution introduces a universal emulator architecture for future multi-CPU support:
+
+| Interface | Purpose |
+|-----------|---------|
+| `ICpuCore` | CPU abstraction (steps, interrupts, identity) |
+| `IClockedDevice` | Device that ticks with the system clock |
+| `IResettable` | Object that can be reset |
+| `IMachine` | Complete machine (CPU + bus + devices) |
+| `IMachineProfile` | Named machine configuration profile |
+| `IMachineBuilder` | Builder for assembling a machine |
+| `IMemoryMap` | Memory region lookup |
+
+See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
 
 ## Example: Blink LED
 
@@ -144,6 +170,6 @@ See [docs/instruction-set.md](docs/instruction-set.md) for the complete instruct
 | 0xC000 - 0xC0FF | I/O devices |
 | 0xFF00 - 0xFFFF | System vectors |
 
-## Target Platform Note
+## Platform Note
 
-The solution targets **net10.0**. If .NET 10 SDK is not available, switch to `net8.0` in all `.csproj` files. The WPF app is designed for Windows; on Linux, only the ConsoleApp is functional.
+The solution targets **net10.0**. WPF has been removed; the new UI direction is **Blazor Server**.

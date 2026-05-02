@@ -1,3 +1,4 @@
+using CmosCpu.Core;
 using CmosCpu.Memory;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -72,5 +73,75 @@ public class MemoryTests
         dump.Length.Should().Be(2);
         dump[0].Should().Be(0xAA);
         dump[1].Should().Be(0xBB);
+    }
+
+    [TestMethod]
+    public void MemoryMap_ValidRegions_CreatesSuccessfully()
+    {
+        var regions = new[]
+        {
+            new MemoryRegion { Name = "RAM", Start = 0x0000, End = 0x7FFF, DeviceName = "RamDevice" },
+            new MemoryRegion { Name = "ROM", Start = 0x8000, End = 0xBFFF, DeviceName = "RomDevice" },
+        };
+
+        var map = new MemoryMap(regions);
+
+        map.Regions.Should().HaveCount(2);
+    }
+
+    [TestMethod]
+    public void MemoryMap_StartGreaterThanEnd_Throws()
+    {
+        var regions = new[]
+        {
+            new MemoryRegion { Name = "Bad", Start = 0x8000, End = 0x7FFF, DeviceName = "BadDevice" },
+        };
+
+        Action act = () => new MemoryMap(regions);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [TestMethod]
+    public void MemoryMap_OverlappingRegions_Throws()
+    {
+        var regions = new[]
+        {
+            new MemoryRegion { Name = "A", Start = 0x0000, End = 0x7FFF, DeviceName = "DevA" },
+            new MemoryRegion { Name = "B", Start = 0x4000, End = 0xBFFF, DeviceName = "DevB" },
+        };
+
+        Action act = () => new MemoryMap(regions);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [TestMethod]
+    public void MemoryMap_FindRegion_ReturnsCorrectRegion()
+    {
+        var regions = new[]
+        {
+            new MemoryRegion { Name = "RAM", Start = 0x0000, End = 0x7FFF, DeviceName = "RamDevice" },
+            new MemoryRegion { Name = "ROM", Start = 0x8000, End = 0xBFFF, DeviceName = "RomDevice" },
+        };
+
+        var map = new MemoryMap(regions);
+
+        map.FindRegion(0x0000)?.Name.Should().Be("RAM");
+        map.FindRegion(0x7FFF)?.Name.Should().Be("RAM");
+        map.FindRegion(0x8000)?.Name.Should().Be("ROM");
+        map.FindRegion(0xBFFF)?.Name.Should().Be("ROM");
+    }
+
+    [TestMethod]
+    public void MemoryMap_FindRegion_ReturnsNullForUnmapped()
+    {
+        var regions = new[]
+        {
+            new MemoryRegion { Name = "RAM", Start = 0x0000, End = 0x7FFF, DeviceName = "RamDevice" },
+        };
+
+        var map = new MemoryMap(regions);
+
+        map.FindRegion(0x8000).Should().BeNull();
+        map.FindRegion(0xFFFF).Should().BeNull();
     }
 }
