@@ -8,18 +8,20 @@ namespace Symulator.Machines.Apple1.Module;
 public sealed class Apple1WorkspaceViewModel : INotifyPropertyChanged
 {
     private readonly IMachineSession _session;
+    private readonly IMachineNotificationSink? _sink;
     private string _terminalOutput = string.Empty;
     private string _inputText = string.Empty;
-    private string _statusText = "Ready";
-    private string _modeText = "Unknown";
+    private string _statusText = "Not initialized";
+    private string _modeText = "NotInitialized";
 
-    public Apple1WorkspaceViewModel(IMachineSession session)
+    public Apple1WorkspaceViewModel(IMachineSession session, IMachineNotificationSink? sink = null)
     {
         _session = session;
-        BootMonCommand = new AsyncSessionCommand(() => _session.ExecuteMachineCommandAsync("apple1.boot.monitor"));
-        BootBasicCommand = new AsyncSessionCommand(() => _session.ExecuteMachineCommandAsync("apple1.boot.basic"));
-        ClearCommand = new AsyncSessionCommand(() => _session.ExecuteMachineCommandAsync("apple1.clear-terminal"));
-        SendCommand = new AsyncSessionCommand(SendInput);
+        _sink = sink;
+        BootMonCommand = new AsyncResultCommand(() => _session.ExecuteMachineCommandAsync("apple1.boot.monitor"));
+        BootBasicCommand = new AsyncResultCommand(() => _session.ExecuteMachineCommandAsync("apple1.boot.basic"));
+        ClearCommand = new AsyncResultCommand(() => _session.ExecuteMachineCommandAsync("apple1.clear-terminal"));
+        SendCommand = new AsyncResultCommand(SendInputAsync);
     }
 
     public string TerminalOutput
@@ -51,10 +53,22 @@ public sealed class Apple1WorkspaceViewModel : INotifyPropertyChanged
     public ICommand ClearCommand { get; }
     public ICommand SendCommand { get; }
 
-    private async Task SendInput()
+    private async Task<MachineCommandResult> SendInputAsync()
     {
-        await _session.SendInputAsync(InputText);
+        var text = InputText;
         InputText = string.Empty;
+        var result = await _session.ExecuteMachineCommandAsync("apple1.send-line", text);
+        HandleResult(result, "Send input");
+        return result;
+    }
+
+    private void HandleResult(MachineCommandResult result, string context)
+    {
+        if (result.IsSuccess) return;
+
+        var msg = $"[{context}] {result.ErrorMessage}";
+        StatusText = msg;
+        _sink?.Error(msg);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -65,15 +79,12 @@ public sealed class Apple1WorkspaceViewModel : INotifyPropertyChanged
     }
 }
 
-internal sealed class AsyncSessionCommand : ICommand
+internal sealed class AsyncResultCommand : ICommand
 {
-    private readonly Func<Task> _execute;
+    private readonly Func<Task<MachineCommandResult>> _execute;
     private bool _isExecuting;
 
-    public AsyncSessionCommand(Func<Task> execute)
-    {
-        _execute = execute;
-    }
+    public AsyncResultCommand(Func<Task<MachineCommandResult>> execute) => _execute = execute;
 
     public event EventHandler? CanExecuteChanged;
 
@@ -85,10 +96,13 @@ internal sealed class AsyncSessionCommand : ICommand
         RaiseCanExecuteChanged();
         try
         {
-            await _execute();
+            var result = await _execute();
+            if (!result.IsSuccess)
+                System.Diagnostics.Debug.WriteLine($"Command failed: {result.ErrorMessage}");
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"Command exception: {ex}");
         }
         finally
         {

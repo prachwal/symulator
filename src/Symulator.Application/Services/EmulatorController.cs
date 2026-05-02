@@ -47,7 +47,6 @@ public sealed class EmulatorController : IEmulatorController, IAsyncDisposable
 
         Logger.Info("Machine selected: {MachineId} from module {ModuleId}", machineId, module.Id);
 
-        await _activeSession.ResetAsync(cancellationToken);
         _current = _activeSession.Current;
         StateChanged?.Invoke(this, _current);
         StatusChanged?.Invoke(this, $"Machine selected: {session.DisplayName}");

@@ -12,6 +12,10 @@ public sealed class CpuInspectorViewModel : ViewModelBase
     private string _flags = "--";
     private string _cycles = "--";
     private string _status = "CPU unavailable - no machine selected";
+    private string _machineName = "-";
+    private string _machineState = "No machine selected";
+    private string _bootMode = "-";
+    private string _lastError = "-";
 
     public string Pc { get => _pc; set => SetProperty(ref _pc, value); }
     public string Sp { get => _sp; set => SetProperty(ref _sp, value); }
@@ -21,13 +25,18 @@ public sealed class CpuInspectorViewModel : ViewModelBase
     public string Flags { get => _flags; set => SetProperty(ref _flags, value); }
     public string Cycles { get => _cycles; set => SetProperty(ref _cycles, value); }
     public string Status { get => _status; set => SetProperty(ref _status, value); }
+    public string MachineName { get => _machineName; set => SetProperty(ref _machineName, value); }
+    public string MachineState { get => _machineState; set => SetProperty(ref _machineState, value); }
+    public string BootMode { get => _bootMode; set => SetProperty(ref _bootMode, value); }
+    public string LastError { get => _lastError; set => SetProperty(ref _lastError, value); }
 
     public void UpdateFromSnapshot(CpuStateSnapshot? cpu)
     {
         if (cpu is null)
         {
             Pc = Sp = A = X = Y = Flags = Cycles = "--";
-            Status = "CPU unavailable - machine not initialized";
+            Status = "CPU not initialized";
+            BootMode = "Not booted";
             return;
         }
 
@@ -41,9 +50,25 @@ public sealed class CpuInspectorViewModel : ViewModelBase
         Status = cpu.IsHalted ? "HALTED" : "Running";
     }
 
+    public void SetMachineInfo(string name, string state, string bootMode)
+    {
+        MachineName = name;
+        MachineState = state;
+        BootMode = bootMode;
+    }
+
+    public void SetLastError(string error)
+    {
+        LastError = error;
+    }
+
     public void SetUnavailable()
     {
         Pc = Sp = A = X = Y = Flags = Cycles = "--";
         Status = "CPU unavailable - no machine selected";
+        MachineName = "-";
+        MachineState = "No machine selected";
+        BootMode = "-";
+        LastError = "-";
     }
 }

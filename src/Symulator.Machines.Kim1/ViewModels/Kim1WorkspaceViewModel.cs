@@ -8,7 +8,8 @@ namespace Symulator.Machines.Kim1.Module;
 public sealed class Kim1WorkspaceViewModel : INotifyPropertyChanged
 {
     private readonly IMachineSession _session;
-    private string _displayText = "--------";
+    private readonly IMachineNotificationSink? _sink;
+    private string _displayText = "------";
     private string _lastKey = string.Empty;
     private string _statusText = "Ready";
     private string _portA = "00";
@@ -16,12 +17,13 @@ public sealed class Kim1WorkspaceViewModel : INotifyPropertyChanged
     private string _ddra = "00";
     private string _ddrb = "00";
 
-    public Kim1WorkspaceViewModel(IMachineSession session)
+    public Kim1WorkspaceViewModel(IMachineSession session, IMachineNotificationSink? sink = null)
     {
         _session = session;
-        ResetCommand = new AsyncSessionCommand(() => _session.ExecuteMachineCommandAsync("kim1.reset"));
-        KeyPressCommand = new AsyncSessionCommand<string>(key => _session.ExecuteMachineCommandAsync("kim1.press-key", key));
-        KeyReleaseCommand = new AsyncSessionCommand<string>(key => _session.ExecuteMachineCommandAsync("kim1.release-key", key));
+        _sink = sink;
+        ResetCommand = new AsyncResultCommand(() => _session.ExecuteMachineCommandAsync("kim1.reset"));
+        KeyPressCommand = new AsyncResultCommand<string>(key => _session.ExecuteMachineCommandAsync("kim1.press-key", key));
+        KeyReleaseCommand = new AsyncResultCommand<string>(key => _session.ExecuteMachineCommandAsync("kim1.release-key", key));
     }
 
     public string DisplayText
@@ -51,15 +53,6 @@ public sealed class Kim1WorkspaceViewModel : INotifyPropertyChanged
     public ICommand KeyPressCommand { get; }
     public ICommand KeyReleaseCommand { get; }
 
-    public void OnKeyPressed(string key)
-    {
-        LastKey = key;
-        var kw = new AsyncSessionCommand<string>(k => _session.ExecuteMachineCommandAsync("kim1.press-key", k));
-        kw.Execute(key);
-        var rw = new AsyncSessionCommand<string>(k => _session.ExecuteMachineCommandAsync("kim1.release-key", k));
-        rw.Execute(key);
-    }
-
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)
@@ -68,12 +61,12 @@ public sealed class Kim1WorkspaceViewModel : INotifyPropertyChanged
     }
 }
 
-internal sealed class AsyncSessionCommand : ICommand
+internal sealed class AsyncResultCommand : ICommand
 {
-    private readonly Func<Task> _execute;
+    private readonly Func<Task<MachineCommandResult>> _execute;
     private bool _isExecuting;
 
-    public AsyncSessionCommand(Func<Task> execute) => _execute = execute;
+    public AsyncResultCommand(Func<Task<MachineCommandResult>> execute) => _execute = execute;
 
     public event EventHandler? CanExecuteChanged;
 
@@ -90,12 +83,12 @@ internal sealed class AsyncSessionCommand : ICommand
     public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }
 
-internal sealed class AsyncSessionCommand<T> : ICommand
+internal sealed class AsyncResultCommand<T> : ICommand
 {
-    private readonly Func<T?, Task> _execute;
+    private readonly Func<T?, Task<MachineCommandResult>> _execute;
     private bool _isExecuting;
 
-    public AsyncSessionCommand(Func<T?, Task> execute) => _execute = execute;
+    public AsyncResultCommand(Func<T?, Task<MachineCommandResult>> execute) => _execute = execute;
 
     public event EventHandler? CanExecuteChanged;
 

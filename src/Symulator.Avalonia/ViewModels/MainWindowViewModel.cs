@@ -118,6 +118,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             ActivePanelViewModel = _controller.ActiveSession?.Workspace.ViewModel;
             SelectedMachineTitle = _controller.ActiveSession?.DisplayName ?? machineId;
             StatusText = $"Selected: {SelectedMachineTitle}";
+            CpuInspector.SetMachineInfo(SelectedMachineTitle, "Selected", "Not booted");
             CpuInspector.UpdateFromSnapshot(_controller.Current?.Cpu);
         }
         catch (Exception ex)

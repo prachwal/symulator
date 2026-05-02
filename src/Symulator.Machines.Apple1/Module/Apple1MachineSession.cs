@@ -2,6 +2,7 @@ using CmosCpu.Computer;
 using NLog;
 using Symulator.Application.Abstractions;
 using Symulator.Machines.Apple1.Factory;
+using Symulator.Machines.Apple1.Models;
 
 namespace Symulator.Machines.Apple1.Module;
 
@@ -14,6 +15,7 @@ public sealed class Apple1MachineSession : IMachineSession
     private Task? _runTask;
     private Apple1WorkspaceViewModel? _workspaceVm;
     private bool _isRunning;
+    private Apple1BootState _bootState = Apple1BootState.NotInitialized;
 
     private const int _instructionsPerBatch = 100;
     private const int _uiRefreshDelayMs = 16;
@@ -42,68 +44,74 @@ public sealed class Apple1MachineSession : IMachineSession
         if (_machine is null)
             return new EmulatorStateSnapshot("apple1", false, false, null, string.Empty, 0);
 
-        var cpu = _machine.Cpu;
-        var cpuSnapshot = Apple1MachineFactory.BuildCpuSnapshot(cpu);
-
+        var cpuSnapshot = Apple1MachineFactory.BuildCpuSnapshot(_machine.Cpu);
         string terminalText = _machine.Apple1Terminal?.Text ?? string.Empty;
 
-        return new EmulatorStateSnapshot("apple1", _isRunning, cpu.IsHalted, cpuSnapshot, terminalText, (long)cpu.CycleCount);
+        return new EmulatorStateSnapshot("apple1", _isRunning, _machine.Cpu.IsHalted, cpuSnapshot, terminalText, (long)_machine.Cpu.CycleCount);
     }
 
-    public async Task ResetAsync(CancellationToken cancellationToken = default)
+    private bool EnsureMachineCreated()
     {
-        await PauseAsync(cancellationToken);
+        if (_machine is not null) return true;
 
-        if (_machine is not null)
+        try
         {
-            _machine.Reset();
-            Logger.Info("Apple-1 machine reset");
+            var moduleDir = Path.GetDirectoryName(typeof(Apple1MachineModule).Assembly.Location)!;
+            _machine = Apple1MachineFactory.Create(moduleDir);
+            _bootState = Apple1BootState.Reset;
+            Logger.Info("Apple-1 machine created from {ModuleDir}", moduleDir);
+            return true;
         }
-        else
+        catch (Exception ex)
         {
-            try
-            {
-                var moduleDir = Path.GetDirectoryName(typeof(Apple1MachineModule).Assembly.Location)!;
-                _machine = Apple1MachineFactory.Create(moduleDir);
-                _machine.Reset();
-                Logger.Info("Apple-1 machine created and reset from {ModuleDir}", moduleDir);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, "Failed to create Apple-1 machine");
-                StatusChanged?.Invoke(this, $"Error: {ex.Message}");
-                return;
-            }
+            Logger.Error(ex, "Failed to create Apple-1 machine");
+            _bootState = Apple1BootState.Error;
+            StatusChanged?.Invoke(this, $"Error creating machine: {ex.Message}");
+            return false;
         }
+    }
+
+    public Task ResetAsync(CancellationToken cancellationToken = default)
+    {
+        if (!EnsureMachineCreated())
+            return Task.CompletedTask;
+
+        _machine!.Reset();
+        _bootState = Apple1BootState.Reset;
+        _isRunning = false;
 
         PublishSnapshot();
         StatusChanged?.Invoke(this, "Apple-1 reset");
+        Logger.Info("Apple-1 machine reset");
+        return Task.CompletedTask;
     }
 
-    public async Task StepInstructionAsync(CancellationToken cancellationToken = default)
+    public Task StepInstructionAsync(CancellationToken cancellationToken = default)
     {
         if (_machine is null)
         {
-            await ResetAsync(cancellationToken);
-            if (_machine is null) return;
+            StatusChanged?.Invoke(this, "Machine not initialized. Use Boot MON, Boot BASIC or Reset first.");
+            return Task.CompletedTask;
         }
 
         _machine.Step();
         PublishSnapshot();
+        return Task.CompletedTask;
     }
 
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
         if (_machine is null)
         {
-            await ResetAsync(cancellationToken);
-            if (_machine is null) return;
+            StatusChanged?.Invoke(this, "Machine not initialized. Use Boot MON, Boot BASIC or Reset first.");
+            return;
         }
 
         if (_runTask is { IsCompleted: false })
             return;
 
         _isRunning = true;
+        _bootState = Apple1BootState.Running;
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         PublishSnapshot();
         StatusChanged?.Invoke(this, "Apple-1 running");
@@ -126,17 +134,18 @@ public sealed class Apple1MachineSession : IMachineSession
                     await Task.Delay(_uiRefreshDelayMs, _runCts.Token);
                 }
             }
-            catch (OperationCanceledException)
-            {
-            }
+            catch (OperationCanceledException) { }
             catch (Exception ex)
             {
                 Logger.Error(ex, "Apple-1 run loop error");
+                _bootState = Apple1BootState.Error;
                 StatusChanged?.Invoke(this, $"Run error: {ex.Message}");
             }
             finally
             {
                 _isRunning = false;
+                if (_machine!.Cpu.IsHalted) _bootState = Apple1BootState.Halted;
+                else if (_bootState == Apple1BootState.Running) _bootState = Apple1BootState.Paused;
                 PublishSnapshot();
                 Logger.Info("Apple-1 run stopped");
             }
@@ -154,18 +163,13 @@ public sealed class Apple1MachineSession : IMachineSession
 
         if (_runTask is not null)
         {
-            try
-            {
-                await _runTask.WaitAsync(TimeSpan.FromSeconds(2), cancellationToken);
-            }
-            catch (TimeoutException)
-            {
-                Logger.Warn("Apple-1 run task did not stop within 2s");
-            }
+            try { await _runTask.WaitAsync(TimeSpan.FromSeconds(2), cancellationToken); }
+            catch (TimeoutException) { Logger.Warn("Apple-1 run task did not stop within 2s"); }
             _runTask = null;
         }
 
         _isRunning = false;
+        _bootState = Apple1BootState.Paused;
         PublishSnapshot();
         StatusChanged?.Invoke(this, "Apple-1 paused");
         Logger.Info("Apple-1 paused");
@@ -175,14 +179,12 @@ public sealed class Apple1MachineSession : IMachineSession
     {
         if (_machine?.Keyboard is not null)
         {
-            foreach (char c in text)
-                _machine.Keyboard.EnqueueKey(c);
+            foreach (char c in text) _machine.Keyboard.EnqueueKey(c);
             _machine.Keyboard.EnqueueKey('\r');
         }
         else if (_machine?.Apple1Terminal is not null)
         {
-            foreach (char c in text)
-                _machine.Apple1Terminal.QueueKey(c);
+            foreach (char c in text) _machine.Apple1Terminal.QueueKey(c);
             _machine.Apple1Terminal.QueueKey('\r');
         }
 
@@ -196,37 +198,83 @@ public sealed class Apple1MachineSession : IMachineSession
         switch (commandId)
         {
             case "apple1.boot.monitor":
-                await ResetAsync(cancellationToken);
-                if (_machine is null)
-                    return MachineCommandResult.Failure("Machine not initialized after reset");
+                if (!EnsureMachineCreated())
+                    return MachineCommandResult.Failure("Cannot create Apple-1 machine");
 
-                for (int i = 0; i < 500; i++) _machine.Step();
+                _machine!.Reset();
+                _bootState = Apple1BootState.BootingMonitor;
+
+                for (int i = 0; i < 2000; i++)
+                {
+                    _machine.Step();
+                    if (_machine.Apple1Terminal?.Text.Contains('\\') == true)
+                        break;
+                }
+
                 PublishSnapshot();
-                if (_workspaceVm is not null) _workspaceVm.ModeText = "WozMonitor";
-                StatusChanged?.Invoke(this, "Woz Monitor started");
-                Logger.Info("Apple-1 Woz Monitor booted");
-                return MachineCommandResult.Success();
+                string terminal = _machine.Apple1Terminal?.Text ?? string.Empty;
+
+                if (terminal.Contains('\\'))
+                {
+                    _bootState = Apple1BootState.MonitorReady;
+                    if (_workspaceVm is not null) _workspaceVm.ModeText = "MonitorReady";
+                    StatusChanged?.Invoke(this, "Woz Monitor ready");
+                    Logger.Info("Apple-1 Woz Monitor booted successfully");
+                    return MachineCommandResult.Success();
+                }
+
+                _bootState = Apple1BootState.Error;
+                if (_workspaceVm is not null) _workspaceVm.ModeText = "Error";
+                return MachineCommandResult.Failure($"Woz Monitor did not show prompt. Terminal output: {terminal[..Math.Min(terminal.Length, 100)]}");
 
             case "apple1.boot.basic":
-                await ResetAsync(cancellationToken);
-                if (_machine is null)
-                    return MachineCommandResult.Failure("Machine not initialized after reset");
+                if (!EnsureMachineCreated())
+                    return MachineCommandResult.Failure("Cannot create Apple-1 machine");
 
-                for (int i = 0; i < 1000; i++) _machine.Step();
+                _machine!.Reset();
+                _bootState = Apple1BootState.BootingMonitor;
+
+                for (int i = 0; i < 2000; i++)
+                {
+                    _machine.Step();
+                    if (_machine.Apple1Terminal?.Text.Contains('\\') == true)
+                        break;
+                }
+
+                if (_machine.Apple1Terminal?.Text.Contains('\\') != true)
+                {
+                    _bootState = Apple1BootState.Error;
+                    return MachineCommandResult.Failure("Woz Monitor did not start. Cannot boot BASIC.");
+                }
+
+                _bootState = Apple1BootState.BootingBasic;
                 if (_machine.Keyboard is not null)
                 {
-                    _machine.Keyboard.EnqueueKey('E');
-                    _machine.Keyboard.EnqueueKey('0');
-                    _machine.Keyboard.EnqueueKey('0');
-                    _machine.Keyboard.EnqueueKey('R');
-                    _machine.Keyboard.EnqueueKey('\r');
-                    for (int i = 0; i < 2000; i++) _machine.Step();
+                    foreach (char c in "E00R\r") _machine.Keyboard.EnqueueKey(c);
+
+                    for (int i = 0; i < 5000; i++)
+                    {
+                        _machine.Step();
+                        if (_machine.Apple1Terminal?.Text.Contains('>') == true)
+                            break;
+                    }
                 }
+
                 PublishSnapshot();
-                if (_workspaceVm is not null) _workspaceVm.ModeText = "Basic";
-                StatusChanged?.Invoke(this, "BASIC started");
-                Logger.Info("Apple-1 BASIC booted");
-                return MachineCommandResult.Success();
+                string basicTerminal = _machine.Apple1Terminal?.Text ?? string.Empty;
+
+                if (basicTerminal.Contains('>'))
+                {
+                    _bootState = Apple1BootState.BasicReady;
+                    if (_workspaceVm is not null) _workspaceVm.ModeText = "BasicReady";
+                    StatusChanged?.Invoke(this, "BASIC ready");
+                    Logger.Info("Apple-1 BASIC booted successfully");
+                    return MachineCommandResult.Success();
+                }
+
+                _bootState = Apple1BootState.Error;
+                if (_workspaceVm is not null) _workspaceVm.ModeText = "Error";
+                return MachineCommandResult.Failure($"BASIC did not show prompt. Terminal: {basicTerminal[..Math.Min(basicTerminal.Length, 100)]}");
 
             case "apple1.clear-terminal":
                 if (_workspaceVm is not null)
@@ -256,10 +304,20 @@ public sealed class Apple1MachineSession : IMachineSession
         if (_workspaceVm is not null)
         {
             _workspaceVm.TerminalOutput = snapshot.TerminalText ?? _workspaceVm.TerminalOutput;
-            if (snapshot.Cpu is not null)
+            _workspaceVm.StatusText = _bootState switch
             {
-                _workspaceVm.StatusText = snapshot.Cpu.IsHalted ? "HALTED" : $"PC={snapshot.Cpu.Pc} Cycles={snapshot.Cpu.CycleCount}";
-            }
+                Apple1BootState.NotInitialized => "Machine not initialized - click Boot MON, Boot BASIC or Reset",
+                Apple1BootState.Reset => "Ready - click Boot MON or Boot BASIC",
+                Apple1BootState.BootingMonitor => "Booting Woz Monitor...",
+                Apple1BootState.MonitorReady => "Woz Monitor ready - enter commands below",
+                Apple1BootState.BootingBasic => "Booting BASIC...",
+                Apple1BootState.BasicReady => "BASIC ready - enter commands below",
+                Apple1BootState.Running => "Running",
+                Apple1BootState.Paused => "Paused",
+                Apple1BootState.Halted => "HALTED",
+                Apple1BootState.Error => "Error - check Error Window",
+                _ => _bootState.ToString()
+            };
         }
     }
 

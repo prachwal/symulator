@@ -27,7 +27,7 @@
                         <Run Text="Errors:" />
                         <Run Text="{Binding ErrorCount}" />
                     </TextBlock>
-                    <TextBlock FontSize="11" Foreground="#8A99A8" Text="{Binding SelectedMachine, TargetNullValue='(no machine)'}" />
+                    <TextBlock FontSize="11" Foreground="#8A99A8" Text="{Binding SelectedMachineTitle, TargetNullValue='(no machine)'}" />
                 </StackPanel>
             </Grid>
         </Border>

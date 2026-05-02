@@ -24,4 +24,8 @@
     <ProjectReference Include="..\Symulator.Machines.Kim1\Symulator.Machines.Kim1.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="NLog.config" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
