@@ -6,17 +6,17 @@ public sealed class Apple1PiaTerminalDevice
 {
     private readonly List<string> _lines = [];
     private readonly StringBuilder _currentLine = new();
+    private readonly StringBuilder _outputStream = new();
     private byte _lastKey;
     private bool _keyReady;
     private byte _displayControl;
     private long _version;
-    private int _lastConsumedLineIndex;
-    private long _lastConsumedVersion;
 
     public ushort StartAddress { get; } = 0xD010;
     public ushort EndAddress { get; } = 0xD013;
     public int Columns { get; }
     public int Rows { get; }
+    public int OutputLength => _outputStream.Length;
 
     public string[] Lines
     {
@@ -32,37 +32,15 @@ public sealed class Apple1PiaTerminalDevice
     public string Text => string.Join("\n", Lines);
     public long Version => _version;
 
-    public string ConsumeOutputSince(long version)
+    public string ConsumeOutputSince(int offset)
     {
-        if (_version <= version)
+        if (offset < 0)
+            offset = 0;
+
+        if (offset >= _outputStream.Length)
             return string.Empty;
 
-        var sb = new StringBuilder();
-        int lineIndex = 0;
-
-        foreach (var line in _lines)
-        {
-            if (lineIndex >= _lastConsumedLineIndex)
-            {
-                if (sb.Length > 0)
-                    sb.Append('\n');
-                sb.Append(line);
-            }
-            lineIndex++;
-        }
-
-        // Include the current (in-progress) line if it has content
-        string current = _currentLine.ToString();
-        if (current.Length > 0)
-        {
-            if (sb.Length > 0)
-                sb.Append('\n');
-            sb.Append(current);
-        }
-
-        _lastConsumedLineIndex = _lines.Count;
-        _lastConsumedVersion = _version;
-        return sb.ToString();
+        return _outputStream.ToString(offset, _outputStream.Length - offset);
     }
 
     public Apple1PiaTerminalDevice(int columns = 40, int rows = 24)
@@ -118,6 +96,9 @@ public sealed class Apple1PiaTerminalDevice
     private void WriteDisplay(byte value)
     {
         char c = (char)(value & 0x7F);
+        _outputStream.Append(c);
+        _version++;
+
         if (c == '\r' || c == '\n')
         {
             FlushCurrentLine();
@@ -125,7 +106,6 @@ public sealed class Apple1PiaTerminalDevice
         else
         {
             _currentLine.Append(c);
-            _version++;
         }
     }
 
@@ -134,7 +114,6 @@ public sealed class Apple1PiaTerminalDevice
         string line = _currentLine.ToString();
         _currentLine.Clear();
         _lines.Add(line);
-        _version++;
 
         if (_lines.Count > Rows)
             _lines.RemoveAt(0);

@@ -559,17 +559,23 @@ public static class BatchCommands
             Console.WriteLine("Usage: apple1-basic [options]");
             Console.WriteLine();
             Console.WriteLine("Options:");
-            Console.WriteLine("  --profile <path>      Apple-1 profile JSON file (default: profiles/apple-1.json)");
-            Console.WriteLine("  --entry <hex>         Set entry address (e.g. 0xE000 for BASIC)");
-            Console.WriteLine("  --script <path>       Script file to feed as keyboard input");
-            Console.WriteLine("  --max-cycles <N>      Maximum CPU cycles (default: 2000000)");
-            Console.WriteLine("  --echo-input true|false  Echo typed input (default: false)");
-            Console.WriteLine("  --crlf apple1|native  Line ending mode (default: apple1)");
+            Console.WriteLine("  --profile <path>          Apple-1 profile JSON file (default: profiles/apple-1.json)");
+            Console.WriteLine("  --entry <hex>             Set entry address (skip Woz Monitor, expert mode)");
+            Console.WriteLine("  --script <path>           Script file to feed as keyboard input");
+            Console.WriteLine("  --max-cycles <N>          Maximum CPU cycles (default: 10000000)");
+            Console.WriteLine("  --boot-timeout-cycles <N> Boot timeout in cycles (default: 1000000)");
+            Console.WriteLine("  --echo-input true|false   Echo typed input (default: false)");
+            Console.WriteLine("  --crlf apple1|native      Line ending mode (default: apple1)");
+            Console.WriteLine("  --auto-basic true|false   Auto-start BASIC via Woz (default: true)");
+            Console.WriteLine("  --trace-boot true|false   Show boot diagnostics (default: false)");
+            Console.WriteLine("  --exit-on-max-cycles true|false  Exit when max cycles reached");
+            Console.WriteLine("                                  (script: true, interactive: false)");
             Console.WriteLine();
             Console.WriteLine("Examples:");
             Console.WriteLine("  apple1-basic --profile profiles/apple-1.json");
+            Console.WriteLine("  apple1-basic --profile profiles/apple-1.json --auto-basic false");
             Console.WriteLine("  apple1-basic --profile profiles/apple-1.json --entry 0xE000");
-            Console.WriteLine("  apple1-basic --profile profiles/apple-1.json --script script.txt --max-cycles 500000");
+            Console.WriteLine("  apple1-basic --profile profiles/apple-1.json --script scripts/apple1-basic-smoke.txt --trace-boot true");
             return ExitSuccess;
         }
 

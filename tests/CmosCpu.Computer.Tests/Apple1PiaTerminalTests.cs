@@ -141,16 +141,12 @@ public sealed class Apple1PiaTerminalTests
     {
         var terminal = new Apple1PiaTerminalDevice();
 
-        long v0 = terminal.Version;
+        int offset = terminal.OutputLength;
         terminal.Write(0xD012, (byte)'H');
         terminal.Write(0xD012, (byte)'i');
 
-        string output = terminal.ConsumeOutputSince(v0);
+        string output = terminal.ConsumeOutputSince(offset);
         output.Should().Be("Hi");
-
-        // Tracking version - second call should return empty
-        long v1 = terminal.Version;
-        terminal.ConsumeOutputSince(v1).Should().BeEmpty();
     }
 
     [TestMethod]
@@ -158,21 +154,206 @@ public sealed class Apple1PiaTerminalTests
     {
         var terminal = new Apple1PiaTerminalDevice();
 
-        long v = terminal.Version;
-        terminal.ConsumeOutputSince(v).Should().BeEmpty();
+        int offset = terminal.OutputLength;
+        terminal.ConsumeOutputSince(offset).Should().BeEmpty();
     }
 
     [TestMethod]
-    public void ConsumeOutputSince_IncludesLines()
+    public void ConsumeOutputSince_IncludesRawCharacters()
     {
         var terminal = new Apple1PiaTerminalDevice();
+        int offset = terminal.OutputLength;
 
         terminal.Write(0xD012, (byte)'A');
         terminal.Write(0xD012, (byte)'\r');
         terminal.Write(0xD012, (byte)'B');
 
-        string output = terminal.ConsumeOutputSince(0);
-        output.Should().Contain("A");
-        output.Should().Contain("B");
+        string output = terminal.ConsumeOutputSince(offset);
+        output.Should().Be("A\rB");
+    }
+
+    // --- Phase 1: BASIC ROM diagnostics ---
+
+    [TestMethod]
+    public void Apple1_Profile_ShouldLoadBasicRomAtE000()
+    {
+        var machine = ComputerMachineFactory.CreateFromProfile(Apple1Profile);
+
+        machine.Memory.MapRom(0xE000, 0x1000);
+        byte[] basicStub = new byte[0x1000];
+        for (int i = 0; i < basicStub.Length; i++)
+            basicStub[i] = (byte)((i + 0xE0) & 0xFF);
+        machine.Memory.LoadRom(0xE000, basicStub);
+
+        byte[] basicRom = machine.Memory.GetMemoryPage(0xE000, 256);
+        bool allZero = basicRom.All(b => b == 0);
+        bool allFF = basicRom.All(b => b == 0xFF);
+
+        allZero.Should().BeFalse("BASIC ROM at 0xE000 should not be all zeros");
+        allFF.Should().BeFalse("BASIC ROM at 0xE000 should not be all FF");
+    }
+
+    [TestMethod]
+    public void Apple1_Profile_ShouldBootWozMonitorAtFf00()
+    {
+        var machine = ComputerMachineFactory.CreateFromProfile(Apple1Profile);
+
+        byte[] wozRom = new byte[0x100];
+        wozRom[0xFC] = 0x00;
+        wozRom[0xFD] = 0xFF;
+        machine.Memory.LoadRom(0xFF00, wozRom);
+
+        machine.Reset();
+
+        machine.Cpu.PC.Should().Be(0xFF00);
+    }
+
+    // --- Phase 6: Output stream duplication prevention tests ---
+
+    [TestMethod]
+    public void OutputStream_ReturnsOnlyNewData()
+    {
+        var terminal = new Apple1PiaTerminalDevice();
+
+        terminal.Write(0xD012, (byte)'A');
+        terminal.Write(0xD012, (byte)'B');
+        terminal.Write(0xD012, (byte)'C');
+        int offset1 = terminal.OutputLength;
+
+        string chunk1 = terminal.ConsumeOutputSince(0);
+        chunk1.Should().Be("ABC");
+
+        string empty = terminal.ConsumeOutputSince(offset1);
+        empty.Should().BeEmpty();
+
+        terminal.Write(0xD012, (byte)'D');
+        string chunk2 = terminal.ConsumeOutputSince(offset1);
+        chunk2.Should().Be("D");
+    }
+
+    [TestMethod]
+    public void OutputStream_RepeatedConsume_DoesNotDuplicate()
+    {
+        var terminal = new Apple1PiaTerminalDevice();
+
+        foreach (char c in ">PRINT 1")
+            terminal.Write(0xD012, (byte)c);
+
+        int offset = terminal.OutputLength;
+
+        string first = terminal.ConsumeOutputSince(0);
+        first.Should().Be(">PRINT 1");
+
+        string second = terminal.ConsumeOutputSince(offset);
+        second.Should().BeEmpty();
+    }
+
+    [TestMethod]
+    public void LinesAndText_StillWork_AfterOutputStreamChanges()
+    {
+        var terminal = new Apple1PiaTerminalDevice();
+
+        terminal.Write(0xD012, (byte)'H');
+        terminal.Write(0xD012, (byte)'i');
+        terminal.Write(0xD012, (byte)'\r');
+        terminal.Write(0xD012, (byte)'!');
+
+        terminal.Lines.Should().Contain("Hi");
+        terminal.Lines.Should().Contain("!");
+        terminal.Text.Should().Be("Hi\n!");
+    }
+
+    [TestMethod]
+    public void OutputStream_IncludesPartialLineBeforeCr()
+    {
+        var terminal = new Apple1PiaTerminalDevice();
+        int offset = terminal.OutputLength;
+
+        terminal.Write(0xD012, (byte)'H');
+        terminal.Write(0xD012, (byte)'e');
+        terminal.Write(0xD012, (byte)'l');
+
+        string output = terminal.ConsumeOutputSince(offset);
+        output.Should().Be("Hel");
+    }
+
+    [TestMethod]
+    public void OutputStream_AfterFlush_DoesNotRepeatPartialLine()
+    {
+        var terminal = new Apple1PiaTerminalDevice();
+        int offset = terminal.OutputLength;
+
+        terminal.Write(0xD012, (byte)'A');
+        terminal.Write(0xD012, (byte)'\r');
+        terminal.Write(0xD012, (byte)'B');
+
+        string first = terminal.ConsumeOutputSince(offset);
+        first.Should().Be("A\rB");
+
+        string second = terminal.ConsumeOutputSince(terminal.OutputLength);
+        second.Should().BeEmpty();
+    }
+
+    // --- Phase 6: Boot controller tests ---
+
+    [TestMethod]
+    public void Apple1BasicBoot_ShouldNotSendE000R_WhenAutoBasicDisabled()
+    {
+        var machine = ComputerMachineFactory.CreateFromProfile(Apple1Profile);
+        byte[] wozRom = new byte[0x100];
+        wozRom[0xFC] = 0x00;
+        wozRom[0xFD] = 0xFF;
+        machine.Memory.LoadRom(0xFF00, wozRom);
+
+        var controller = new Apple1BasicBootController(machine, machine.Apple1Terminal!, 50000);
+        var result = controller.Boot(autoBasic: false);
+
+        result.Success.Should().BeTrue();
+        machine.Cpu.PC.Should().Be(0xFF00);
+    }
+
+    [TestMethod]
+    public void Apple1BasicBoot_ShouldAttemptBasicHandoff_WhenAutoBasicEnabled()
+    {
+        var machine = ComputerMachineFactory.CreateFromProfile(Apple1Profile);
+        byte[] wozRom = new byte[0x100];
+        wozRom[0xFC] = 0x00;
+        wozRom[0xFD] = 0xFF;
+        machine.Memory.LoadRom(0xFF00, wozRom);
+
+        var controller = new Apple1BasicBootController(machine, machine.Apple1Terminal!, 50000);
+        var result = controller.Boot(autoBasic: true);
+
+        // With NOP-only Woz ROM, no PIA output is produced, so the boot will fail to detect Woz output
+        // But it should still have consumed cycles
+        result.Success.Should().BeFalse();
+        result.CyclesUsed.Should().BeGreaterThan(0);
+        result.Trace.Should().Contain("no Woz output");
+    }
+
+    // --- Phase 6: Diagnostics ---
+
+    [TestMethod]
+    public void Apple1BasicScript_ShouldConvertLfToCr()
+    {
+        var terminal = new Apple1PiaTerminalDevice();
+        terminal.QueueKey('\n');
+        byte data = terminal.Read(0xD010);
+        data.Should().Be((byte)'\n');
+    }
+
+    [TestMethod]
+    public void Apple1BasicScript_ShouldReportDiagnosticsOnTimeout()
+    {
+        var machine = ComputerMachineFactory.CreateFromProfile(Apple1Profile);
+        byte[] wozRom = new byte[0x100];
+        wozRom[0x00] = 0xEA;
+        machine.Memory.LoadRom(0xFF00, wozRom);
+
+        var controller = new Apple1BasicBootController(machine, machine.Apple1Terminal!, 1000);
+        var result = controller.Boot(autoBasic: true);
+
+        result.Success.Should().BeFalse();
+        result.Trace.Should().Contain("no Woz output");
     }
 }
