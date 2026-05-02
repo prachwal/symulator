@@ -1,26 +1,28 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="Symulator.Avalonia.Controls.Apple1.Apple1TerminalPanelView">
+             x:Class="Symulator.Machines.Apple1.Views.Apple1WorkspaceView">
     <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,0,0,4">
+            <Button Content="Boot MON" />
+            <Button Content="Boot BASIC" />
+            <Button Content="Reset" />
+            <Button Content="Clear" />
+        </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="0,4,0,0">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Content="Send" Margin="4,0,0,0" />
-                <TextBox Text="{Binding Input}" AcceptsReturn="False" Watermark="Enter command..." />
+                <TextBox Text="{Binding InputText}" AcceptsReturn="False" Watermark="Enter command..." />
             </DockPanel>
-            <WrapPanel>
-                <Button Content="Boot MON" Margin="0,0,4,0" />
-                <Button Content="Boot BASIC" Margin="0,0,4,0" />
-                <Button Content="Clear" />
-            </WrapPanel>
+            <TextBlock Text="{Binding StatusText}" FontStyle="Italic" />
         </StackPanel>
         <DockPanel>
             <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,2">
                 <TextBlock FontWeight="Bold" Text="Terminal - Mode: " />
-                <TextBlock Text="{Binding Mode}" />
+                <TextBlock Text="{Binding ModeText}" />
             </StackPanel>
-            <Border BorderBrush="Gray" BorderThickness="1" MinHeight="150">
+            <Border BorderBrush="Gray" BorderThickness="1" MinHeight="200">
                 <ScrollViewer>
-                    <TextBlock Text="{Binding Output, Mode=OneWay}"
+                    <TextBlock Text="{Binding TerminalOutput, Mode=OneWay}"
                                FontFamily="Courier New"
                                TextWrapping="Wrap" />
                 </ScrollViewer>

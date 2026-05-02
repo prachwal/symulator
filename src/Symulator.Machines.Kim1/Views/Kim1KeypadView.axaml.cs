@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace Symulator.Avalonia.Controls.Kim1;
+namespace Symulator.Machines.Kim1.Views;
 
 public partial class Kim1KeypadView : UserControl
 {

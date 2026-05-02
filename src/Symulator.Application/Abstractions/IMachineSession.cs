@@ -5,7 +5,7 @@ public interface IMachineSession : IAsyncDisposable
     string MachineId { get; }
     string DisplayName { get; }
     EmulatorStateSnapshot Current { get; }
-    IReadOnlyList<IMachinePanelDescriptor> Panels { get; }
+    IMachineWorkspaceDescriptor Workspace { get; }
 
     event EventHandler<EmulatorStateSnapshot>? StateChanged;
     event EventHandler<string>? OutputReceived;

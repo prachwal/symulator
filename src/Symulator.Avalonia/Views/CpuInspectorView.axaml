@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Symulator.Avalonia.Views.CpuInspectorView">
+    <StackPanel Spacing="4">
+        <TextBlock FontWeight="Bold">CPU</TextBlock>
+        <TextBlock Text="{Binding Status}" FontStyle="Italic" Foreground="Gray" />
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+              Margin="0,4,0,0">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="PC:" Margin="0,0,8,2" />
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Pc}" FontFamily="Courier New" Margin="0,0,0,2" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="SP:" Margin="0,0,8,2" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Sp}" FontFamily="Courier New" Margin="0,0,0,2" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="A:" Margin="0,0,8,2" />
+            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding A}" FontFamily="Courier New" Margin="0,0,0,2" />
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="X:" Margin="0,0,8,2" />
+            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding X}" FontFamily="Courier New" Margin="0,0,0,2" />
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Y:" Margin="0,0,8,2" />
+            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Y}" FontFamily="Courier New" Margin="0,0,0,2" />
+            <TextBlock Grid.Row="5" Grid.Column="0" Text="Flags:" Margin="0,0,8,0" />
+            <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Flags}" FontFamily="Courier New" />
+            <TextBlock Grid.Row="6" Grid.Column="0" Text="Cycles:" Margin="0,0,8,0" />
+            <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Cycles}" FontFamily="Courier New" />
+        </Grid>
+    </StackPanel>
+</UserControl>

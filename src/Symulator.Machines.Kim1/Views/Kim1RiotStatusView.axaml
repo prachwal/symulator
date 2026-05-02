@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="Symulator.Avalonia.Controls.Kim1.Kim1RiotStatusView">
+             x:Class="Symulator.Machines.Kim1.Views.Kim1RiotStatusView">
     <StackPanel Spacing="4">
         <TextBlock FontWeight="Bold">RIOT/6530 Status</TextBlock>
         <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,4,0,0">

@@ -1,6 +1,6 @@
 namespace Symulator.Application.Abstractions;
 
-public sealed record MachineDescriptor(string Id, string Name, string Family, string DefaultProfilePath);
+public sealed record MachineDescriptor(string Id, string Name, string Family, string DefaultProfilePath, string Description = "");
 
 public sealed record CpuRegisterSnapshot(string Name, string Value);
 

@@ -1,6 +1,5 @@
 using System.Windows.Input;
 using Symulator.Application.Abstractions;
-using Symulator.Application.Services;
 
 namespace Symulator.Avalonia.ViewModels;
 
@@ -8,13 +7,15 @@ public sealed class MainWindowViewModel : ViewModelBase
 {
     private readonly IEmulatorController _controller;
     private readonly IMachineCatalog _catalog;
+    private readonly IUiErrorService _errorService;
 
     private string _statusText = "Ready";
     private string _terminalText = string.Empty;
-    private string _cpuStateText = string.Empty;
     private MachineDescriptor? _selectedMachineDescriptor;
     private bool _isRunning;
     private object? _activePanelViewModel;
+
+    public CpuInspectorViewModel CpuInspector { get; } = new();
 
     public string StatusText
     {
@@ -26,12 +27,6 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         get => _terminalText;
         set => SetProperty(ref _terminalText, value);
-    }
-
-    public string CpuStateText
-    {
-        get => _cpuStateText;
-        set => SetProperty(ref _cpuStateText, value);
     }
 
     public bool IsRunning
@@ -64,32 +59,31 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ICommand PauseCommand { get; }
     public ICommand ResetCommand { get; }
     public ICommand StepCommand { get; }
+    public ICommand ShowErrorsCommand { get; }
+    public int ErrorCount => _errorService.Errors.Count;
 
-    public MainWindowViewModel(IEmulatorController controller)
+    public MainWindowViewModel(IEmulatorController controller, IUiErrorService errorService)
     {
         _controller = controller;
         _catalog = controller.Catalog;
+        _errorService = errorService;
 
-        StartCommand = new RelayCommand(async () => await OnStart(), () => !IsRunning);
-        PauseCommand = new RelayCommand(async () => await OnPause(), () => IsRunning);
-        ResetCommand = new RelayCommand(async () => await OnReset(), () => _controller.ActiveSession is not null);
-        StepCommand = new RelayCommand(async () => await OnStep(), () => _controller.ActiveSession is not null);
+        StartCommand = new AsyncRelayCommand(OnStart, () => !IsRunning, errorService, "Start");
+        PauseCommand = new AsyncRelayCommand(OnPause, () => IsRunning, errorService, "Pause");
+        ResetCommand = new AsyncRelayCommand(OnReset, () => _controller.ActiveSession is not null, errorService, "Reset");
+        StepCommand = new AsyncRelayCommand(OnStep, () => _controller.ActiveSession is not null, errorService, "Step");
+        ShowErrorsCommand = new RelayCommand(OnShowErrors, () => true);
 
         _controller.StateChanged += OnControllerStateChanged;
         _controller.StatusChanged += OnControllerStatusChanged;
+        _errorService.ErrorAdded += (_, _) => OnPropertyChanged(nameof(ErrorCount));
     }
 
     private void OnControllerStateChanged(object? sender, EmulatorStateSnapshot snapshot)
     {
         TerminalText = snapshot.TerminalText ?? TerminalText;
         IsRunning = snapshot.IsRunning;
-
-        if (snapshot.Cpu is not null)
-        {
-            var cpu = snapshot.Cpu;
-            CpuStateText = $"PC={cpu.Pc}  A={cpu.A}  X={cpu.X}  Y={cpu.Y}  SP={cpu.Sp}\n" +
-                           $"Flags: {cpu.Flags}  Cycles: {cpu.CycleCount}  Halted: {cpu.IsHalted}";
-        }
+        CpuInspector.UpdateFromSnapshot(snapshot.Cpu);
     }
 
     private void OnControllerStatusChanged(object? sender, string status)
@@ -99,34 +93,35 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     private async Task OnMachineSelected(string machineId)
     {
-        bool success = await _controller.SelectMachineAsync(machineId);
-        if (success)
+        try
         {
-            StatusText = $"Selected: {machineId}";
-            var desc = Machines.FirstOrDefault(m => m.Id == machineId);
-            SelectedMachineDescriptor = desc;
+            var success = await _controller.SelectMachineAsync(machineId);
+            if (!success)
+            {
+                StatusText = $"Cannot select machine: {machineId}";
+                return;
+            }
 
-            var panel = _controller.ActiveSession?.Panels.FirstOrDefault();
-            ActivePanelViewModel = panel?.ViewModel;
+            ActivePanelViewModel = _controller.ActiveSession?.Workspace.ViewModel;
+            StatusText = $"Selected: {_controller.ActiveSession?.DisplayName}";
+            CpuInspector.UpdateFromSnapshot(_controller.Current?.Cpu);
         }
-        else
+        catch (Exception ex)
         {
-            StatusText = $"Failed to select: {machineId}";
+            _errorService.Report(ex, $"Select machine {machineId}");
         }
     }
 
     private async Task OnStart()
     {
         await _controller.RunAsync();
-        ((RelayCommand)StartCommand).RaiseCanExecuteChanged();
-        ((RelayCommand)PauseCommand).RaiseCanExecuteChanged();
+        RefreshCommandStates();
     }
 
     private async Task OnPause()
     {
         await _controller.PauseAsync();
-        ((RelayCommand)StartCommand).RaiseCanExecuteChanged();
-        ((RelayCommand)PauseCommand).RaiseCanExecuteChanged();
+        RefreshCommandStates();
     }
 
     private async Task OnReset()
@@ -137,5 +132,22 @@ public sealed class MainWindowViewModel : ViewModelBase
     private async Task OnStep()
     {
         await _controller.StepInstructionAsync();
+    }
+
+    private void OnShowErrors()
+    {
+        var window = new Views.ErrorWindow
+        {
+            DataContext = new ErrorWindowViewModel(_errorService)
+        };
+        window.Show();
+    }
+
+    private void RefreshCommandStates()
+    {
+        if (StartCommand is AsyncRelayCommand ar1) ar1.RaiseCanExecuteChanged();
+        if (PauseCommand is AsyncRelayCommand ar2) ar2.RaiseCanExecuteChanged();
+        if (ResetCommand is AsyncRelayCommand ar3) ar3.RaiseCanExecuteChanged();
+        if (StepCommand is AsyncRelayCommand ar4) ar4.RaiseCanExecuteChanged();
     }
 }

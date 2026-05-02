@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="Symulator.Avalonia.Controls.Kim1.Kim1KeypadView">
+             x:Class="Symulator.Machines.Kim1.Views.Kim1KeypadView">
     <StackPanel Spacing="4">
         <TextBlock FontWeight="Bold">Keypad</TextBlock>
         <UniformGrid Columns="4" Rows="4" Margin="4">

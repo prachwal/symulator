@@ -5,10 +5,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Symulator.Machines.Kim1</RootNamespace>
+    <UseAvalonia>true</UseAvalonia>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.*" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\CmosCpu.Core\CmosCpu.Core.csproj" />
+    <ProjectReference Include="..\CmosCpu.Cpu\CmosCpu.Cpu.csproj" />
     <ProjectReference Include="..\CmosCpu.Computer\CmosCpu.Computer.csproj" />
     <ProjectReference Include="..\CmosCpu.Runtime\CmosCpu.Runtime.csproj" />
     <ProjectReference Include="..\CmosCpu.Devices\CmosCpu.Devices.csproj" />

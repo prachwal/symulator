@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace Symulator.Avalonia.Controls.Apple1;
+namespace Symulator.Machines.Apple1.Views;
 
 public partial class Apple1TerminalPanelView : UserControl
 {
