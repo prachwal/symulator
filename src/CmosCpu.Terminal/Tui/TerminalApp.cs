@@ -61,8 +61,10 @@ public sealed class TerminalApp
         router.Register("speed", args => BatchCommands.HandleSpeed(s, args));
         router.Register("breakpoints", args => BatchCommands.HandleBreakpoints(s, args));
         router.Register("kim1-io", args => BatchCommands.HandleKim1Io(s, args));
+        router.Register("kim1", args => HandleKim1Tui(s, args));
         router.Register("apple1-basic", args => BatchCommands.HandleApple1Basic(s, args));
         router.Register("apple1", args => BatchCommands.HandleApple1Basic(s, args));
+        router.Register("apple1-tui", args => HandleApple1Tui(s, args));
 
         router.RegisterAlias("?", "help");
         router.RegisterAlias("-h", "help");
@@ -75,6 +77,64 @@ public sealed class TerminalApp
         router.RegisterAlias("dump", "save");
 
         return router;
+    }
+
+    private int HandleKim1Tui(ISimulatorSession session, string[] args)
+    {
+        string? profilePath = GetArgValue(args, "--profile") ?? "profiles/kim-1.json";
+        if (!LoadProfileForTui(session, profilePath))
+            return 1;
+
+        var machine = session.Machine!;
+        if (machine.Kim1Riot is null || machine.Kim1LedDisplay is null || machine.Kim1Keypad is null)
+        {
+            Console.Error.WriteLine("KIM-1 profile missing required devices (RIOT, LED display, keypad)");
+            return 1;
+        }
+
+        var screen = new Kim1TuiScreen();
+        screen.Run(session);
+        return 0;
+    }
+
+    private int HandleApple1Tui(ISimulatorSession session, string[] args)
+    {
+        string? profilePath = GetArgValue(args, "--profile") ?? "profiles/apple-1.json";
+        if (!LoadProfileForTui(session, profilePath))
+            return 1;
+
+        var machine = session.Machine!;
+        if (machine.Apple1Terminal is null)
+        {
+            Console.Error.WriteLine("Apple-1 profile missing PIA terminal device");
+            return 1;
+        }
+
+        var screen = new Apple1TuiScreen();
+        screen.Run(session);
+        return 0;
+    }
+
+    private static bool LoadProfileForTui(ISimulatorSession session, string profilePath)
+    {
+        if (session.IsLoaded)
+            return true;
+
+        if (File.Exists(profilePath))
+            return session.LoadProfileFromFile(profilePath);
+
+        Console.Error.WriteLine($"Profile not found: {profilePath}");
+        return false;
+    }
+
+    private static string? GetArgValue(string[] args, string name)
+    {
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            if (string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase))
+                return args[i + 1];
+        }
+        return null;
     }
 
     private static void PrintBanner()
