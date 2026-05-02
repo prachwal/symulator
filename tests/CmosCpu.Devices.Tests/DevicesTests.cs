@@ -1,5 +1,7 @@
 using CmosCpu.Devices;
+
 using FluentAssertions;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CmosCpu.Devices.Tests;

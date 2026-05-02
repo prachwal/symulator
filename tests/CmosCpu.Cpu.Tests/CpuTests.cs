@@ -1,7 +1,10 @@
 using CmosCpu.Core;
 using CmosCpu.Cpu;
+
 using FluentAssertions;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+
 using Moq;
 
 namespace CmosCpu.Cpu.Tests;

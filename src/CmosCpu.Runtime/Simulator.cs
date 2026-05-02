@@ -4,7 +4,9 @@ using CmosCpu.Core;
 using CmosCpu.Cpu;
 using CmosCpu.Devices;
 using CmosCpu.Memory;
+
 using Microsoft.Extensions.DependencyInjection;
+
 using NLog;
 
 namespace CmosCpu.Runtime;

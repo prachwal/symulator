@@ -2,7 +2,9 @@ using CmosCpu.BlazorApp.Models;
 using CmosCpu.BlazorApp.Services;
 using CmosCpu.Core;
 using CmosCpu.Runtime;
+
 using FluentAssertions;
+
 using Moq;
 
 namespace CmosCpu.BlazorApp.Tests;

@@ -1,4 +1,6 @@
 @page "/memory-map"
+@using CmosCpu.Core
+@inject IMemoryMap MemMap
 
 <h3>Memory Map</h3>
 
@@ -6,15 +8,22 @@
     <table class="sim-table">
         <thead>
             <tr>
-                <th>Range</th>
-                <th>Description</th>
+                <th>Name</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Device</th>
             </tr>
         </thead>
         <tbody>
-            <tr><td><code>0x0000 - 0x7FFF</code></td><td>RAM (32 KB)</td></tr>
-            <tr><td><code>0x8000 - 0xBFFF</code></td><td>ROM (16 KB)</td></tr>
-            <tr><td><code>0xC000 - 0xC0FF</code></td><td>I/O mapped devices</td></tr>
-            <tr><td><code>0xFF00 - 0xFFFF</code></td><td>System vectors / reserved</td></tr>
+            @foreach (var region in MemMap.Regions)
+            {
+                <tr>
+                    <td>@region.Name</td>
+                    <td><code>@($"0x{region.Start:X4}")</code></td>
+                    <td><code>@($"0x{region.End:X4}")</code></td>
+                    <td>@region.DeviceName</td>
+                </tr>
+            }
         </tbody>
     </table>
 </div>

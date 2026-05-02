@@ -6,5 +6,6 @@ public interface IMachineBuilder
     IMachineBuilder WithCpu(ICpuCore cpu);
     IMachineBuilder WithDevice(IBusDevice device);
     IMachineBuilder WithClockedDevice(IClockedDevice device);
+    IMachineBuilder WithDebugger(IDebugger debugger);
     IMachine Build();
 }

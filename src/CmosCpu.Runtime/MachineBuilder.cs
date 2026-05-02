@@ -6,6 +6,7 @@ public sealed class MachineBuilder : IMachineBuilder
 {
     private readonly IBus _bus;
     private ICpuCore? _cpu;
+    private IDebugger? _debugger;
     private readonly List<IBusDevice> _devices = new();
     private readonly List<IClockedDevice> _clockedDevices = new();
 
@@ -52,6 +53,12 @@ public sealed class MachineBuilder : IMachineBuilder
         return this;
     }
 
+    public IMachineBuilder WithDebugger(IDebugger debugger)
+    {
+        _debugger = debugger ?? throw new ArgumentNullException(nameof(debugger));
+        return this;
+    }
+
     public IMachine Build()
     {
         if (_cpu is null)
@@ -60,6 +67,6 @@ public sealed class MachineBuilder : IMachineBuilder
         foreach (var device in _devices)
             _bus.AttachDevice(device);
 
-        return new Machine(_cpu, _bus, _clockedDevices);
+        return new Machine(_cpu, _bus, _clockedDevices, _debugger);
     }
 }

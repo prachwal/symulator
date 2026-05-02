@@ -24,6 +24,11 @@ public static class ServiceCollectionExtensions
             profile.Configure(builder);
             return builder.Build();
         });
+        services.AddSingleton<IMemoryMap>(sp =>
+        {
+            var profile = sp.GetRequiredService<IMachineProfile>();
+            return profile.CreateMemoryMap();
+        });
 
         return services;
     }

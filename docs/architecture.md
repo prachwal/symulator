@@ -41,6 +41,8 @@ The solution prepares for multi-CPU support with these core contracts:
 | `IMachineBuilder` | Builder pattern for assembling a machine |
 | `IMachineProfile` | Named configuration (e.g. "Educational 8-bit machine") |
 | `IMemoryMap` | Address-to-region lookup for visualization |
+| `IDebugger` | Breakpoint management |
+| `CpuStepResult` | Per-instruction step result (PC before/after, opcode, cycles) |
 | `IBus` | Read/write with device routing |
 
 ### ICpuCore
@@ -91,6 +93,37 @@ var machine = builder.Build();
 machine.Reset();
 machine.Run(10000);
 ```
+
+With debugger:
+
+```csharp
+var dbg = new DebuggerService();
+dbg.AddBreakpoint(0x8005);
+builder.WithDebugger(dbg);
+var machine = builder.Build();
+machine.Run(10000); // stops when PC == 0x8005
+```
+
+## Cycle Timing
+
+`Machine.Run()` executes instructions and ticks clocked devices per-instruction-cycle:
+
+1. `ICpuCore.StepInstruction()` returns `CpuStepResult` with `Cycles` field
+2. `Machine` ticks all `IClockedDevice` devices `Cycles` times
+3. `Machine.Cycle` increments by `Cycles`
+
+For the current educational CPU, cycles are computed from the difference in `CpuRegisters.CycleCount` before and after the step (each bus fetch/side-effect increments the CPU-internal cycle counter).
+
+## Debugger
+
+`IDebugger` provides breakpoint support:
+
+- `AddBreakpoint(ushort address)` — adds a breakpoint
+- `RemoveBreakpoint(ushort address)` — removes a breakpoint
+- `ClearBreakpoints()` — clears all breakpoints
+- `IsBreakpoint(ushort address)` — checks if address has a breakpoint
+
+`Machine.Run()` checks the current PC against breakpoints before executing each instruction. If the PC matches a breakpoint, execution stops. `Machine.StepInstruction()` ignores breakpoints.
 
 ## Adapter Pattern
 

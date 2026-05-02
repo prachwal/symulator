@@ -1,4 +1,5 @@
 using CmosCpu.Core;
+
 using NLog;
 
 namespace CmosCpu.Bus;
@@ -33,7 +34,10 @@ public class SystemBus : IBus
                 {
                     Transaction = new BusTransaction
                     {
-                        Cycle = 0, Operation = BusOperation.Read, Address = address, Value = value,
+                        Cycle = 0,
+                        Operation = BusOperation.Read,
+                        Address = address,
+                        Value = value,
                         DeviceName = device.GetType().Name
                     }
                 });
@@ -56,7 +60,10 @@ public class SystemBus : IBus
                 {
                     Transaction = new BusTransaction
                     {
-                        Cycle = 0, Operation = BusOperation.Write, Address = address, Value = value,
+                        Cycle = 0,
+                        Operation = BusOperation.Write,
+                        Address = address,
+                        Value = value,
                         DeviceName = device.GetType().Name
                     }
                 });

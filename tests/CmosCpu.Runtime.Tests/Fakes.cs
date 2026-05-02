@@ -12,17 +12,28 @@ public sealed class FakeCpu : ICpuCore
     public int StepCount { get; set; }
     public int HaltedAfterSteps { get; set; } = int.MaxValue;
     public ulong LastTickCycle { get; set; }
+    public int CyclesPerStep { get; set; } = 1;
 
     public void Reset()
     {
         ResetCount++;
         Registers.PC = 0x8000;
+        Registers.CycleCount = 0;
     }
 
-    public void StepInstruction()
+    public CpuStepResult StepInstruction()
     {
+        var pcBefore = Registers.PC;
         StepCount++;
         Registers.PC++;
+        Registers.CycleCount += (ulong)CyclesPerStep;
+
+        return new CpuStepResult(
+            ProgramCounterBefore: pcBefore,
+            ProgramCounterAfter: Registers.PC,
+            Opcode: 0x00,
+            Cycles: CyclesPerStep
+        );
     }
 
     public void Tick(ulong cycle)

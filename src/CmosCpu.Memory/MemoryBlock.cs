@@ -1,4 +1,5 @@
 using CmosCpu.Core;
+
 using NLog;
 
 namespace CmosCpu.Memory;

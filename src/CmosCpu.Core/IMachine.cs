@@ -7,7 +7,7 @@ public interface IMachine : IResettable
     ulong Cycle { get; }
     bool IsRunning { get; }
 
-    void StepInstruction();
+    CpuStepResult StepInstruction();
     void StepCycle();
     void Run(ulong maxCycles);
     void Stop();

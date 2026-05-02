@@ -27,4 +27,15 @@ public sealed class Educational8BitMachineProfile : IMachineProfile
         builder.WithDevice(vectors);
         builder.WithDevice(led);
     }
+
+    public IMemoryMap CreateMemoryMap()
+    {
+        return new MemoryMap(new[]
+        {
+            new MemoryRegion { Name = "RAM", Start = 0x0000, End = 0x7FFF, DeviceName = "RamDevice" },
+            new MemoryRegion { Name = "I/O", Start = 0xC000, End = 0xC0FF, DeviceName = "IODevices" },
+            new MemoryRegion { Name = "ROM", Start = 0x8000, End = 0xBFFF, DeviceName = "RomDevice" },
+            new MemoryRegion { Name = "Vectors", Start = 0xFF00, End = 0xFFFF, DeviceName = "Vectors" },
+        });
+    }
 }

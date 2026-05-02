@@ -9,11 +9,13 @@ Educational 8-bit CPU simulator inspired by CMOS/TTL-based computers. Built with
 - Memory-mapped I/O devices (LED, Timer, RTC)
 - Interrupt handling (IRQ, NMI, RESET)
 - Text assembler with label support
-- Step and continuous execution modes
+- Step and continuous execution modes with cycle-accurate device ticking
 - DI-friendly architecture with NLog logging
-- New universal machine abstraction (`IMachine`, `IMachineProfile`, `ICpuCore`)
-- Blazor diagnostic frontend (replaces WPF)
-- 100+ unit and integration tests
+- Universal machine abstraction (`IMachine`, `IMachineProfile`, `ICpuCore`)
+- `CpuStepResult` with per-instruction cycle count
+- `IDebugger` with breakpoint support (stop-on-breakpoint during Run)
+- Blazor diagnostic frontend (Machine Status + Memory Map pages)
+- 120+ unit and integration tests
 
 ## Project Structure
 
@@ -93,6 +95,7 @@ The solution introduces a universal emulator architecture for future multi-CPU s
 | `IMachineProfile` | Named machine configuration profile |
 | `IMachineBuilder` | Builder for assembling a machine |
 | `IMemoryMap` | Memory region lookup |
+| `IDebugger` | Breakpoint management |
 
 See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
 

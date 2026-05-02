@@ -1,0 +1,73 @@
+@page "/machine-status"
+@using CmosCpu.Core
+@using CmosCpu.Runtime
+@inject IMachine Machine
+@implements IDisposable
+
+<div class="simulator-page">
+    <div class="panel">
+        <div class="panel-title">Machine Status — @Machine.Cpu.Name</div>
+
+        <div class="sim-table-container">
+            <table class="sim-table">
+                <thead>
+                    <tr>
+                        <th>Register</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>PC</td><td class="mono">@Hex16(Machine.Cpu.Registers.PC)</td></tr>
+                    <tr><td>SP</td><td class="mono">@Hex8(Machine.Cpu.Registers.SP)</td></tr>
+                    <tr><td>A</td><td class="mono">@Hex8(Machine.Cpu.Registers.A)</td></tr>
+                    <tr><td>X</td><td class="mono">@Hex8(Machine.Cpu.Registers.X)</td></tr>
+                    <tr><td>Y</td><td class="mono">@Hex8(Machine.Cpu.Registers.Y)</td></tr>
+                    <tr><td>Flags</td><td class="mono">@Machine.Cpu.Registers.Flags.ToString()</td></tr>
+                    <tr><td>Halted</td><td>@(Machine.Cpu.IsHalted ? "Yes" : "No")</td></tr>
+                    <tr><td>Cycles</td><td class="mono">@Machine.Cycle</td></tr>
+                    <tr><td>Running</td><td>@(Machine.IsRunning ? "Yes" : "No")</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="simulator-toolbar" style="margin-top: 8px;">
+            <button class="btn" @onclick="() => { Machine.Reset(); StateHasChanged(); }">Reset</button>
+            <button class="btn" @onclick="() => { Machine.StepInstruction(); StateHasChanged(); }">Step Instruction</button>
+            <button class="btn" @onclick="Run100">Run 100 cycles</button>
+            <button class="btn" @onclick="() => { Machine.Stop(); StateHasChanged(); }">Stop</button>
+            <span class="tb-sep"></span>
+            <button class="btn" @onclick="Refresh">Refresh</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool _running;
+
+    protected override void OnInitialized()
+    {
+        Machine.Reset();
+    }
+
+    private async Task Run100()
+    {
+        if (_running) return;
+        _running = true;
+        StateHasChanged();
+
+        await Task.Run(() => Machine.Run(100));
+
+        _running = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void Refresh()
+    {
+        StateHasChanged();
+    }
+
+    private static string Hex8(byte value) => $"0x{value:X2}";
+    private static string Hex16(ushort value) => $"0x{value:X4}";
+
+    public void Dispose() { }
+}

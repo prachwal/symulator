@@ -16,7 +16,24 @@ public sealed class CmosCpuCoreAdapter : ICpuCore
     }
 
     public void Reset() => _cpu.Reset();
-    public void StepInstruction() => _cpu.Step();
+
+    public CpuStepResult StepInstruction()
+    {
+        var pcBefore = _cpu.Registers.PC;
+        ulong cyclesBefore = _cpu.Registers.CycleCount;
+
+        _cpu.Step();
+
+        int stepCycles = (int)(_cpu.Registers.CycleCount - cyclesBefore);
+
+        return new CpuStepResult(
+            ProgramCounterBefore: pcBefore,
+            ProgramCounterAfter: _cpu.Registers.PC,
+            Opcode: 0,
+            Cycles: Math.Max(1, stepCycles)
+        );
+    }
+
     public void Tick(ulong cycle) { }
 
     public void RequestInterrupt(InterruptType type)

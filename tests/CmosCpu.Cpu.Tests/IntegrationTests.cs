@@ -3,7 +3,9 @@ using CmosCpu.Core;
 using CmosCpu.Cpu;
 using CmosCpu.Devices;
 using CmosCpu.Memory;
+
 using FluentAssertions;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CmosCpu.Cpu.Tests;

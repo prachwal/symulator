@@ -3,6 +3,7 @@ using CmosCpu.Core;
 using CmosCpu.Cpu;
 using CmosCpu.Memory;
 using CmosCpu.Runtime;
+
 using FluentAssertions;
 
 namespace CmosCpu.Runtime.Tests;
@@ -71,8 +72,11 @@ public sealed class MachineBuilderTests
         builder.WithCpu(cpu);
         var machine = builder.Build();
 
-        machine.StepInstruction();
+        machine.Reset();
+        var result = machine.StepInstruction();
         cpu.StepCount.Should().Be(1);
+        result.ProgramCounterBefore.Should().Be(0x8000);
+        result.ProgramCounterAfter.Should().Be(0x8001);
     }
 
     [TestMethod]
@@ -118,6 +122,53 @@ public sealed class MachineBuilderTests
 
         machine.Run(100);
         machine.Cycle.Should().Be(3);
+    }
+
+    [TestMethod]
+    public void Machine_ResetClearsCycle()
+    {
+        var builder = new MachineBuilder();
+        builder.WithCpu(new FakeCpu());
+        var machine = builder.Build();
+
+        machine.Run(5);
+        machine.Cycle.Should().Be(5);
+        machine.Reset();
+        machine.Cycle.Should().Be(0);
+    }
+
+    [TestMethod]
+    public void Machine_StepInstruction_TicksClockedDevicesPerCycles()
+    {
+        var cpu = new FakeCpu { CyclesPerStep = 3 };
+        var clocked = new FakeClockedDevice();
+        var builder = new MachineBuilder();
+
+        builder.WithCpu(cpu);
+        builder.WithClockedDevice(clocked);
+        var machine = builder.Build();
+
+        machine.StepInstruction();
+        clocked.TickCount.Should().Be(3);
+        machine.Cycle.Should().Be(3);
+    }
+
+    [TestMethod]
+    public void Machine_Stop_SetsIsRunningFalse()
+    {
+        var cpu = new FakeCpu();
+        var builder = new MachineBuilder();
+
+        builder.WithCpu(cpu);
+        var machine = builder.Build();
+
+        machine.Reset();
+        machine.Run(5);
+        machine.Cycle.Should().Be(5);
+        machine.IsRunning.Should().BeFalse();
+
+        machine.Stop();
+        machine.IsRunning.Should().BeFalse();
     }
 }
 
@@ -214,6 +265,27 @@ public sealed class CmosCpuCoreAdapterTests
         Action act = () => adapter.RequestInterrupt((InterruptType)999);
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
+
+    [TestMethod]
+    public void Adapter_StepInstruction_ReturnsCorrectPC()
+    {
+        var bus = new SystemBus();
+        var rom = new RomDevice(0x8000, 0xBFFF);
+        var vectors = new RamDevice(0xFF00, 0xFFFF);
+        bus.AttachDevice(rom);
+        bus.AttachDevice(vectors);
+        vectors.Write(0xFFFC, 0x00);
+        vectors.Write(0xFFFD, 0x80);
+        var cpu = new Cpu.CpuCore(bus);
+        var adapter = new CmosCpuCoreAdapter(cpu);
+
+        adapter.Reset();
+        var result = adapter.StepInstruction();
+
+        result.ProgramCounterBefore.Should().Be(0x8000);
+        result.ProgramCounterAfter.Should().Be(0x8001);
+        result.Cycles.Should().BeGreaterThan(0);
+    }
 }
 
 [TestClass]
@@ -255,6 +327,84 @@ public sealed class Educational8BitMachineProfileTests
 
         machine.Reset();
         machine.StepInstruction();
+        machine.Cpu.Registers.PC.Should().Be(0x8001);
+    }
+}
+
+[TestClass]
+public sealed class DebuggerServiceTests
+{
+    [TestMethod]
+    public void AddBreakpoint_ThenIsBreakpoint_ReturnsTrue()
+    {
+        var dbg = new DebuggerService();
+        dbg.AddBreakpoint(0x8000);
+        dbg.IsBreakpoint(0x8000).Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void RemoveBreakpoint_ThenIsBreakpoint_ReturnsFalse()
+    {
+        var dbg = new DebuggerService();
+        dbg.AddBreakpoint(0x8000);
+        dbg.RemoveBreakpoint(0x8000);
+        dbg.IsBreakpoint(0x8000).Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void ClearBreakpoints_ClearsAll()
+    {
+        var dbg = new DebuggerService();
+        dbg.AddBreakpoint(0x8000);
+        dbg.AddBreakpoint(0x8005);
+        dbg.ClearBreakpoints();
+        dbg.Breakpoints.Should().BeEmpty();
+    }
+
+    [TestMethod]
+    public void AddBreakpoint_Duplicate_DoesNotThrow()
+    {
+        var dbg = new DebuggerService();
+        dbg.AddBreakpoint(0x8000);
+        dbg.AddBreakpoint(0x8000);
+        dbg.Breakpoints.Should().HaveCount(1);
+    }
+
+    [TestMethod]
+    public void Machine_Run_StopsAtBreakpoint()
+    {
+        var cpu = new FakeCpu();
+        var dbg = new DebuggerService();
+        var builder = new MachineBuilder();
+
+        builder.WithCpu(cpu);
+        builder.WithDebugger(dbg);
+        dbg.AddBreakpoint(0x8002);
+
+        var machine = builder.Build();
+        machine.Reset();
+        machine.Run(100);
+
+        machine.Cycle.Should().Be(2);
+        machine.Cpu.Registers.PC.Should().Be(0x8002);
+    }
+
+    [TestMethod]
+    public void Machine_StepInstruction_IgnoresBreakpoint()
+    {
+        var cpu = new FakeCpu();
+        var dbg = new DebuggerService();
+        var builder = new MachineBuilder();
+
+        builder.WithCpu(cpu);
+        builder.WithDebugger(dbg);
+        dbg.AddBreakpoint(0x8000);
+
+        var machine = builder.Build();
+        machine.Reset();
+
+        var result = machine.StepInstruction();
+        result.ProgramCounterBefore.Should().Be(0x8000);
         machine.Cpu.Registers.PC.Should().Be(0x8001);
     }
 }

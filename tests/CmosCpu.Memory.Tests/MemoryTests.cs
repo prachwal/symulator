@@ -1,6 +1,8 @@
 using CmosCpu.Core;
 using CmosCpu.Memory;
+
 using FluentAssertions;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CmosCpu.Memory.Tests;

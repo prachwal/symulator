@@ -1,4 +1,5 @@
 using CmosCpu.Core;
+
 using NLog;
 
 namespace CmosCpu.Cpu;
@@ -140,137 +141,137 @@ public class CpuCore
                 break;
 
             case Opcode.LDA_IMM:
-            {
-                byte value = Fetch();
-                _regs.A = value;
-                _regs.SetZeroAndNegativeFlags(value);
-                break;
-            }
+                {
+                    byte value = Fetch();
+                    _regs.A = value;
+                    _regs.SetZeroAndNegativeFlags(value);
+                    break;
+                }
 
             case Opcode.LDA_ABS:
-            {
-                ushort addr = FetchWord();
-                byte value = _bus.Read(addr);
-                _regs.A = value;
-                _regs.SetZeroAndNegativeFlags(value);
-                break;
-            }
+                {
+                    ushort addr = FetchWord();
+                    byte value = _bus.Read(addr);
+                    _regs.A = value;
+                    _regs.SetZeroAndNegativeFlags(value);
+                    break;
+                }
 
             case Opcode.STA_ABS:
-            {
-                ushort addr = FetchWord();
-                _bus.Write(addr, _regs.A);
-                break;
-            }
+                {
+                    ushort addr = FetchWord();
+                    _bus.Write(addr, _regs.A);
+                    break;
+                }
 
             case Opcode.ADD_IMM:
-            {
-                byte value = Fetch();
-                ushort sum = (ushort)(_regs.A + value);
-                _regs.CarryFlag = sum > 0xFF;
-                _regs.A = (byte)(sum & 0xFF);
-                _regs.SetZeroAndNegativeFlags(_regs.A);
-                break;
-            }
+                {
+                    byte value = Fetch();
+                    ushort sum = (ushort)(_regs.A + value);
+                    _regs.CarryFlag = sum > 0xFF;
+                    _regs.A = (byte)(sum & 0xFF);
+                    _regs.SetZeroAndNegativeFlags(_regs.A);
+                    break;
+                }
 
             case Opcode.SUB_IMM:
-            {
-                byte value = Fetch();
-                ushort diff = (ushort)(_regs.A - value);
-                _regs.CarryFlag = diff <= 0xFF;
-                _regs.A = (byte)(diff & 0xFF);
-                _regs.SetZeroAndNegativeFlags(_regs.A);
-                break;
-            }
+                {
+                    byte value = Fetch();
+                    ushort diff = (ushort)(_regs.A - value);
+                    _regs.CarryFlag = diff <= 0xFF;
+                    _regs.A = (byte)(diff & 0xFF);
+                    _regs.SetZeroAndNegativeFlags(_regs.A);
+                    break;
+                }
 
             case Opcode.JMP:
-            {
-                ushort addr = FetchWord();
-                _regs.PC = addr;
-                break;
-            }
+                {
+                    ushort addr = FetchWord();
+                    _regs.PC = addr;
+                    break;
+                }
 
             case Opcode.JZ:
-            {
-                ushort addr = FetchWord();
-                if (_regs.ZeroFlag)
-                    _regs.PC = addr;
-                break;
-            }
+                {
+                    ushort addr = FetchWord();
+                    if (_regs.ZeroFlag)
+                        _regs.PC = addr;
+                    break;
+                }
 
             case Opcode.JNZ:
-            {
-                ushort addr = FetchWord();
-                if (!_regs.ZeroFlag)
-                    _regs.PC = addr;
-                break;
-            }
+                {
+                    ushort addr = FetchWord();
+                    if (!_regs.ZeroFlag)
+                        _regs.PC = addr;
+                    break;
+                }
 
             case Opcode.OUT:
-            {
-                byte port = Fetch();
-                _bus.Write((ushort)(0xC000 + port), _regs.A);
-                Logger.Debug("OUT port {Port:X2} = {Value:X2}", port, _regs.A);
-                break;
-            }
+                {
+                    byte port = Fetch();
+                    _bus.Write((ushort)(0xC000 + port), _regs.A);
+                    Logger.Debug("OUT port {Port:X2} = {Value:X2}", port, _regs.A);
+                    break;
+                }
 
             case Opcode.IN:
-            {
-                byte port = Fetch();
-                byte value = _bus.Read((ushort)(0xC000 + port));
-                _regs.A = value;
-                break;
-            }
+                {
+                    byte port = Fetch();
+                    byte value = _bus.Read((ushort)(0xC000 + port));
+                    _regs.A = value;
+                    break;
+                }
 
             case Opcode.CLI:
-            {
-                _regs.InterruptDisableFlag = false;
-                break;
-            }
+                {
+                    _regs.InterruptDisableFlag = false;
+                    break;
+                }
 
             case Opcode.SEI:
-            {
-                _regs.InterruptDisableFlag = true;
-                break;
-            }
+                {
+                    _regs.InterruptDisableFlag = true;
+                    break;
+                }
 
             case Opcode.PUSH_A:
-            {
-                Push(_regs.A);
-                break;
-            }
+                {
+                    Push(_regs.A);
+                    break;
+                }
 
             case Opcode.POP_A:
-            {
-                _regs.A = Pop();
-                _regs.SetZeroAndNegativeFlags(_regs.A);
-                break;
-            }
+                {
+                    _regs.A = Pop();
+                    _regs.SetZeroAndNegativeFlags(_regs.A);
+                    break;
+                }
 
             case Opcode.CALL:
-            {
-                ushort addr = FetchWord();
-                ushort returnAddr = _regs.PC;
-                Push((byte)((returnAddr >> 8) & 0xFF));
-                Push((byte)(returnAddr & 0xFF));
-                _regs.PC = addr;
-                break;
-            }
+                {
+                    ushort addr = FetchWord();
+                    ushort returnAddr = _regs.PC;
+                    Push((byte)((returnAddr >> 8) & 0xFF));
+                    Push((byte)(returnAddr & 0xFF));
+                    _regs.PC = addr;
+                    break;
+                }
 
             case Opcode.RET:
-            {
-                byte lo = Pop();
-                byte hi = Pop();
-                _regs.PC = (ushort)((hi << 8) | lo);
-                break;
-            }
+                {
+                    byte lo = Pop();
+                    byte hi = Pop();
+                    _regs.PC = (ushort)((hi << 8) | lo);
+                    break;
+                }
 
             case Opcode.HLT:
-            {
-                _regs.Halted = true;
-                Logger.Info("CPU HALTED at cycle {Cycles}", _regs.CycleCount);
-                break;
-            }
+                {
+                    _regs.Halted = true;
+                    Logger.Info("CPU HALTED at cycle {Cycles}", _regs.CycleCount);
+                    break;
+                }
 
             default:
                 Logger.Warn("Unknown opcode {Opcode:X2} at PC {PC:X4}", (byte)opcode, _regs.PC - 1);

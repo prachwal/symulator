@@ -6,6 +6,6 @@ public interface ICpuCore : IClockedDevice, IResettable
     CpuRegisters Registers { get; }
     bool IsHalted { get; }
 
-    void StepInstruction();
+    CpuStepResult StepInstruction();
     void RequestInterrupt(InterruptType type);
 }

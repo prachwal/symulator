@@ -2,6 +2,7 @@ using CmosCpu.Assembler;
 using CmosCpu.BlazorApp.Models;
 using CmosCpu.Core;
 using CmosCpu.Runtime;
+
 using NLog;
 
 namespace CmosCpu.BlazorApp.Services;

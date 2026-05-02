@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+
 using CmosCpu.Core;
+
 using NLog;
 
 namespace CmosCpu.Assembler;

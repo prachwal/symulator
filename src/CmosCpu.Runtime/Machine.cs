@@ -7,6 +7,7 @@ public sealed class Machine : IMachine
     private readonly ICpuCore _cpu;
     private readonly IBus _bus;
     private readonly List<IClockedDevice> _clockedDevices;
+    private readonly IDebugger? _debugger;
     private ulong _cycle;
     private volatile bool _stopped;
 
@@ -14,12 +15,14 @@ public sealed class Machine : IMachine
     public IBus Bus => _bus;
     public ulong Cycle => _cycle;
     public bool IsRunning { get; private set; }
+    public IDebugger? Debugger => _debugger;
 
-    public Machine(ICpuCore cpu, IBus bus, IEnumerable<IClockedDevice> clockedDevices)
+    public Machine(ICpuCore cpu, IBus bus, IEnumerable<IClockedDevice> clockedDevices, IDebugger? debugger = null)
     {
         _cpu = cpu ?? throw new ArgumentNullException(nameof(cpu));
         _bus = bus ?? throw new ArgumentNullException(nameof(bus));
         _clockedDevices = clockedDevices?.ToList() ?? new List<IClockedDevice>();
+        _debugger = debugger;
     }
 
     public void Reset()
@@ -32,9 +35,19 @@ public sealed class Machine : IMachine
             device.Reset();
     }
 
-    public void StepInstruction()
+    public CpuStepResult StepInstruction()
     {
-        _cpu.StepInstruction();
+        var result = _cpu.StepInstruction();
+        var cycles = Math.Max(1, result.Cycles);
+
+        for (var i = 0; i < cycles; i++)
+        {
+            foreach (var device in _clockedDevices)
+                device.Tick(_cycle);
+            _cycle++;
+        }
+
+        return result;
     }
 
     public void StepCycle()
@@ -53,10 +66,13 @@ public sealed class Machine : IMachine
 
         while (!_cpu.IsHalted && _cycle < target && !_stopped)
         {
-            _cpu.StepInstruction();
-            foreach (var device in _clockedDevices)
-                device.Tick(_cycle);
-            _cycle++;
+            if (_debugger is not null && _debugger.IsBreakpoint(_cpu.Registers.PC))
+            {
+                _stopped = true;
+                break;
+            }
+
+            StepInstruction();
         }
 
         IsRunning = false;
