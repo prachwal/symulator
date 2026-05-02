@@ -16,6 +16,7 @@ public sealed class Apple1TuiScreen : ITerminalScreen
     private View _registersView = null!;
     private View _flagsView = null!;
     private View _instructionsView = null!;
+    private View _modeView = null!;
     private TextView _terminalOutput = null!;
     private TextField _inputField = null!;
     private int _lastOutputOffset;
@@ -24,9 +25,15 @@ public sealed class Apple1TuiScreen : ITerminalScreen
     private object _timerToken = null!;
 
     private readonly Queue<char> _inputQueue = new();
-    private bool _waitingForPrompt;
     private int _cycleBudget;
     private const int CyclesPerChar = 50;
+    private readonly Apple1InputCoordinator _coordinator = new();
+
+    public bool TraceState
+    {
+        get => _coordinator.TraceState;
+        set => _coordinator.TraceState = value;
+    }
 
     public void Run(ISimulatorSession session)
     {
@@ -35,6 +42,7 @@ public sealed class Apple1TuiScreen : ITerminalScreen
         _terminal = _machine.Apple1Terminal!;
         _lastOutputOffset = _terminal.OutputLength;
         _startCycle = _machine.Cpu.CycleCount;
+        _coordinator.Reset();
 
         Application.Init();
 
@@ -42,7 +50,7 @@ public sealed class Apple1TuiScreen : ITerminalScreen
         top.KeyDown += OnTopKeyDown;
         TerminalGuiColorScheme.Apply(top);
 
-        var terminalFrame = new FrameView { Title = "Terminal Output", X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Percent(65) };
+        var terminalFrame = new FrameView { Title = "Terminal Output", X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Percent(60) };
         _terminalOutput = new TextView { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), ReadOnly = true, WordWrap = true, Text = _terminal.Text };
         terminalFrame.Add(_terminalOutput);
         top.Add(terminalFrame);
@@ -51,17 +59,20 @@ public sealed class Apple1TuiScreen : ITerminalScreen
         _inputField.KeyDown += OnInputKey;
         top.Add(_inputField);
 
-        var cpuFrame = new FrameView { Title = "CPU", X = 0, Y = Pos.Bottom(_inputField), Width = Dim.Fill(), Height = 4 };
-        _registersView = new View { Text = TerminalGuiRenderer.FormatRegistersLine(_machine.Cpu), X = 0, Y = 0, Width = Dim.Fill() };
-        _flagsView = new View { Text = TerminalGuiRenderer.FormatFlags(_machine.Cpu), X = 0, Y = 1, Width = Dim.Fill() };
-        cpuFrame.Add(_registersView, _flagsView);
-        top.Add(cpuFrame);
+        var infoFrame = new FrameView { Title = "Info", X = 0, Y = Pos.Bottom(_inputField), Width = Dim.Fill(), Height = 5 };
+        _modeView = new View { Text = $"Mode: {_coordinator.Mode}", X = 0, Y = 0, Width = Dim.Fill() };
+        _registersView = new View { Text = TerminalGuiRenderer.FormatRegistersLine(_machine.Cpu), X = 0, Y = 1, Width = Dim.Fill() };
+        _flagsView = new View { Text = TerminalGuiRenderer.FormatFlags(_machine.Cpu), X = 0, Y = 2, Width = Dim.Fill() };
+        infoFrame.Add(_modeView, _registersView, _flagsView);
+        top.Add(infoFrame);
 
-        _statusView = new View { Text = $"Status: {TerminalGuiRenderer.FormatStatus(false, _machine.Cpu.IsHalted)}", X = 0, Y = Pos.Bottom(cpuFrame), Width = Dim.Fill() };
+        _statusView = new View { Text = $"Status: {TerminalGuiRenderer.FormatStatus(false, _machine.Cpu.IsHalted)}", X = 0, Y = Pos.Bottom(infoFrame), Width = Dim.Fill() };
         _instructionsView = new View { Text = $"Instructions: {_session.TotalInstructionsExecuted}", X = 0, Y = Pos.Bottom(_statusView), Width = Dim.Fill() };
         top.Add(_statusView, _instructionsView);
 
         _timerToken = Application.TimedEvents.Add(TimeSpan.FromMilliseconds(16), OnTimer);
+
+        _inputField.SetFocus();
 
         Application.Run(top);
         Application.Shutdown();
@@ -102,51 +113,59 @@ public sealed class Apple1TuiScreen : ITerminalScreen
 
     private void StreamInput()
     {
-        if (_inputQueue.Count == 0)
-            return;
-
         _cycleBudget += 100;
-        if (_cycleBudget < CyclesPerChar)
-            return;
 
-        _cycleBudget -= CyclesPerChar;
+        if (_coordinator.UserQueueCount > 0)
+        {
+            while (_cycleBudget >= CyclesPerChar && _coordinator.TryDequeueNextChar(out char c))
+            {
+                _cycleBudget -= CyclesPerChar;
+                _inputQueue.Enqueue(c);
+            }
+        }
 
-        char c = _inputQueue.Dequeue();
-        _terminal.QueueKey(c);
-
-        if (c == '\r')
-            _waitingForPrompt = true;
+        if (_inputQueue.Count > 0)
+        {
+            if (_cycleBudget < CyclesPerChar)
+                return;
+            _cycleBudget -= CyclesPerChar;
+            char ch = _inputQueue.Dequeue();
+            _terminal.QueueKey(ch);
+        }
     }
 
     private void UpdateDisplay()
     {
         string output = _terminal.ConsumeOutputSince(_lastOutputOffset);
         if (!string.IsNullOrEmpty(output))
-        {
             AppendOutput(output);
-            if (_waitingForPrompt && IsPrompt(output))
-            {
-                _waitingForPrompt = false;
-                _inputField.Visible = true;
-                _inputField.SetFocus();
-            }
-        }
 
+        _modeView.Text = $"Mode: {FormatMode(_coordinator.Mode, _coordinator.WaitingForPrompt)}";
         _registersView.Text = TerminalGuiRenderer.FormatRegistersLine(_machine.Cpu);
         _flagsView.Text = TerminalGuiRenderer.FormatFlags(_machine.Cpu);
         _statusView.Text = $"Status: {TerminalGuiRenderer.FormatStatus(false, _machine.Cpu.IsHalted)}";
         _instructionsView.Text = $"Instructions: {_session.TotalInstructionsExecuted}";
     }
 
+    private static string FormatMode(Apple1TerminalMode mode, bool waiting)
+    {
+        string label = mode switch
+        {
+            Apple1TerminalMode.Unknown => "UNKNOWN",
+            Apple1TerminalMode.Booting => "BOOTING",
+            Apple1TerminalMode.WozMonitor => "WOZ MONITOR",
+            Apple1TerminalMode.Basic => "BASIC",
+            _ => mode.ToString()
+        };
+        if (waiting)
+            label += " (waiting for prompt)";
+        return label;
+    }
+
     private void AppendOutput(string text)
     {
         _terminalOutput.Text += text;
         _lastOutputOffset = _terminal.OutputLength;
-    }
-
-    private static bool IsPrompt(string output)
-    {
-        return output.TrimEnd().EndsWith('>');
     }
 
     private void OnInputKey(object? sender, Key keyEvent)
@@ -156,12 +175,7 @@ public sealed class Apple1TuiScreen : ITerminalScreen
             string text = _inputField.Text.ToString();
             _inputField.Text = string.Empty;
 
-            foreach (char c in text)
-                _inputQueue.Enqueue(c);
-            _inputQueue.Enqueue('\r');
-
-            _inputField.Visible = false;
-            _waitingForPrompt = true;
+            _coordinator.EnqueueUserLine(text);
             _cycleBudget = 0;
             keyEvent.Handled = true;
         }

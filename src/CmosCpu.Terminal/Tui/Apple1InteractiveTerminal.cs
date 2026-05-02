@@ -17,9 +17,11 @@ public sealed class Apple1InteractiveTerminal
     private bool _crlfApple1;
     private bool _autoBasic;
     private bool _traceBoot;
+    private bool _traceState;
     private bool _exitOnMaxCycles;
     private int _lastOutputOffset;
     private ulong _startCycle;
+    private readonly Apple1InputCoordinator _coordinator = new();
 
     public Apple1InteractiveTerminal(ComputerMachine machine, string[] args)
     {
@@ -41,6 +43,8 @@ public sealed class Apple1InteractiveTerminal
         _autoBasic = autoBasicStr is null || !bool.TryParse(autoBasicStr, out var ab) || ab;
         var traceBootStr = GetArgValue(args, "--trace-boot");
         _traceBoot = traceBootStr is not null && bool.TryParse(traceBootStr, out var tb) && tb;
+        var traceStateStr = GetArgValue(args, "--trace-state");
+        _traceState = traceStateStr is not null && bool.TryParse(traceStateStr, out var ts) && ts;
         var exitOnMaxCyclesStr = GetArgValue(args, "--exit-on-max-cycles");
         bool isScriptMode = _scriptPath is not null;
         _exitOnMaxCycles = exitOnMaxCyclesStr is not null
@@ -97,6 +101,8 @@ public sealed class Apple1InteractiveTerminal
         Console.WriteLine();
 
         _startCycle = _machine.Cpu.CycleCount;
+        _coordinator.Reset();
+        _coordinator.TraceState = _traceState;
 
         var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) =>
@@ -145,7 +151,10 @@ public sealed class Apple1InteractiveTerminal
 
                 string output = ConsumeTerminalOutput(terminal);
                 if (!string.IsNullOrEmpty(output))
+                {
                     Console.Write(output);
+                    _coordinator.OnOutput(output);
+                }
             }
         }
         catch (OperationCanceledException)

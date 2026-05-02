@@ -53,7 +53,7 @@ public sealed class Apple1PiaTerminalDevice
 
     public void QueueKey(char key)
     {
-        _lastKey = (byte)(key & 0x7F);
+        _lastKey = (byte)((key & 0x7F) | 0x80);
         _keyReady = true;
     }
 
@@ -96,17 +96,19 @@ public sealed class Apple1PiaTerminalDevice
     private void WriteDisplay(byte value)
     {
         char c = (char)(value & 0x7F);
-        _outputStream.Append(c);
-        _version++;
 
         if (c == '\r' || c == '\n')
         {
+            _outputStream.AppendLine();
             FlushCurrentLine();
         }
         else
         {
+            _outputStream.Append(c);
             _currentLine.Append(c);
         }
+
+        _version++;
     }
 
     private void FlushCurrentLine()

@@ -568,6 +568,7 @@ public static class BatchCommands
             Console.WriteLine("  --crlf apple1|native      Line ending mode (default: apple1)");
             Console.WriteLine("  --auto-basic true|false   Auto-start BASIC via Woz (default: true)");
             Console.WriteLine("  --trace-boot true|false   Show boot diagnostics (default: false)");
+            Console.WriteLine("  --trace-state true|false  Show mode transitions (default: false)");
             Console.WriteLine("  --exit-on-max-cycles true|false  Exit when max cycles reached");
             Console.WriteLine("                                  (script: true, interactive: false)");
             Console.WriteLine();

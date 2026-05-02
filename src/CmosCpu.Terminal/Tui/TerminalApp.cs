@@ -110,7 +110,10 @@ public sealed class TerminalApp
             return 1;
         }
 
-        var screen = new Apple1TuiScreen();
+        bool traceState = GetArgValue(args, "--trace-state") is not null &&
+                          bool.TryParse(GetArgValue(args, "--trace-state"), out var ts) && ts;
+
+        var screen = new Apple1TuiScreen { TraceState = traceState };
         screen.Run(session);
         return 0;
     }

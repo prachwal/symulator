@@ -136,7 +136,7 @@ public sealed class ProfileIntegrationTests
         pia.QueueKey('A');
 
         byte data = pia.Read(0xD010);
-        data.Should().Be((byte)'A');
+        data.Should().Be(unchecked((byte)'A' | 0x80));
     }
 
     [TestMethod]
