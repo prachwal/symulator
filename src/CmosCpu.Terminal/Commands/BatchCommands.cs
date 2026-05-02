@@ -68,7 +68,7 @@ public static class BatchCommands
         Console.WriteLine("  registers    - Show registers and flags");
         Console.WriteLine("  memory       - Show memory hex dump");
         Console.WriteLine("  stack        - Show stack");
-        Console.WriteLine("  breakpoints  - Manage breakpoints");
+        Console.WriteLine("  breakpoints  - Planned, not yet implemented");
         Console.WriteLine("  terminal     - Show terminal I/O");
         Console.WriteLine("  load         - Load binary file");
         Console.WriteLine("  load-rom     - Load ROM binary");
@@ -244,7 +244,7 @@ public static class BatchCommands
 
         try
         {
-            var task = session.StartAsync();
+            var task = session.StartAsync(cts.Token);
             task.Wait();
         }
         catch (AggregateException ae) when (ae.InnerException is OperationCanceledException)
@@ -543,24 +543,8 @@ public static class BatchCommands
 
     public static int HandleBreakpoints(ISimulatorSession session, string[] args)
     {
-        if (!EnsureLoaded(session, args) || session.Machine is null)
-        {
-            Console.Error.WriteLine("No profile loaded");
-            return ExitValidationError;
-        }
-
-        string? action = args.Length > 0 ? args[0] : "list";
-
-        switch (action.ToLowerInvariant())
-        {
-            case "list":
-                Console.WriteLine("Breakpoints: (not implemented in CPU core)");
-                break;
-            default:
-                Console.Error.WriteLine("Unknown breakpoint action. Use: list");
-                return ExitValidationError;
-        }
-
+        Console.WriteLine("Breakpoints: not implemented in CPU core yet.");
+        Console.WriteLine("Use register/memory watch manually via step and registers.");
         return ExitSuccess;
     }
 

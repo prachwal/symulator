@@ -32,6 +32,13 @@ public sealed record ComputerProfileMemorySection
     public string? Start { get; init; }
     public string? Size { get; init; }
     public string? File { get; init; }
+    public IReadOnlyList<ComputerProfileMemoryMirror>? Mirrors { get; init; }
+}
+
+public sealed record ComputerProfileMemoryMirror
+{
+    public string? Start { get; init; }
+    public string? Size { get; init; }
 }
 
 public sealed record ComputerProfileVectors

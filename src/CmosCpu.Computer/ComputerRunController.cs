@@ -26,11 +26,17 @@ public sealed class ComputerRunController : IDisposable
         NotifyStateChanged();
     }
 
-    public async Task StartAsync()
+    public async Task StartAsync(CancellationToken? externalToken = null)
     {
         if (_machine is null || IsRunning) return;
 
-        _runCts = new CancellationTokenSource();
+        if (externalToken.HasValue && externalToken.Value.IsCancellationRequested)
+            return;
+
+        _runCts = externalToken.HasValue
+            ? CancellationTokenSource.CreateLinkedTokenSource(externalToken.Value)
+            : new CancellationTokenSource();
+
         var token = _runCts.Token;
         _lastError = null;
 

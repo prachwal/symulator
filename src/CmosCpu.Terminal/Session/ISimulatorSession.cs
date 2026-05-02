@@ -14,7 +14,7 @@ public interface ISimulatorSession
     bool LoadProfileFromFile(string path);
     void Reset();
     int Step();
-    Task StartAsync();
+    Task StartAsync(CancellationToken? externalToken = null);
     void Stop();
     void SetSpeed(int instructionsPerBatch, int renderDelayMs);
     (int batch, int delay) GetSpeed();

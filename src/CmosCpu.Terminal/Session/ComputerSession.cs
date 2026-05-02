@@ -63,8 +63,9 @@ public sealed class ComputerSession : ISimulatorSession
 
         var machine = new ComputerMachine(result.Profile);
         _controller.SetMachine(machine);
+        _currentProfileJson = path;
         Logger.Info("Loaded profile from file: {Path} -> {Profile}", path, result.Profile.Name);
-        TryLoadProfileRoms(machine, result.Profile);
+        TryLoadProfileRoms(machine, result.Profile, path);
         machine.Reset();
         return true;
     }
@@ -81,10 +82,10 @@ public sealed class ComputerSession : ISimulatorSession
         return _controller.Machine.Step();
     }
 
-    public Task StartAsync()
+    public Task StartAsync(CancellationToken? externalToken = null)
     {
         if (_controller.Machine is null) return Task.CompletedTask;
-        return _controller.StartAsync();
+        return _controller.StartAsync(externalToken);
     }
 
     public void Stop()
@@ -159,26 +160,52 @@ public sealed class ComputerSession : ISimulatorSession
         return true;
     }
 
-    private static void TryLoadProfileRoms(ComputerMachine machine, ComputerProfile profile)
+    private static void TryLoadProfileRoms(ComputerMachine machine, ComputerProfile profile, string? profileFilePath = null)
     {
         if (profile.Memory?.Rom is null) return;
 
-        string baseDir = Directory.GetCurrentDirectory();
+        string? profileDir = profileFilePath is not null
+            ? Path.GetDirectoryName(Path.GetFullPath(profileFilePath))
+            : null;
+
         foreach (var rom in profile.Memory.Rom)
         {
             if (string.IsNullOrEmpty(rom.File)) continue;
 
-            string romPath = Path.Combine(baseDir, rom.File);
+            string romPath = ResolveRomPath(rom.File, profileDir);
+            Logger.Info("ROM: expected path={Path}, exists={Exists}", romPath, File.Exists(romPath));
+
             if (!File.Exists(romPath))
             {
-                Logger.Debug("ROM file not found: {Path}", romPath);
+                Logger.Warn("ROM file not found: {Path}", romPath);
                 continue;
             }
 
             try
             {
                 byte[] data = File.ReadAllBytes(romPath);
-                var start = ComputerProfileLoader.ParseHex(rom.Start!);
+
+                if (!TryParseRomStart(rom, out var start, out var parseError))
+                {
+                    Logger.Warn("ROM {File}: invalid start address '{Start}': {Error}", rom.File, rom.Start, parseError);
+                    continue;
+                }
+
+                ushort declaredSize = 0;
+                if (!string.IsNullOrEmpty(rom.Size))
+                {
+                    try { declaredSize = ComputerProfileLoader.ParseHex(rom.Size); }
+                    catch { Logger.Warn("ROM {File}: invalid declared size '{Size}'", rom.File, rom.Size); }
+                }
+
+                if (declaredSize > 0 && data.Length < declaredSize)
+                    Logger.Warn("ROM {File}: {DataBytes} bytes is shorter than declared size {DeclaredSize}",
+                        rom.File, data.Length, declaredSize);
+
+                if (declaredSize > 0 && data.Length > declaredSize)
+                    Logger.Warn("ROM {File}: {DataBytes} bytes exceeds declared size {DeclaredSize}, will truncate",
+                        rom.File, data.Length, declaredSize);
+
                 machine.Memory.LoadRom(start, data);
                 Logger.Info("Loaded ROM: {File} ({Bytes} bytes at 0x{Addr:X4})", rom.File, data.Length, start);
             }
@@ -186,6 +213,60 @@ public sealed class ComputerSession : ISimulatorSession
             {
                 Logger.Warn("Failed to load ROM {File}: {Error}", rom.File, ex.Message);
             }
+        }
+    }
+
+    private static string ResolveRomPath(string romFile, string? profileDir)
+    {
+        if (Path.IsPathRooted(romFile))
+            return romFile;
+
+        if (profileDir is not null)
+        {
+            string relativeToProfile = Path.GetFullPath(Path.Combine(profileDir, romFile));
+            if (File.Exists(relativeToProfile))
+                return relativeToProfile;
+        }
+
+        string repoRoot = FindRepoRoot(Directory.GetCurrentDirectory());
+        string relativeToRepo = Path.GetFullPath(Path.Combine(repoRoot, romFile));
+        if (File.Exists(relativeToRepo))
+            return relativeToRepo;
+
+        return Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), romFile));
+    }
+
+    private static string FindRepoRoot(string startDir)
+    {
+        var dir = new DirectoryInfo(startDir);
+        while (dir is not null)
+        {
+            if (dir.GetFiles(".gitignore").Length > 0 ||
+                dir.GetFiles("CmosCpuSimulator.slnx").Length > 0)
+                return dir.FullName;
+            dir = dir.Parent;
+        }
+        return startDir;
+    }
+
+    private static bool TryParseRomStart(ComputerProfileMemorySection rom, out ushort start, out string? error)
+    {
+        start = 0;
+        error = null;
+        if (string.IsNullOrWhiteSpace(rom.Start))
+        {
+            error = "ROM section has no 'start' address";
+            return false;
+        }
+        try
+        {
+            start = ComputerProfileLoader.ParseHex(rom.Start);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
         }
     }
 }

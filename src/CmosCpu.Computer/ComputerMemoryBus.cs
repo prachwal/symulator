@@ -28,6 +28,24 @@ public sealed class ComputerMemoryBus : IMemoryBus
             data));
     }
 
+    public void MapRomMirror(ushort sourceStart, ushort mirrorStart, ushort size)
+    {
+        var srcRange = _ranges.Find(r => sourceStart >= r.Start && sourceStart <= r.End);
+        if (srcRange?.Data is null)
+            return;
+
+        int srcOffset = sourceStart - srcRange.Start;
+        if (srcOffset + size > srcRange.Data.Length)
+            size = (ushort)(srcRange.Data.Length - srcOffset);
+
+        byte[] sharedData = srcRange.Data;
+        _ranges.Add(new MappedRange(
+            mirrorStart, (ushort)(mirrorStart + size - 1),
+            addr => sharedData[addr - mirrorStart + srcOffset],
+            (addr, val) => { },
+            sharedData));
+    }
+
     public void MapDevice(ushort start, ushort size, Func<ushort, byte> read, Action<ushort, byte> write)
     {
         _ranges.Add(new MappedRange(start, (ushort)(start + size - 1), read, write, null));

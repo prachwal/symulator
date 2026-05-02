@@ -77,6 +77,16 @@ public sealed class ComputerMachine
                 var start = ComputerProfileLoader.ParseHex(section.Start!);
                 var size = ComputerProfileLoader.ParseHex(section.Size!);
                 Memory.MapRom(start, size);
+
+                if (section.Mirrors is not null)
+                    foreach (var mirror in section.Mirrors)
+                    {
+                        var mirrorStart = ComputerProfileLoader.ParseHex(mirror.Start!);
+                        var mirrorSize = string.IsNullOrEmpty(mirror.Size)
+                            ? size
+                            : ComputerProfileLoader.ParseHex(mirror.Size!);
+                        Memory.MapRomMirror(start, mirrorStart, mirrorSize);
+                    }
             }
 
         if (Profile.Devices is not null)

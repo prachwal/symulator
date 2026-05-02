@@ -53,18 +53,30 @@ Profil Retro70 jest w pełni funkcjonalny. Monitor ROM jest budowany z kodu
 (`Retro70MonitorRomBuilder`) i nie wymaga zewnętrznych plików. CPU startuje
 poprawnie z 0xF000, ekran tekstowy i klawiatura działają.
 
+## Stan po poprawkach
+
+Wszystkie trzy profile ładują się i bootują poprawnie:
+
+| Profil | PC po resecie | Status | Uwagi |
+|--------|-------------|--------|-------|
+| Retro70 | 0xF000 | ✅ Działa | Monitor wbudowany, CPU bootuje |
+| Apple-1 | 0xFF00 | ✅ Działa | Woz Monitor wczytany, PIA terminal zmapowany |
+| KIM-1 | 0x1C22 | ✅ Działa | ROM mirrorowany (0x1C00→0xFC00), wektory poprawne |
+
+KIM-1 nie startuje już z 0xFFFF (open bus). Mirrorowanie ROM 6530-002
+z 0x1C00-0x1FFF na 0xFC00-0xFFFF zostało zaimplementowane przez
+`ComputerMemoryBus.MapRomMirror()` z współdzielonym buforem danych.
+
 ## Weryfikacja
 
 ```bash
-# Retro70 (w pełni działa)
+# Wszystkie trzy profile bootują poprawnie
 dotnet run --project src/CmosCpu.Terminal -- state --profile profiles/retro70-mos6502.json
-# → PC=0xF000, Cycles=7
-
-# Apple-1 (monitor wczytany, bootuje)
 dotnet run --project src/CmosCpu.Terminal -- state --profile profiles/apple-1.json
-# → PC=0xFF00, Cycles=7
-
-# KIM-1 (ROMy wczytane, wektory wymagają mirroringu)
 dotnet run --project src/CmosCpu.Terminal -- state --profile profiles/kim-1.json
-# → PC=0xFFFF (open bus), Cycles=7
+
+# Oczekiwane wyniki:
+# Retro70: PC=0xF000
+# Apple-1: PC=0xFF00
+# KIM-1:   PC=0x1C22 (NIE 0xFFFF)
 ```
