@@ -1,4 +1,5 @@
 using CmosCpu.BlazorApp.Services;
+using CmosCpu.Computer;
 using CmosCpu.Core;
 using CmosCpu.Runtime;
 
@@ -34,6 +35,8 @@ public static class ServiceCollectionExtensions
         });
 
         services.AddSingleton<IEmulatorUiSettings, EmulatorUiSettings>();
+
+        services.AddSingleton<Retro70Service>();
 
         return services;
     }

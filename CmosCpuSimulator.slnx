@@ -3,6 +3,7 @@
     <Project Path="src/CmosCpu.Assembler/CmosCpu.Assembler.csproj" />
     <Project Path="src/CmosCpu.BlazorApp/CmosCpu.BlazorApp.csproj" />
     <Project Path="src/CmosCpu.Bus/CmosCpu.Bus.csproj" />
+    <Project Path="src/CmosCpu.Computer/CmosCpu.Computer.csproj" />
     <Project Path="src/CmosCpu.ConsoleApp/CmosCpu.ConsoleApp.csproj" />
     <Project Path="src/CmosCpu.Core/CmosCpu.Core.csproj" />
     <Project Path="src/CmosCpu.Cpu/CmosCpu.Cpu.csproj" />
@@ -14,6 +15,7 @@
     <Project Path="tests/CmosCpu.Assembler.Tests/CmosCpu.Assembler.Tests.csproj" />
     <Project Path="tests/CmosCpu.BlazorApp.Tests/CmosCpu.BlazorApp.Tests.csproj" />
     <Project Path="tests/CmosCpu.Bus.Tests/CmosCpu.Bus.Tests.csproj" />
+    <Project Path="tests/CmosCpu.Computer.Tests/CmosCpu.Computer.Tests.csproj" />
     <Project Path="tests/CmosCpu.Core.Tests/CmosCpu.Core.Tests.csproj" />
     <Project Path="tests/CmosCpu.Cpu.Tests/CmosCpu.Cpu.Tests.csproj" />
     <Project Path="tests/CmosCpu.Devices.Tests/CmosCpu.Devices.Tests.csproj" />

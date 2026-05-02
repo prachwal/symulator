@@ -1,0 +1,73 @@
+{
+  "id": "kim-1",
+  "name": "MOS Technology KIM-1",
+  "family": "1970s-6502-sbc",
+  "status": "partial-profile-requires-6530-io-device",
+  "cpu": "mos6502",
+  "clockHz": 1000000,
+  "description": "KIM-1 profile using original 6530-002 and 6530-003 ROM dumps. Requires later implementation of KIM-1 6530 I/O, keypad and 7-segment LED devices for full monitor usability.",
+  "memory": {
+    "ram": [
+      { "id": "main-ram", "start": "0x0000", "size": "0x0400", "description": "1 KB onboard RAM" }
+    ],
+    "rom": [
+      {
+        "id": "6530-003-monitor-rom",
+        "start": "0x1800",
+        "size": "0x0400",
+        "file": "roms/kim-1/6530-003-fillerbyte00.bin",
+        "sourceFile": "6530-003 fillerbyte00.bin",
+        "description": "Original verified 6530-003 ROM dump, mapped at $1800-$1BFF"
+      },
+      {
+        "id": "6530-002-monitor-rom",
+        "start": "0x1C00",
+        "size": "0x0400",
+        "file": "roms/kim-1/6530-002-fillerbyte00.bin",
+        "sourceFile": "6530-002 fillerbyte00.bin",
+        "description": "Original 6530-002 ROM dump, mapped at $1C00-$1FFF"
+      }
+    ],
+    "vectors": {
+      "reset": "rom-defined",
+      "nmi": "rom-defined",
+      "irq": "rom-defined"
+    }
+  },
+  "devices": [
+    {
+      "type": "kim1-6530-io",
+      "id": "kim1-riot-io",
+      "status": "not-yet-implemented",
+      "start": "0x1700",
+      "size": "0x0100",
+      "description": "Placeholder for KIM-1 6530 RAM/I/O/timer behavior. Needed for real KIM-1 monitor interaction. Exact register map must be implemented in code."
+    },
+    {
+      "type": "kim1-led-display",
+      "id": "led-display",
+      "status": "not-yet-implemented",
+      "digits": 6,
+      "description": "Six-digit seven-segment display device used by KIM-1 front panel."
+    },
+    {
+      "type": "kim1-keypad",
+      "id": "keypad",
+      "status": "not-yet-implemented",
+      "description": "KIM-1 hexadecimal keypad/front panel input device."
+    }
+  ],
+  "ui": {
+    "profileIcon": "calculator",
+    "layout": "kim1-front-panel",
+    "panels": ["cpu", "memory-map", "roms", "kim1-led-display", "kim1-keypad", "execution-control"]
+  },
+  "expectedFiles": [
+    "roms/kim-1/6530-003-fillerbyte00.bin",
+    "roms/kim-1/6530-002-fillerbyte00.bin"
+  ],
+  "notes": [
+    "Use filler byte 00 ROM dumps for emulation, not assembler-rebuilt FF filler versions.",
+    "This profile can load ROMs now, but KIM-1 monitor interaction requires 6530 I/O device support."
+  ]
+}

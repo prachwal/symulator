@@ -1,0 +1,138 @@
+@page "/retro70"
+@using CmosCpu.Computer
+@inject Retro70Service Retro70
+@implements IDisposable
+
+<div class="simulator-page">
+
+    <!-- Status bar -->
+    <div class="status-bar" style="background: #4a2d70;">
+        <span class="status-text">@(Retro70.Profile?.Name ?? "Retro70 MOS 6502")</span>
+        <span class="status-sep">|</span>
+        <span class="mono">CPU: MOS 6502</span>
+        <span class="status-sep">|</span>
+        <span class="mono">@(Retro70.Profile?.ClockHz > 0 ? $"{Retro70.Profile.ClockHz / 1000000} MHz" : "")</span>
+        <span class="status-sep">|</span>
+        <span class="mono @(Retro70.Cpu is not null && Retro70.Cpu.IsHalted ? "status-error" : "status-ok")">
+            @Retro70.StatusMessage
+        </span>
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <span class="status-sep">|</span>
+            <span class="mono status-error">@_errorMessage</span>
+        }
+    </div>
+
+    <!-- Toolbar -->
+    <div class="simulator-toolbar">
+        <button class="btn btn-primary" @onclick="LoadDefaultProfile">Load Profile</button>
+        <button class="btn" @onclick="Reset" disabled="@(!Retro70.IsLoaded)">Reset</button>
+        <span class="tb-sep"></span>
+        <button class="btn" @onclick="Step" disabled="@(!Retro70.IsLoaded)">Step</button>
+        <button class="btn btn-run" @onclick="() => Run100()" disabled="@(!Retro70.IsLoaded)">Run 100</button>
+        <button class="btn btn-run" @onclick="() => Run1000()" disabled="@(!Retro70.IsLoaded)">Run 1000</button>
+        <button class="btn" @onclick="Stop" disabled="@(!Retro70.IsLoaded)">Stop</button>
+        <span class="tb-sep"></span>
+        <button class="btn" @onclick="ClearScreen" disabled="@(!Retro70.IsLoaded)">Clear screen</button>
+    </div>
+
+    <!-- Main layout -->
+    <div style="display: flex; gap: 8px;">
+
+        <!-- Left: text screen + keyboard -->
+        <div style="flex: 1; min-width: 0;">
+            <Retro70TextScreenPanel />
+            <Retro70KeyboardPanel />
+            <Retro70BinaryLoader />
+        </div>
+
+        <!-- Right: CPU state + memory map -->
+        <div style="width: 460px; flex-shrink: 0;">
+            <Retro70CpuStatePanel />
+            <Retro70MemoryMapPanel />
+        </div>
+
+    </div>
+
+</div>
+
+@code {
+    private bool _firstLoad = true;
+    private string _errorMessage = "";
+
+    protected override void OnInitialized()
+    {
+        Retro70.StateChanged += OnStateChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _firstLoad)
+        {
+            _firstLoad = false;
+            try
+            {
+                LoadDefaultProfile();
+            }
+            catch (Exception ex)
+            {
+                _errorMessage = $"Auto-load failed: {ex.Message}";
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void LoadDefaultProfile()
+    {
+        _errorMessage = "";
+        if (!Retro70.LoadDefaultProfile())
+        {
+            _errorMessage = "Failed to load default profile";
+            StateHasChanged();
+            return;
+        }
+        Retro70.LoadMonitorRom();
+        Retro70.Reset();
+        StateHasChanged();
+    }
+
+    private void Reset()
+    {
+        Retro70.Reset();
+    }
+
+    private void Step()
+    {
+        Retro70.Step();
+    }
+
+    private void Run100()
+    {
+        Retro70.RunSteps(100);
+    }
+
+    private void Run1000()
+    {
+        Retro70.RunSteps(1000);
+    }
+
+    private void Stop()
+    {
+        Retro70.Stop();
+    }
+
+    private void ClearScreen()
+    {
+        Retro70.ClearScreen();
+    }
+
+    private void OnStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Retro70.StateChanged -= OnStateChanged;
+    }
+}

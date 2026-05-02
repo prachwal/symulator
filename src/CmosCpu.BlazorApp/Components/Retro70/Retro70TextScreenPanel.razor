@@ -1,0 +1,35 @@
+@using CmosCpu.Computer
+@inject Retro70Service Retro70
+
+@if (Retro70.TextDisplay is not null)
+{
+    var display = Retro70.TextDisplay;
+    var buffer = display.GetBuffer();
+    int width = display.Width;
+    int height = display.Height;
+
+    <div class="panel" style="margin-bottom: 8px;">
+        <div class="panel-title">Text Screen @($"{width}x{height}")</div>
+        <div class="text-screen">
+            @for (int y = 0; y < height; y++)
+            {
+                <div class="text-screen-row">
+                    @for (int x = 0; x < width; x++)
+                    {
+                        var ch = display.GetChar(x, y);
+                        <span class="text-screen-char">@ch</span>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <div class="panel" style="margin-bottom: 8px;">
+        <div class="panel-title">Text Screen</div>
+        <div style="padding: 20px; color: var(--text-dim); text-align: center;">
+            Load a profile to see the text screen
+        </div>
+    </div>
+}

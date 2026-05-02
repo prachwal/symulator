@@ -1,0 +1,86 @@
+{
+  "id": "apple-1",
+  "name": "Apple-1",
+  "family": "1970s-6502-sbc",
+  "status": "partial-profile-requires-pia-terminal-device",
+  "cpu": "mos6502",
+  "clockHz": 1023000,
+  "description": "Apple-1 profile using Woz Monitor ROM, optional BASIC ROM and Signetics 2513 character generator ROM asset. Requires a PIA/terminal device for faithful keyboard/display I/O.",
+  "memory": {
+    "ram": [
+      { "id": "low-ram", "start": "0x0000", "size": "0x2000", "description": "8 KB RAM baseline for Apple-1 style configuration" }
+    ],
+    "rom": [
+      {
+        "id": "apple1-basic",
+        "start": "0xE000",
+        "size": "0x1000",
+        "file": "roms/apple-1/apple-1-basic.bin",
+        "sourceFile": "Apple-1 BASIC ROM.bin",
+        "optional": true,
+        "description": "Apple-1 BASIC ROM, mapped at $E000-$EFFF"
+      },
+      {
+        "id": "woz-monitor",
+        "start": "0xFF00",
+        "size": "0x0100",
+        "file": "roms/apple-1/apple-1-monitor.bin",
+        "sourceFile": "Apple-1 ROM.bin",
+        "description": "Apple-1 Woz Monitor ROM, mapped at $FF00-$FFFF"
+      }
+    ],
+    "vectors": {
+      "reset": "rom-defined",
+      "nmi": "rom-defined",
+      "irq": "rom-defined"
+    }
+  },
+  "devices": [
+    {
+      "type": "apple1-pia-terminal",
+      "id": "pia-terminal",
+      "status": "not-yet-implemented",
+      "start": "0xD010",
+      "size": "0x0004",
+      "registers": {
+        "keyboardData": "0xD010",
+        "keyboardControl": "0xD011",
+        "displayData": "0xD012",
+        "displayControl": "0xD013"
+      },
+      "description": "Apple-1 style 6820/6821 PIA terminal interface. Needed for monitor I/O."
+    },
+    {
+      "type": "character-rom",
+      "id": "signetics-2513",
+      "status": "asset-only",
+      "file": "roms/apple-1/signetics-2513-video-rom.bin",
+      "sourceFile": "Signetics 2513 Video ROM.bin",
+      "size": "0x0400",
+      "description": "Signetics 2513 character generator ROM asset for video rendering; not CPU-addressable RAM/ROM."
+    },
+    {
+      "type": "text-terminal",
+      "id": "terminal-view",
+      "status": "gui-device",
+      "columns": 40,
+      "rows": 24,
+      "description": "GUI terminal panel connected through the Apple-1 PIA terminal device."
+    }
+  ],
+  "ui": {
+    "profileIcon": "terminal",
+    "layout": "apple1-terminal",
+    "panels": ["cpu", "memory-map", "roms", "terminal", "keyboard-input", "execution-control"]
+  },
+  "expectedFiles": [
+    "roms/apple-1/apple-1-monitor.bin",
+    "roms/apple-1/apple-1-basic.bin",
+    "roms/apple-1/signetics-2513-video-rom.bin"
+  ],
+  "notes": [
+    "Woz Monitor alone can be loaded at $FF00-$FFFF, but visible interaction requires Apple-1 PIA terminal emulation.",
+    "BASIC ROM is optional but included because the source file is available.",
+    "The Signetics 2513 ROM is a video character generator asset, not a normal CPU ROM region."
+  ]
+}

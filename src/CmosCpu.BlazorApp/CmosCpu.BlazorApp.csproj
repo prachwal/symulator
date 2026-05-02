@@ -8,6 +8,7 @@
     <ProjectReference Include="..\CmosCpu.Devices\CmosCpu.Devices.csproj" />
     <ProjectReference Include="..\CmosCpu.Assembler\CmosCpu.Assembler.csproj" />
     <ProjectReference Include="..\CmosCpu.Runtime\CmosCpu.Runtime.csproj" />
+    <ProjectReference Include="..\CmosCpu.Computer\CmosCpu.Computer.csproj" />
   </ItemGroup>
 
   <ItemGroup>
