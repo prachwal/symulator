@@ -113,6 +113,17 @@ public class BlazorSimulationController : IBlazorSimulationController, IDisposab
         _simulator.Step();
     }
 
+    public int RunBatch(int maxInstructions, CancellationToken token)
+    {
+        int executed = 0;
+        while (executed < maxInstructions && !token.IsCancellationRequested && !_simulator.Cpu.Halted)
+        {
+            _simulator.Step();
+            executed++;
+        }
+        return executed;
+    }
+
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         if (_runTask is not null && !_runTask.IsCompleted)
@@ -128,15 +139,26 @@ public class BlazorSimulationController : IBlazorSimulationController, IDisposab
 
     private async Task RunLoopAsync(CancellationToken token)
     {
+        const int batchSize = 100;
+        const int snapshotIntervalMs = 66;
+        var lastSnapshot = DateTime.UtcNow;
+
         try
         {
             while (!token.IsCancellationRequested && !_simulator.Cpu.Halted)
             {
-                _simulator.Step();
+                RunBatch(batchSize, token);
+
+                var now = DateTime.UtcNow;
+                if ((now - lastSnapshot).TotalMilliseconds >= snapshotIntervalMs)
+                {
+                    SnapshotChanged?.Invoke(this, _simulator.GetSnapshot());
+                    lastSnapshot = now;
+                }
 
                 if (_speedHz > 0 && _speedHz < 10000)
                 {
-                    int delayMs = 1000 / _speedHz;
+                    int delayMs = Math.Max(1, 1000 / _speedHz - snapshotIntervalMs);
                     if (delayMs > 0)
                         await Task.Delay(delayMs, token);
                 }

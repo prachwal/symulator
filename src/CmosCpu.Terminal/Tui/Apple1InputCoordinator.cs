@@ -7,6 +7,7 @@ public sealed class Apple1InputCoordinator
     private readonly Queue<char> _userQueue = new();
     private string? _pendingUserLine;
     private bool _waitingForBasicPrompt;
+    private readonly Apple1TerminalStateMachine _stateMachine = new();
 
     public Apple1TerminalMode Mode { get; private set; } = Apple1TerminalMode.Unknown;
     public bool TraceState { get; set; }
@@ -22,7 +23,8 @@ public sealed class Apple1InputCoordinator
         if (string.IsNullOrEmpty(output))
             return;
 
-        var detected = Apple1PromptDetector.DetectMode(output, Mode);
+        _stateMachine.Feed(output);
+        var detected = _stateMachine.DetectMode(Mode);
 
         if (detected != Mode)
         {
@@ -79,6 +81,7 @@ public sealed class Apple1InputCoordinator
         _userQueue.Clear();
         _pendingUserLine = null;
         _waitingForBasicPrompt = false;
+        _stateMachine.Reset();
     }
 
     private void ReleasePendingLine()

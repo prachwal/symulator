@@ -9,6 +9,7 @@ public sealed class TerminalApp
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly ISimulatorSession _session;
     private readonly CommandRouter _router;
+    private readonly TerminalScreenFactory _factory = new();
 
     public TerminalApp(ISimulatorSession session)
     {
@@ -61,10 +62,10 @@ public sealed class TerminalApp
         router.Register("speed", args => BatchCommands.HandleSpeed(s, args));
         router.Register("breakpoints", args => BatchCommands.HandleBreakpoints(s, args));
         router.Register("kim1-io", args => BatchCommands.HandleKim1Io(s, args));
-        router.Register("kim1", args => HandleKim1Tui(s, args));
+        router.Register("kim1", args => HandleTui("kim-1", s, args));
         router.Register("apple1-basic", args => BatchCommands.HandleApple1Basic(s, args));
         router.Register("apple1", args => BatchCommands.HandleApple1Basic(s, args));
-        router.Register("apple1-tui", args => HandleApple1Tui(s, args));
+        router.Register("apple1-tui", args => HandleTui("apple-1", s, args));
 
         router.RegisterAlias("?", "help");
         router.RegisterAlias("-h", "help");
@@ -79,55 +80,26 @@ public sealed class TerminalApp
         return router;
     }
 
-    private int HandleKim1Tui(ISimulatorSession session, string[] args)
+    private int HandleTui(string platformId, ISimulatorSession session, string[] args)
     {
-        string? profilePath = GetArgValue(args, "--profile") ?? "profiles/kim-1.json";
-        if (!LoadProfileForTui(session, profilePath))
-            return 1;
+        string? profilePath = GetArgValue(args, "--profile")
+            ?? (platformId == "kim-1" ? "profiles/kim-1.json" : "profiles/apple-1.json");
 
-        var machine = session.Machine!;
-        if (machine.Kim1Riot is null || machine.Kim1LedDisplay is null || machine.Kim1Keypad is null)
+        if (!TerminalScreenFactory.LoadProfileForTui(session, profilePath))
         {
-            Console.Error.WriteLine("KIM-1 profile missing required devices (RIOT, LED display, keypad)");
+            Console.Error.WriteLine($"Profile not found: {profilePath}");
             return 1;
         }
 
-        var screen = new Kim1TuiScreen();
-        screen.Run(session);
-        return 0;
-    }
-
-    private int HandleApple1Tui(ISimulatorSession session, string[] args)
-    {
-        string? profilePath = GetArgValue(args, "--profile") ?? "profiles/apple-1.json";
-        if (!LoadProfileForTui(session, profilePath))
-            return 1;
-
-        var machine = session.Machine!;
-        if (machine.Apple1Terminal is null)
+        if (!_factory.Supports(platformId))
         {
-            Console.Error.WriteLine("Apple-1 profile missing PIA terminal device");
+            Console.Error.WriteLine($"No TUI screen for platform: {platformId}");
             return 1;
         }
 
-        bool traceState = GetArgValue(args, "--trace-state") is not null &&
-                          bool.TryParse(GetArgValue(args, "--trace-state"), out var ts) && ts;
-
-        var screen = new Apple1TuiScreen { TraceState = traceState };
+        var screen = _factory.Create(platformId, args);
         screen.Run(session);
         return 0;
-    }
-
-    private static bool LoadProfileForTui(ISimulatorSession session, string profilePath)
-    {
-        if (session.IsLoaded)
-            return true;
-
-        if (File.Exists(profilePath))
-            return session.LoadProfileFromFile(profilePath);
-
-        Console.Error.WriteLine($"Profile not found: {profilePath}");
-        return false;
     }
 
     private static string? GetArgValue(string[] args, string name)
