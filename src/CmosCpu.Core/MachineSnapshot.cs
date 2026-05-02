@@ -4,5 +4,6 @@ public sealed record MachineSnapshot(
     string CpuName,
     CpuRegisters Registers,
     bool IsHalted,
-    ulong Cycle
+    ulong Cycle,
+    bool IsRunning
 );

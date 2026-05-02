@@ -16,7 +16,7 @@ public class BlazorAppTests
     public void BlazorSimulationController_Step_CallsSimulatorStep()
     {
         var simulator = new Simulator();
-        var controller = new BlazorSimulationController(simulator);
+        var controller = new BlazorSimulationController(simulator, new EmulatorUiSettings());
 
         simulator.Rom.Load(new byte[] { 0x00, 0x11 });
         controller.Reset();
@@ -31,7 +31,7 @@ public class BlazorAppTests
     public void BlazorSimulationController_Reset_CallsSimulatorReset()
     {
         var simulator = new Simulator();
-        var controller = new BlazorSimulationController(simulator);
+        var controller = new BlazorSimulationController(simulator, new EmulatorUiSettings());
 
         simulator.Vectors.Write(0xFFFC, 0x00);
         simulator.Vectors.Write(0xFFFD, 0x80);
@@ -50,7 +50,7 @@ public class BlazorAppTests
     public async Task BlazorSimulationController_Pause_StopsRunning()
     {
         var simulator = new Simulator();
-        var controller = new BlazorSimulationController(simulator);
+        var controller = new BlazorSimulationController(simulator, new EmulatorUiSettings());
 
         simulator.Rom.Load(new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00 });
         controller.Reset();
@@ -70,7 +70,7 @@ public class BlazorAppTests
     public async Task BlazorSimulationController_Stop_StopsRunning()
     {
         var simulator = new Simulator();
-        var controller = new BlazorSimulationController(simulator);
+        var controller = new BlazorSimulationController(simulator, new EmulatorUiSettings());
 
         simulator.Rom.Load(new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00 });
         controller.Reset();
@@ -216,7 +216,7 @@ public class BlazorAppTests
     public void CompileAsm_ReturnsOkForValidBlink()
     {
         var simulator = new Simulator();
-        var controller = new BlazorSimulationController(simulator);
+        var controller = new BlazorSimulationController(simulator, new EmulatorUiSettings());
 
         string source = @"
 .org 0x8000
@@ -244,7 +244,7 @@ loop:
     public void CompileAsm_ReturnsErrorsForBadLabel()
     {
         var simulator = new Simulator();
-        var controller = new BlazorSimulationController(simulator);
+        var controller = new BlazorSimulationController(simulator, new EmulatorUiSettings());
 
         string source = @"
 .org 0x8000
@@ -261,7 +261,7 @@ loop:
     public void CompileLoadResetAsm_LoadsProgramIntoSimulator()
     {
         var simulator = new Simulator();
-        var controller = new BlazorSimulationController(simulator);
+        var controller = new BlazorSimulationController(simulator, new EmulatorUiSettings());
 
         string source = @"
 .org 0x8000
@@ -280,7 +280,7 @@ loop:
     public void CompileLoadResetAsm_StepExecutesLoadedProgram()
     {
         var simulator = new Simulator();
-        var controller = new BlazorSimulationController(simulator);
+        var controller = new BlazorSimulationController(simulator, new EmulatorUiSettings());
 
         string source = @"
 .org 0x8000
@@ -332,5 +332,136 @@ loop:
                 NmiVector = 0xFFFE,
             },
         };
+    }
+}
+
+[TestClass]
+public sealed class EmulatorUiSettingsTests
+{
+    [TestMethod]
+    public void TraceLogEnabled_Default_True()
+    {
+        var s = new EmulatorUiSettings();
+        s.TraceLogEnabled.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void BusLogEnabled_Default_True()
+    {
+        var s = new EmulatorUiSettings();
+        s.BusLogEnabled.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void Changed_FiresOnChange()
+    {
+        var s = new EmulatorUiSettings();
+        int count = 0;
+        s.Changed += (_, _) => count++;
+        s.TraceLogEnabled = false;
+        count.Should().Be(1);
+    }
+
+    [TestMethod]
+    public void Changed_NotFiredWhenSameValue()
+    {
+        var s = new EmulatorUiSettings();
+        int count = 0;
+        s.Changed += (_, _) => count++;
+        s.TraceLogEnabled = true;
+        count.Should().Be(0);
+    }
+
+    [TestMethod]
+    public void MaxTraceLogEntries_Clamped()
+    {
+        var s = new EmulatorUiSettings();
+        s.MaxTraceLogEntries = -1;
+        s.MaxTraceLogEntries.Should().Be(0);
+        s.MaxTraceLogEntries = 200_000;
+        s.MaxTraceLogEntries.Should().Be(100_000);
+    }
+
+    [TestMethod]
+    public void UiRefreshIntervalMs_Clamped()
+    {
+        var s = new EmulatorUiSettings();
+        s.UiRefreshIntervalMs = 10;
+        s.UiRefreshIntervalMs.Should().Be(50);
+        s.UiRefreshIntervalMs = 10000;
+        s.UiRefreshIntervalMs.Should().Be(5000);
+    }
+}
+
+[TestClass]
+public sealed class BlazorSimulationControllerSettingsTests
+{
+    [TestMethod]
+    public void TraceLogDisabled_DoesNotEmitTraceEntry()
+    {
+        var simulator = new Simulator();
+        var settings = new EmulatorUiSettings { TraceLogEnabled = false };
+        var controller = new BlazorSimulationController(simulator, settings);
+        int count = 0;
+        controller.TraceEntryAdded += (_, _) => count++;
+
+        simulator.Rom.Load(new byte[] { 0x00 });
+        controller.Reset();
+        controller.Step();
+
+        count.Should().Be(0);
+    }
+
+    [TestMethod]
+    public void BusLogDisabled_DoesNotEmitBusTransaction()
+    {
+        var simulator = new Simulator();
+        var settings = new EmulatorUiSettings { BusLogEnabled = false };
+        var controller = new BlazorSimulationController(simulator, settings);
+        int count = 0;
+        controller.BusTransactionAdded += (_, _) => count++;
+
+        simulator.Rom.Load(new byte[] { 0x01, 0x42 });
+        controller.Reset();
+        controller.Step();
+
+        count.Should().Be(0);
+    }
+}
+
+[TestClass]
+public sealed class AddressParserTests
+{
+    [TestMethod]
+    public void Parse_0x8000_Returns0x8000()
+    {
+        AddressParser.TryParseAddress("0x8000", out var addr).Should().BeTrue();
+        addr.Should().Be(0x8000);
+    }
+
+    [TestMethod]
+    public void Parse_Dollar8000_Returns0x8000()
+    {
+        AddressParser.TryParseAddress("$8000", out var addr).Should().BeTrue();
+        addr.Should().Be(0x8000);
+    }
+
+    [TestMethod]
+    public void Parse_Bare8000_Returns0x8000()
+    {
+        AddressParser.TryParseAddress("8000", out var addr).Should().BeTrue();
+        addr.Should().Be(0x8000);
+    }
+
+    [TestMethod]
+    public void Parse_Invalid_ReturnsFalse()
+    {
+        AddressParser.TryParseAddress("xyz", out _).Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void Parse_0x10000_ReturnsFalse()
+    {
+        AddressParser.TryParseAddress("0x10000", out _).Should().BeFalse();
     }
 }

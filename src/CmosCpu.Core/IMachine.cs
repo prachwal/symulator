@@ -11,4 +11,8 @@ public interface IMachine : IResettable
     void StepCycle();
     void Run(ulong maxCycles);
     void Stop();
+
+    MachineSnapshot GetSnapshot();
+
+    event EventHandler<MachineSnapshot>? SnapshotChanged;
 }

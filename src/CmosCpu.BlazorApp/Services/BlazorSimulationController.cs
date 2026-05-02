@@ -11,6 +11,7 @@ public class BlazorSimulationController : IBlazorSimulationController, IDisposab
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly Simulator _simulator;
+    private readonly IEmulatorUiSettings _settings;
     private readonly SimpleAssembler _assembler = new();
     private CancellationTokenSource? _runCts;
     private Task? _runTask;
@@ -24,12 +25,21 @@ public class BlazorSimulationController : IBlazorSimulationController, IDisposab
     public event EventHandler<BusTransaction>? BusTransactionAdded;
     public event EventHandler<string>? StatusChanged;
 
-    public BlazorSimulationController(Simulator simulator)
+    public BlazorSimulationController(Simulator simulator, IEmulatorUiSettings settings)
     {
         _simulator = simulator;
-        _simulator.TraceExecuted += (s, e) => TraceEntryAdded?.Invoke(this, e.Entry);
+        _settings = settings;
+        _simulator.TraceExecuted += (s, e) =>
+        {
+            if (_settings.TraceLogEnabled)
+                TraceEntryAdded?.Invoke(this, e.Entry);
+        };
         _simulator.SnapshotChanged += (s, e) => SnapshotChanged?.Invoke(this, e);
-        _simulator.Bus.Transaction += (s, e) => BusTransactionAdded?.Invoke(this, e.Transaction);
+        _simulator.Bus.Transaction += (s, e) =>
+        {
+            if (_settings.BusLogEnabled)
+                BusTransactionAdded?.Invoke(this, e.Transaction);
+        };
     }
 
     public async Task LoadAsmAsync(Stream stream, string fileName, CancellationToken cancellationToken)

@@ -1,0 +1,84 @@
+@page "/settings"
+@using CmosCpu.BlazorApp.Services
+@inject IEmulatorUiSettings UiSettings
+@implements IDisposable
+
+<div class="simulator-page">
+    <div class="panel">
+        <div class="panel-title">Emulator Settings</div>
+        <p style="color: var(--text-dim); font-size: 13px;">
+            Disabling logs improves UI responsiveness during long <code>Run</code> operations.
+        </p>
+
+        <div class="sim-table-container">
+            <table class="sim-table">
+                <tbody>
+                    <tr>
+                        <td><label for="traceLog">Enable Trace Log</label></td>
+                        <td><input id="traceLog" type="checkbox" checked="@UiSettings.TraceLogEnabled"
+                               @onchange="OnTraceLogChanged" /></td>
+                    </tr>
+                    <tr>
+                        <td><label for="busLog">Enable Bus Log</label></td>
+                        <td><input id="busLog" type="checkbox" checked="@UiSettings.BusLogEnabled"
+                               @onchange="OnBusLogChanged" /></td>
+                    </tr>
+                    <tr>
+                        <td><label for="maxTrace">Max Trace Log Entries</label></td>
+                        <td><input id="maxTrace" type="number" class="tb-input" value="@UiSettings.MaxTraceLogEntries"
+                               @onchange="OnMaxTraceChanged" min="0" max="100000" /></td>
+                    </tr>
+                    <tr>
+                        <td><label for="maxBus">Max Bus Log Entries</label></td>
+                        <td><input id="maxBus" type="number" class="tb-input" value="@UiSettings.MaxBusLogEntries"
+                               @onchange="OnMaxBusChanged" min="0" max="100000" /></td>
+                    </tr>
+                    <tr>
+                        <td><label for="refreshMs">UI Refresh Interval [ms]</label></td>
+                        <td><input id="refreshMs" type="number" class="tb-input" value="@UiSettings.UiRefreshIntervalMs"
+                               @onchange="OnRefreshMsChanged" min="50" max="5000" /></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        UiSettings.Changed += OnSettingsChanged;
+    }
+
+    private void OnSettingsChanged(object? sender, EventArgs e) => InvokeAsync(StateHasChanged);
+
+    private void OnTraceLogChanged(ChangeEventArgs e)
+    {
+        if (e.Value is bool b) UiSettings.TraceLogEnabled = b;
+    }
+
+    private void OnBusLogChanged(ChangeEventArgs e)
+    {
+        if (e.Value is bool b) UiSettings.BusLogEnabled = b;
+    }
+
+    private void OnMaxTraceChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v)) UiSettings.MaxTraceLogEntries = v;
+    }
+
+    private void OnMaxBusChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v)) UiSettings.MaxBusLogEntries = v;
+    }
+
+    private void OnRefreshMsChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v)) UiSettings.UiRefreshIntervalMs = v;
+    }
+
+    public void Dispose()
+    {
+        UiSettings.Changed -= OnSettingsChanged;
+    }
+}

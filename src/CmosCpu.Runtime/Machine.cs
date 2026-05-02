@@ -17,6 +17,8 @@ public sealed class Machine : IMachine
     public bool IsRunning { get; private set; }
     public IDebugger? Debugger => _debugger;
 
+    public event EventHandler<MachineSnapshot>? SnapshotChanged;
+
     public Machine(ICpuCore cpu, IBus bus, IEnumerable<IClockedDevice> clockedDevices, IDebugger? debugger = null)
     {
         _cpu = cpu ?? throw new ArgumentNullException(nameof(cpu));
@@ -33,6 +35,8 @@ public sealed class Machine : IMachine
 
         foreach (var device in _clockedDevices.OfType<IResettable>())
             device.Reset();
+
+        EmitSnapshot();
     }
 
     public CpuStepResult StepInstruction()
@@ -47,6 +51,7 @@ public sealed class Machine : IMachine
             _cycle++;
         }
 
+        EmitSnapshot();
         return result;
     }
 
@@ -76,11 +81,28 @@ public sealed class Machine : IMachine
         }
 
         IsRunning = false;
+        EmitSnapshot();
     }
 
     public void Stop()
     {
         _stopped = true;
         IsRunning = false;
+        EmitSnapshot();
+    }
+
+    public MachineSnapshot GetSnapshot()
+    {
+        return new MachineSnapshot(
+            _cpu.Name,
+            _cpu.Registers.Clone(),
+            _cpu.IsHalted,
+            _cycle,
+            IsRunning);
+    }
+
+    private void EmitSnapshot()
+    {
+        SnapshotChanged?.Invoke(this, GetSnapshot());
     }
 }

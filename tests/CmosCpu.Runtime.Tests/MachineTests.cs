@@ -154,6 +154,42 @@ public sealed class MachineBuilderTests
     }
 
     [TestMethod]
+    public void StepCycle_IncrementsByOne()
+    {
+        var cpu = new FakeCpu { CyclesPerStep = 5 };
+        var clocked = new FakeClockedDevice();
+        var builder = new MachineBuilder();
+
+        builder.WithCpu(cpu);
+        builder.WithClockedDevice(clocked);
+        var machine = builder.Build();
+
+        machine.StepCycle();
+        clocked.TickCount.Should().Be(1);
+        machine.Cycle.Should().Be(1);
+    }
+
+    [TestMethod]
+    public void StepCycle_And_StepInstruction_Differ()
+    {
+        var cpu = new FakeCpu { CyclesPerStep = 4 };
+        var clocked = new FakeClockedDevice();
+        var builder = new MachineBuilder();
+
+        builder.WithCpu(cpu);
+        builder.WithClockedDevice(clocked);
+        var machine = builder.Build();
+
+        machine.StepCycle();
+        clocked.TickCount.Should().Be(1);
+        machine.Cycle.Should().Be(1);
+
+        machine.StepInstruction();
+        clocked.TickCount.Should().Be(5);
+        machine.Cycle.Should().Be(5);
+    }
+
+    [TestMethod]
     public void Machine_Stop_SetsIsRunningFalse()
     {
         var cpu = new FakeCpu();
@@ -406,5 +442,92 @@ public sealed class DebuggerServiceTests
         var result = machine.StepInstruction();
         result.ProgramCounterBefore.Should().Be(0x8000);
         machine.Cpu.Registers.PC.Should().Be(0x8001);
+    }
+
+    [TestMethod]
+    public void Machine_GetSnapshot_ReturnsClone()
+    {
+        var cpu = new FakeCpu();
+        var builder = new MachineBuilder();
+
+        builder.WithCpu(cpu);
+        var machine = builder.Build();
+        machine.Reset();
+
+        var snap = machine.GetSnapshot();
+        snap.Registers.PC = 0x1234;
+
+        machine.Cpu.Registers.PC.Should().Be(0x8000);
+    }
+
+    [TestMethod]
+    public void Machine_GetSnapshot_IncludesIsRunning()
+    {
+        var cpu = new FakeCpu();
+        var builder = new MachineBuilder();
+
+        builder.WithCpu(cpu);
+        var machine = builder.Build();
+        machine.Reset();
+
+        var snap = machine.GetSnapshot();
+        snap.IsRunning.Should().BeFalse();
+        snap.CpuName.Should().Be("Fake CPU");
+    }
+
+    [TestMethod]
+    public void Machine_Reset_EmitsSnapshot()
+    {
+        var cpu = new FakeCpu();
+        var builder = new MachineBuilder();
+        builder.WithCpu(cpu);
+        var machine = builder.Build();
+
+        MachineSnapshot? emitted = null;
+        machine.SnapshotChanged += (_, s) => emitted = s;
+
+        machine.Reset();
+
+        emitted.Should().NotBeNull();
+        emitted!.Cycle.Should().Be(0);
+    }
+
+    [TestMethod]
+    public void Machine_StepInstruction_EmitsSnapshot()
+    {
+        var cpu = new FakeCpu();
+        var builder = new MachineBuilder();
+        builder.WithCpu(cpu);
+        var machine = builder.Build();
+
+        MachineSnapshot? emitted = null;
+        machine.SnapshotChanged += (_, s) => emitted = s;
+
+        machine.Reset();
+        emitted = null;
+        machine.StepInstruction();
+
+        emitted.Should().NotBeNull();
+        emitted!.Cycle.Should().Be(1);
+    }
+
+    [TestMethod]
+    public void Machine_Stop_EmitsSnapshot()
+    {
+        var cpu = new FakeCpu();
+        var builder = new MachineBuilder();
+        builder.WithCpu(cpu);
+        var machine = builder.Build();
+
+        MachineSnapshot? emitted = null;
+        machine.SnapshotChanged += (_, s) => emitted = s;
+
+        machine.Reset();
+        machine.Run(5);
+        emitted = null;
+        machine.Stop();
+
+        emitted.Should().NotBeNull();
+        emitted!.Cycle.Should().Be(5);
     }
 }

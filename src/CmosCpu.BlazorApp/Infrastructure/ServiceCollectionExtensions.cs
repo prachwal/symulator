@@ -15,13 +15,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IProgramUploadService, ProgramUploadService>();
         services.AddSingleton<IBlazorSimulationController, BlazorSimulationController>();
 
+        services.AddSingleton<IDebugger, DebuggerService>();
         services.AddSingleton<IMachineProfile, Educational8BitMachineProfile>();
         services.AddSingleton<IMachineBuilder, MachineBuilder>();
         services.AddSingleton<IMachine>(sp =>
         {
             var profile = sp.GetRequiredService<IMachineProfile>();
             var builder = sp.GetRequiredService<IMachineBuilder>();
+            var dbg = sp.GetRequiredService<IDebugger>();
             profile.Configure(builder);
+            builder.WithDebugger(dbg);
             return builder.Build();
         });
         services.AddSingleton<IMemoryMap>(sp =>
@@ -29,6 +32,8 @@ public static class ServiceCollectionExtensions
             var profile = sp.GetRequiredService<IMachineProfile>();
             return profile.CreateMemoryMap();
         });
+
+        services.AddSingleton<IEmulatorUiSettings, EmulatorUiSettings>();
 
         return services;
     }
