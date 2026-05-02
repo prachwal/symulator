@@ -20,6 +20,10 @@ public sealed class Mos6502Cpu
     public bool Overflow { get; private set; }
     public bool Negative { get; private set; }
 
+    /// <summary>
+    /// CycleCount tracks documented instruction cycles, including branch/page-cross penalties.
+    /// It does not model every individual bus read/write cycle.
+    /// </summary>
     public ulong CycleCount { get; private set; }
     public bool IsHalted { get; set; }
 

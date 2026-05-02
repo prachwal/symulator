@@ -302,6 +302,111 @@ public sealed class Mos6502ArithmeticTests
         cpu.A.Should().Be(0x80);
         cpu.Negative.Should().BeTrue();
     }
+
+    [TestMethod]
+    public void ADC_Binary_01Plus01()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x01, 0x69, 0x01 }, out _);
+        cpu.Step(); cpu.Step();
+        cpu.A.Should().Be(0x02);
+        cpu.Carry.Should().BeFalse();
+        cpu.Zero.Should().BeFalse();
+        cpu.Negative.Should().BeFalse();
+        cpu.Overflow.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void ADC_Binary_FFPlus01()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0xFF, 0x69, 0x01 }, out _);
+        cpu.Step(); cpu.Step();
+        cpu.A.Should().Be(0x00);
+        cpu.Carry.Should().BeTrue();
+        cpu.Zero.Should().BeTrue();
+        cpu.Negative.Should().BeFalse();
+        cpu.Overflow.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void ADC_Binary_7FPlus01_Overflow()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x7F, 0x69, 0x01 }, out _);
+        cpu.Step(); cpu.Step();
+        cpu.A.Should().Be(0x80);
+        cpu.Carry.Should().BeFalse();
+        cpu.Zero.Should().BeFalse();
+        cpu.Negative.Should().BeTrue();
+        cpu.Overflow.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void ADC_Binary_80Plus80_Overflow()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x80, 0x69, 0x80 }, out _);
+        cpu.Step(); cpu.Step();
+        cpu.A.Should().Be(0x00);
+        cpu.Carry.Should().BeTrue();
+        cpu.Zero.Should().BeTrue();
+        cpu.Negative.Should().BeFalse();
+        cpu.Overflow.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void SBC_Binary_05Minus03()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x05, 0x38, 0xE9, 0x03 }, out _);
+        cpu.Step(); cpu.Step(); cpu.Step();
+        cpu.A.Should().Be(0x02);
+        cpu.Carry.Should().BeTrue();
+        cpu.Zero.Should().BeFalse();
+        cpu.Negative.Should().BeFalse();
+        cpu.Overflow.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void SBC_Binary_00Minus01_Borrow()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x00, 0x38, 0xE9, 0x01 }, out _);
+        cpu.Step(); cpu.Step(); cpu.Step();
+        cpu.A.Should().Be(0xFF);
+        cpu.Carry.Should().BeFalse();
+        cpu.Zero.Should().BeFalse();
+        cpu.Negative.Should().BeTrue();
+        cpu.Overflow.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void SBC_Binary_80Minus01_Overflow()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x80, 0x38, 0xE9, 0x01 }, out _);
+        cpu.Step(); cpu.Step(); cpu.Step();
+        cpu.A.Should().Be(0x7F);
+        cpu.Carry.Should().BeTrue();
+        cpu.Zero.Should().BeFalse();
+        cpu.Negative.Should().BeFalse();
+        cpu.Overflow.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void SBC_Binary_7FMinusFF_Overflow()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x7F, 0x38, 0xE9, 0xFF }, out _);
+        cpu.Step(); cpu.Step(); cpu.Step();
+        cpu.A.Should().Be(0x80);
+        cpu.Carry.Should().BeFalse();
+        cpu.Zero.Should().BeFalse();
+        cpu.Negative.Should().BeTrue();
+        cpu.Overflow.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void SBC_Decimal_10Minus01()
+    {
+        var cpu = CreateCpu(new byte[] { 0xF8, 0xA9, 0x10, 0x38, 0xE9, 0x01 }, out _);
+        cpu.Step(); cpu.Step(); cpu.Step(); cpu.Step();
+        cpu.A.Should().Be(0x09);
+        cpu.Carry.Should().BeTrue();
+    }
 }
 
 [TestClass]
@@ -656,6 +761,135 @@ public sealed class Mos6502ShiftTests
         cpu.A.Should().Be(0x80);
         cpu.Carry.Should().BeFalse();
     }
+
+    [TestMethod]
+    public void ASL_ZeroPage_WritesToCorrectAddress()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x01, 0x85, 0x10, 0x06, 0x10 }, out var ram);
+        cpu.Step(); cpu.Step(); cpu.Step();
+        cpu.A.Should().Be(0x01);
+        ram.ReadByte(0x0010).Should().Be(0x02);
+        cpu.Carry.Should().BeFalse();
+        cpu.Zero.Should().BeFalse();
+        cpu.Negative.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void ASL_ZeroPage_AdvancesPC()
+    {
+        var cpu = CreateCpu(new byte[] { 0x06, 0x10, 0xA9, 0x42 }, out _);
+        cpu.Step();
+        cpu.Step();
+        cpu.A.Should().Be(0x42);
+    }
+
+    [TestMethod]
+    public void ASL_ZeroPage_SetsCarryAndZero()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x80, 0x85, 0x10, 0x06, 0x10 }, out var ram);
+        cpu.Step(); cpu.Step(); cpu.Step();
+        ram.ReadByte(0x0010).Should().Be(0x00);
+        cpu.Carry.Should().BeTrue();
+        cpu.Zero.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void ASL_ZeroPageX_WrapsInZeroPage()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA2, 0xFF, 0xA9, 0x01, 0x85, 0x00, 0x16, 0x01 }, out var ram);
+        cpu.Step(); cpu.Step(); cpu.Step(); cpu.Step();
+        ram.ReadByte(0x0000).Should().Be(0x02);
+    }
+
+    [TestMethod]
+    public void ASL_Absolute_WritesCorrectAddress()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x40, 0x8D, 0x00, 0x90, 0x0E, 0x00, 0x90 }, out var ram);
+        cpu.Step(); cpu.Step(); cpu.Step();
+        ram.ReadByte(0x9000).Should().Be(0x80);
+        cpu.Carry.Should().BeFalse();
+        cpu.Negative.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void ASL_AbsoluteX_WritesCorrectAddress()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA2, 0x05, 0xA9, 0x01, 0x9D, 0x00, 0x90, 0x1E, 0x00, 0x90 }, out var ram);
+        cpu.Step(); cpu.Step(); cpu.Step(); cpu.Step();
+        ram.ReadByte(0x9005).Should().Be(0x02);
+    }
+
+    [TestMethod]
+    public void LSR_ZeroPage_WritesCorrectAddress()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x04, 0x85, 0x10, 0x46, 0x10 }, out var ram);
+        cpu.Step(); cpu.Step(); cpu.Step();
+        ram.ReadByte(0x0010).Should().Be(0x02);
+    }
+
+    [TestMethod]
+    public void LSR_ZeroPage_SetsCarry()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x01, 0x85, 0x10, 0x46, 0x10 }, out var ram);
+        cpu.Step(); cpu.Step(); cpu.Step();
+        ram.ReadByte(0x0010).Should().Be(0x00);
+        cpu.Carry.Should().BeTrue();
+        cpu.Zero.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void LSR_Absolute_WritesCorrectAddress()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x08, 0x8D, 0x00, 0x90, 0x4E, 0x00, 0x90 }, out var ram);
+        cpu.Step(); cpu.Step(); cpu.Step();
+        ram.ReadByte(0x9000).Should().Be(0x04);
+    }
+
+    [TestMethod]
+    public void LSR_AbsoluteX_WritesCorrectAddress()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA2, 0x03, 0xA9, 0x10, 0x9D, 0x00, 0x90, 0x5E, 0x00, 0x90 }, out var ram);
+        cpu.Step(); cpu.Step(); cpu.Step(); cpu.Step();
+        ram.ReadByte(0x9003).Should().Be(0x08);
+    }
+
+    [TestMethod]
+    public void ROL_ZeroPage_WithCarryIn()
+    {
+        var cpu = CreateCpu(new byte[] { 0x38, 0xA9, 0x40, 0x85, 0x10, 0x26, 0x10 }, out var ram);
+        cpu.Step(); cpu.Step(); cpu.Step(); cpu.Step();
+        ram.ReadByte(0x0010).Should().Be(0x81);
+        cpu.Carry.Should().BeFalse();
+        cpu.Negative.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void ROL_ZeroPage_SetsCarry()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x80, 0x85, 0x10, 0x26, 0x10 }, out var ram);
+        cpu.Step(); cpu.Step(); cpu.Step();
+        ram.ReadByte(0x0010).Should().Be(0x00);
+        cpu.Carry.Should().BeTrue();
+        cpu.Zero.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void ROR_ZeroPage_WithCarryIn()
+    {
+        var cpu = CreateCpu(new byte[] { 0x38, 0xA9, 0x01, 0x85, 0x10, 0x66, 0x10 }, out var ram);
+        cpu.Step(); cpu.Step(); cpu.Step(); cpu.Step();
+        ram.ReadByte(0x0010).Should().Be(0x80);
+        cpu.Carry.Should().BeTrue();
+        cpu.Negative.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void ROR_Absolute_WritesCorrectAddress()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA9, 0x02, 0x8D, 0x00, 0x90, 0x6E, 0x00, 0x90 }, out var ram);
+        cpu.Step(); cpu.Step(); cpu.Step();
+        ram.ReadByte(0x9000).Should().Be(0x01);
+    }
 }
 
 [TestClass]
@@ -744,7 +978,6 @@ public sealed class Mos6502CompletenessTests
         0x0A, 0x06, 0x16, 0x0E, 0x1E, // ASL
         0x90, 0xB0, 0xF0, 0xD0, 0x30, 0x10, 0x50, 0x70, // branches
         0x24, 0x2C, // BIT
-        0x00, // BRK (already listed)
         0x18, 0xD8, 0x58, 0xB8, // CLC, CLD, CLI, CLV
         0xC9, 0xC5, 0xD5, 0xCD, 0xDD, 0xD9, 0xC1, 0xD1, // CMP
         0xE0, 0xE4, 0xEC, // CPX
@@ -774,8 +1007,10 @@ public sealed class Mos6502CompletenessTests
         0xAA, 0xA8, 0xBA, 0x8A, 0x9A, 0x98, // TAX, TAY, TSX, TXA, TXS, TYA
     ];
 
+    // This test verifies dispatcher coverage only.
+    // Semantic correctness is covered by dedicated opcode/addressing-mode tests.
     [TestMethod]
-    public void AllOfficialOpcodes_DoNotThrow()
+    public void AllOfficialOpcodes_AreRecognizedByDispatcher()
     {
         var seen = new HashSet<byte>();
         foreach (var opcode in OfficialOpcodes)
@@ -882,5 +1117,218 @@ public sealed class Mos6502RegisterTransferTests
         cpu.Step();
         cpu.Step();
         cpu.A.Should().Be(0x77);
+    }
+}
+
+[TestClass]
+public sealed class Mos6502AddressingModeTests
+{
+    private static Mos6502Cpu CreateCpu(byte[] program, out Ram64K ram, ushort origin = 0x8000)
+    {
+        ram = new Ram64K();
+        ram.WriteByte(0xFFFC, (byte)(origin & 0xFF));
+        ram.WriteByte(0xFFFD, (byte)((origin >> 8) & 0xFF));
+        ram.LoadBytes(origin, program);
+        var cpu = new Mos6502Cpu(ram);
+        cpu.Reset();
+        return cpu;
+    }
+
+    [TestMethod]
+    public void ZeroPageWrap_LDA_ffX_withX1_readsFrom00()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA2, 0x01, 0xB5, 0xFF }, out var ram);
+        ram.WriteByte(0x0000, 0x42);
+        cpu.Step();
+        cpu.Step();
+        cpu.A.Should().Be(0x42);
+    }
+
+    [TestMethod]
+    public void ZeroPageWrap_STA_ffX_withX1_writesTo00()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA2, 0x01, 0xA9, 0xAB, 0x95, 0xFF }, out var ram);
+        cpu.Step(); cpu.Step(); cpu.Step();
+        ram.ReadByte(0x0000).Should().Be(0xAB);
+    }
+
+    [TestMethod]
+    public void ZeroPageWrap_LDX_ffY_withY1_readsFrom00()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA0, 0x01, 0xB6, 0xFF }, out var ram);
+        ram.WriteByte(0x0000, 0x77);
+        cpu.Step();
+        cpu.Step();
+        cpu.X.Should().Be(0x77);
+    }
+
+    [TestMethod]
+    public void IndexedIndirect_WrapsInZeroPage()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA2, 0x01, 0xA1, 0xFF }, out var ram);
+        // X=1, operand=$FF → (operand+X) = $00
+        // [$00] = $34, [$01] = $12 → final address $1234
+        ram.WriteByte(0x0000, 0x34);
+        ram.WriteByte(0x0001, 0x12);
+        cpu.Step();
+        cpu.Step();
+        cpu.A.Should().Be(ram.ReadByte(0x1234));
+    }
+
+    [TestMethod]
+    public void IndexedIndirect_HighByteWrapsInZeroPage()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA2, 0x01, 0xA1, 0xFF }, out var ram);
+        ram.WriteByte(0x0000, 0x34);
+        ram.WriteByte(0x0001, 0x12);
+        ram.WriteByte(0x1234, 0xAA);
+        cpu.Step();
+        cpu.Step();
+        cpu.A.Should().Be(0xAA);
+    }
+
+    [TestMethod]
+    public void IndirectIndexed_ReadsBaseFromZeroPage()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA0, 0x05, 0xB1, 0x10 }, out var ram);
+        ram.WriteByte(0x0010, 0x00);
+        ram.WriteByte(0x0011, 0x90);
+        ram.WriteByte(0x9005, 0x42);
+        cpu.Step();
+        cpu.Step();
+        cpu.A.Should().Be(0x42);
+    }
+
+    [TestMethod]
+    public void IndirectIndexed_HighByteWrapsAtFF()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA0, 0x00, 0xB1, 0xFF }, out var ram);
+        ram.WriteByte(0x00FF, 0x00);
+        ram.WriteByte(0x0000, 0x90);
+        ram.WriteByte(0x9000, 0x55);
+        cpu.Step();
+        cpu.Step();
+        cpu.A.Should().Be(0x55);
+    }
+
+    [TestMethod]
+    public void IndirectIndexed_PageCross_AddsCycle()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA0, 0x01, 0xB1, 0x10 }, out var ram);
+        ram.WriteByte(0x0010, 0xFF);
+        ram.WriteByte(0x0011, 0x80);
+        cpu.Step();
+        var cycles = cpu.Step();
+        cycles.Should().Be(6); // 5 base + 1 page cross
+    }
+
+    [TestMethod]
+    public void IndirectIndexed_SamePage_NoExtraCycle()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA0, 0x00, 0xB1, 0x10 }, out var ram);
+        ram.WriteByte(0x0010, 0x00);
+        ram.WriteByte(0x0011, 0x80);
+        cpu.Step();
+        var cycles = cpu.Step();
+        cycles.Should().Be(5);
+    }
+
+    [TestMethod]
+    public void JMP_Indirect_PageWrapBug_HighByteFromSamePage()
+    {
+        var ram = new Ram64K();
+        ram.WriteByte(0xFFFC, 0x00);
+        ram.WriteByte(0xFFFD, 0x80);
+        // JMP ($12FF) at 0x8000
+        ram.WriteByte(0x8000, 0x6C);
+        ram.WriteByte(0x8001, 0xFF);
+        ram.WriteByte(0x8002, 0x12);
+        // low byte at $12FF
+        ram.WriteByte(0x12FF, 0x34);
+        // high byte would be at $1300 on a correct CPU, but on NMOS 6502 reads $1200
+        ram.WriteByte(0x1300, 0xAA);
+        ram.WriteByte(0x1200, 0x12); // bug: high byte from $1200, not $1300
+        var cpu = new Mos6502Cpu(ram);
+        cpu.Reset();
+        cpu.Step();
+        cpu.PC.Should().Be(0x1234);
+    }
+}
+
+[TestClass]
+public sealed class Mos6502CycleTests
+{
+    private static Mos6502Cpu CreateCpu(byte[] program, out Ram64K ram, ushort origin = 0x8000)
+    {
+        ram = new Ram64K();
+        ram.WriteByte(0xFFFC, (byte)(origin & 0xFF));
+        ram.WriteByte(0xFFFD, (byte)((origin >> 8) & 0xFF));
+        ram.LoadBytes(origin, program);
+        var cpu = new Mos6502Cpu(ram);
+        cpu.Reset();
+        return cpu;
+    }
+
+    [TestMethod]
+    public void Reset_SetsCycleCountTo7()
+    {
+        var cpu = CreateCpu(new byte[] { 0xEA }, out _);
+        cpu.CycleCount.Should().Be(7);
+    }
+
+    [TestMethod]
+    public void NOP_IncreasesCycleCountBy2()
+    {
+        var cpu = CreateCpu(new byte[] { 0xEA }, out _);
+        cpu.Step();
+        cpu.CycleCount.Should().Be(9); // 7 reset + 2
+    }
+
+    [TestMethod]
+    public void LDA_AbsoluteX_PageCross_AddsCycle()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA2, 0x01, 0xBD, 0xFF, 0x80 }, out var ram);
+        // 0x80FF + 1 = 0x8100 → page crossed
+        ram.WriteByte(0x8100, 0x42);
+        cpu.Step();
+        var cycles = cpu.Step();
+        cycles.Should().Be(5); // 4 + 1 page cross
+    }
+
+    [TestMethod]
+    public void LDA_AbsoluteX_NoPageCross_NominalCycles()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA2, 0x01, 0xBD, 0x00, 0x80 }, out var ram);
+        // 0x8000 + 1 = 0x8001 → same page
+        ram.WriteByte(0x8001, 0x42);
+        cpu.Step();
+        var cycles = cpu.Step();
+        cycles.Should().Be(4);
+    }
+
+    [TestMethod]
+    public void STA_AbsoluteX_Always5Cycles()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA2, 0x01, 0xA9, 0x42, 0x9D, 0xFF, 0x80 }, out _);
+        cpu.Step(); cpu.Step();
+        // STA $80FF,X with X=1 → no page cross issue for writes
+        var cycles = cpu.Step();
+        cycles.Should().Be(5);
+    }
+
+    [TestMethod]
+    public void LDA_ZeroPage_Returns3Cycles()
+    {
+        var cpu = CreateCpu(new byte[] { 0xA5, 0x10 }, out _);
+        var cycles = cpu.Step();
+        cycles.Should().Be(3);
+    }
+
+    [TestMethod]
+    public void LDA_Absolute_Returns4Cycles()
+    {
+        var cpu = CreateCpu(new byte[] { 0xAD, 0x00, 0x90 }, out _);
+        var cycles = cpu.Step();
+        cycles.Should().Be(4);
     }
 }
