@@ -1,4 +1,4 @@
-namespace CmosCpu.Terminal.Tui.Apple1;
+namespace Symulator.Application.Models;
 
 public enum Apple1TerminalMode
 {

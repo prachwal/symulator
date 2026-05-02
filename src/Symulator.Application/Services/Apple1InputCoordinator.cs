@@ -1,6 +1,7 @@
 using System.IO;
+using Symulator.Application.Models;
 
-namespace CmosCpu.Terminal.Tui.Apple1;
+namespace Symulator.Application.Services;
 
 public sealed class Apple1InputCoordinator
 {

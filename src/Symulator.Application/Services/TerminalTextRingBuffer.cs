@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace CmosCpu.Terminal.Tui.Common;
+namespace Symulator.Application.Services;
 
 public sealed class TerminalTextRingBuffer
 {

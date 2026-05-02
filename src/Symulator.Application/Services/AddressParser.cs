@@ -1,4 +1,4 @@
-namespace CmosCpu.Terminal;
+namespace Symulator.Application.Services;
 
 public static class AddressParser
 {

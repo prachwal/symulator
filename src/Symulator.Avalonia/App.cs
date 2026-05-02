@@ -8,7 +8,7 @@ using Symulator.Avalonia.Views;
 
 namespace Symulator.Avalonia;
 
-public class App : Application
+public class App : global::Avalonia.Application
 {
     public override void Initialize()
     {

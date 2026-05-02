@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Symulator.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CmosCpu.Core\CmosCpu.Core.csproj" />
+    <ProjectReference Include="..\CmosCpu.Computer\CmosCpu.Computer.csproj" />
+    <ProjectReference Include="..\CmosCpu.Runtime\CmosCpu.Runtime.csproj" />
+    <ProjectReference Include="..\CmosCpu.Cpu\CmosCpu.Cpu.csproj" />
+    <ProjectReference Include="..\CmosCpu.Bus\CmosCpu.Bus.csproj" />
+    <ProjectReference Include="..\CmosCpu.Memory\CmosCpu.Memory.csproj" />
+    <ProjectReference Include="..\CmosCpu.Devices\CmosCpu.Devices.csproj" />
+    <ProjectReference Include="..\CmosCpu.Assembler\CmosCpu.Assembler.csproj" />
+  </ItemGroup>
+
+</Project>

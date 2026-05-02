@@ -1,4 +1,6 @@
-namespace CmosCpu.Terminal.Tui.Apple1;
+using Symulator.Application.Models;
+
+namespace Symulator.Application.Services;
 
 public static class Apple1PromptDetector
 {
