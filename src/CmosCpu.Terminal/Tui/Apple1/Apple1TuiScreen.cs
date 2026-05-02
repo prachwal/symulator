@@ -13,18 +13,16 @@ public sealed class Apple1TuiScreen : ITerminalScreen
     private ISimulatorSession _session = null!;
     private ComputerMachine _machine = null!;
     private Apple1PiaTerminalDevice _terminal = null!;
-    private View _statusView = null!;
-    private View _registersView = null!;
-    private View _flagsView = null!;
-    private View _instructionsView = null!;
-    private View _modeView = null!;
-    private View _helpView = null!;
     private TextView _terminalOutput = null!;
+    private View _promptView = null!;
     private TextField _inputField = null!;
+    private TerminalCpuPanel _cpuPanel = null!;
+    private TerminalHelpBar _helpBar = null!;
     private int _lastOutputOffset;
     private ulong _startCycle;
     private int _maxCycles = 10000000;
     private object _timerToken = null!;
+    private TerminalRunLoopOptions _loopOptions = TerminalRunLoopOptions.Default;
 
     private readonly Queue<char> _inputQueue = new();
     private int _cycleBudget;
@@ -42,46 +40,95 @@ public sealed class Apple1TuiScreen : ITerminalScreen
     {
         _session = session;
         _machine = session.Machine!;
-        _terminal = _machine.Apple1Terminal!;
+
+        if (_machine.Apple1Terminal is null)
+        {
+            Console.Error.WriteLine("Apple-1 profile missing required device: apple1-pia-terminal");
+            return;
+        }
+
+        _terminal = _machine.Apple1Terminal;
         _lastOutputOffset = _terminal.OutputLength;
         _startCycle = _machine.Cpu.CycleCount;
         _coordinator.Reset();
+        _maxCycles = _loopOptions.MaxCycles;
 
         Application.Init();
+        try
+        {
+            var top = new Window { Title = "Apple-1 Terminal", X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
+            top.KeyDown += OnTopKeyDown;
+            TerminalGuiColorScheme.Apply(top);
 
-        var top = new Window { Title = "Apple-1 Terminal", X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
-        top.KeyDown += OnTopKeyDown;
-        TerminalGuiColorScheme.Apply(top);
+            BuildLayout(top);
 
-        var terminalFrame = new FrameView { Title = "Terminal Output", X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Percent(55) };
-        _terminalOutput = new TextView { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), ReadOnly = true, WordWrap = true, Text = _terminal.Text };
+            _timerToken = Application.TimedEvents.Add(_loopOptions.RefreshInterval, OnTimer);
+            _inputField.SetFocus();
+
+            Application.Run(top);
+        }
+        finally
+        {
+            Application.Shutdown();
+        }
+    }
+
+    private void BuildLayout(Window top)
+    {
+        var terminalFrame = new FrameView
+        {
+            Title = "Apple-1 Display",
+            X = 0,
+            Y = 0,
+            Width = Dim.Percent(70),
+            Height = Dim.Fill(4)
+        };
+        _terminalOutput = new TextView
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            ReadOnly = true,
+            WordWrap = true
+        };
         terminalFrame.Add(_terminalOutput);
-        top.Add(terminalFrame);
 
-        _inputField = new TextField { X = 0, Y = Pos.Bottom(terminalFrame), Width = Dim.Fill(), Height = 1 };
+        _cpuPanel = new TerminalCpuPanel("CPU / State");
+        _cpuPanel.Frame.X = Pos.Right(terminalFrame);
+        _cpuPanel.Frame.Y = 0;
+        _cpuPanel.Frame.Width = Dim.Fill();
+        _cpuPanel.Frame.Height = Dim.Fill(4);
+
+        var inputFrame = new FrameView
+        {
+            Title = "Input",
+            X = 0,
+            Y = Pos.Bottom(terminalFrame),
+            Width = Dim.Fill(),
+            Height = 3
+        };
+
+        _promptView = new View
+        {
+            Text = GetPromptPrefix(),
+            X = 0,
+            Y = 0,
+            Width = 10
+        };
+        _inputField = new TextField
+        {
+            X = Pos.Right(_promptView),
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = 1
+        };
         _inputField.KeyDown += OnInputKey;
-        top.Add(_inputField);
+        inputFrame.Add(_promptView, _inputField);
 
-        var infoFrame = new FrameView { Title = "CPU", X = 0, Y = Pos.Bottom(_inputField), Width = Dim.Fill(), Height = 3 };
-        _modeView = new View { Text = $"Mode: {FormatMode(_coordinator.Mode)}", X = 0, Y = 0, Width = Dim.Fill() };
-        _registersView = new View { Text = TerminalGuiRenderer.FormatRegistersLine(_machine.Cpu), X = 0, Y = 1, Width = Dim.Fill() };
-        infoFrame.Add(_modeView, _registersView);
-        top.Add(infoFrame);
+        _helpBar = new TerminalHelpBar("Esc/Q:Exit  F10:Step  Ctrl+L:Clear  Ctrl+R:Reset");
 
-        _flagsView = new View { Text = TerminalGuiRenderer.FormatFlags(_machine.Cpu), X = 0, Y = Pos.Bottom(infoFrame), Width = Dim.Fill() };
-        top.Add(_flagsView);
-
-        _statusView = new View { Text = $"Status: {TerminalGuiRenderer.FormatStatus(false, _machine.Cpu.IsHalted)}", X = 0, Y = Pos.Bottom(_flagsView), Width = Dim.Fill() };
-        _instructionsView = new View { Text = $"Instructions: {_session.TotalInstructionsExecuted}", X = 0, Y = Pos.Bottom(_statusView), Width = Dim.Fill() };
-        _helpView = new View { Text = "Esc/Q:Exit  Ctrl+L:Clear  Ctrl+R:Reset", X = 0, Y = Pos.Bottom(_instructionsView), Width = Dim.Fill() };
-        top.Add(_statusView, _instructionsView, _helpView);
-
-        _timerToken = Application.TimedEvents.Add(TimeSpan.FromMilliseconds(16), OnTimer);
-
-        _inputField.SetFocus();
-
-        Application.Run(top);
-        Application.Shutdown();
+        top.Add(terminalFrame, _cpuPanel.Frame, inputFrame, _helpBar.View);
     }
 
     private void OnTopKeyDown(object? sender, Key keyEvent)
@@ -95,6 +142,11 @@ public sealed class Apple1TuiScreen : ITerminalScreen
         }
         else if (keyEvent == Key.R.WithCtrl)
             ResetMachine();
+        else if (keyEvent == Key.F10)
+        {
+            _machine.Step();
+            UpdateDisplay();
+        }
     }
 
     private void ResetMachine()
@@ -118,7 +170,7 @@ public sealed class Apple1TuiScreen : ITerminalScreen
             return true;
         }
 
-        for (int i = 0; i < 100; i++)
+        for (int i = 0; i < _loopOptions.InstructionsPerTick; i++)
         {
             _machine.Step();
 
@@ -168,11 +220,14 @@ public sealed class Apple1TuiScreen : ITerminalScreen
             _coordinator.OnOutput(output);
         }
 
-        _modeView.Text = $"Mode: {FormatMode(_coordinator.Mode)}  |  Waiting: {(_coordinator.WaitingForPrompt ? "YES" : "NO")}";
-        _registersView.Text = TerminalGuiRenderer.FormatRegistersLine(_machine.Cpu);
-        _flagsView.Text = TerminalGuiRenderer.FormatFlags(_machine.Cpu);
-        _statusView.Text = $"Status: {TerminalGuiRenderer.FormatStatus(false, _machine.Cpu.IsHalted)}";
-        _instructionsView.Text = $"Instructions: {_session.TotalInstructionsExecuted}";
+        _promptView.Text = GetPromptPrefix();
+
+        _cpuPanel.Update(
+            _machine.Cpu,
+            _session.TotalInstructionsExecuted,
+            isRunning: !_machine.Cpu.IsHalted,
+            mode: FormatMode(_coordinator.Mode),
+            waiting: _coordinator.WaitingForPrompt);
     }
 
     private static string FormatMode(Apple1TerminalMode mode) => mode switch
