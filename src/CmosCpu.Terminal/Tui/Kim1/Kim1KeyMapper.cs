@@ -1,6 +1,6 @@
 using System.Collections.Frozen;
 
-namespace CmosCpu.Terminal.Tui;
+namespace CmosCpu.Terminal.Tui.Kim1;
 
 public static class Kim1KeyMapper
 {

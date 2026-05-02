@@ -1,4 +1,6 @@
 using CmosCpu.Computer;
+using CmosCpu.Terminal.Tui.Apple1;
+using CmosCpu.Terminal.Tui.Common;
 using NLog;
 
 namespace CmosCpu.Terminal.Tui;

@@ -115,6 +115,9 @@ public class BlazorSimulationController : IBlazorSimulationController, IDisposab
 
     public int RunBatch(int maxInstructions, CancellationToken token)
     {
+        if (maxInstructions <= 0)
+            return 0;
+
         int executed = 0;
         while (executed < maxInstructions && !token.IsCancellationRequested && !_simulator.Cpu.Halted)
         {

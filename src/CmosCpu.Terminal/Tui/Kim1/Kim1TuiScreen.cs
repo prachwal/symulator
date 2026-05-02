@@ -1,11 +1,12 @@
 using CmosCpu.Computer;
 using CmosCpu.Terminal.Session;
+using CmosCpu.Terminal.Tui.Common;
 using Terminal.Gui.Input;
 using Terminal.Gui.Views;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.App;
 
-namespace CmosCpu.Terminal.Tui;
+namespace CmosCpu.Terminal.Tui.Kim1;
 
 public sealed class Kim1TuiScreen : ITerminalScreen
 {

@@ -2,7 +2,7 @@ using CmosCpu.Cpu;
 using Terminal.Gui.Views;
 using Terminal.Gui.ViewBase;
 
-namespace CmosCpu.Terminal.Tui;
+namespace CmosCpu.Terminal.Tui.Common;
 
 public static class TerminalGuiRenderer
 {

@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace CmosCpu.Terminal.Tui;
+namespace CmosCpu.Terminal.Tui.Apple1;
 
 public sealed class Apple1TerminalStateMachine
 {
@@ -36,12 +36,6 @@ public sealed class Apple1TerminalStateMachine
 
         if (LooksLikeWozPrompt(tail))
             return Apple1TerminalMode.WozMonitor;
-
-        if (currentMode is Apple1TerminalMode.Booting or Apple1TerminalMode.Unknown)
-        {
-            if (tail.Contains('\\') || tail.Contains('>'))
-                return Apple1TerminalMode.WozMonitor;
-        }
 
         return currentMode;
     }

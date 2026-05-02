@@ -1,11 +1,12 @@
 using CmosCpu.Computer;
 using CmosCpu.Terminal.Session;
+using CmosCpu.Terminal.Tui.Common;
 using Terminal.Gui.Input;
 using Terminal.Gui.Views;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.App;
 
-namespace CmosCpu.Terminal.Tui;
+namespace CmosCpu.Terminal.Tui.Apple1;
 
 public sealed class Apple1TuiScreen : ITerminalScreen
 {
@@ -72,7 +73,7 @@ public sealed class Apple1TuiScreen : ITerminalScreen
 
         _statusView = new View { Text = $"Status: {TerminalGuiRenderer.FormatStatus(false, _machine.Cpu.IsHalted)}", X = 0, Y = Pos.Bottom(_flagsView), Width = Dim.Fill() };
         _instructionsView = new View { Text = $"Instructions: {_session.TotalInstructionsExecuted}", X = 0, Y = Pos.Bottom(_statusView), Width = Dim.Fill() };
-        _helpView = new View { Text = "Esc/Q:Exit  Ctrl+L:Clear  Ctrl+R:Reset  F10:Step", X = 0, Y = Pos.Bottom(_instructionsView), Width = Dim.Fill() };
+        _helpView = new View { Text = "Esc/Q:Exit  Ctrl+L:Clear  Ctrl+R:Reset", X = 0, Y = Pos.Bottom(_instructionsView), Width = Dim.Fill() };
         top.Add(_statusView, _instructionsView, _helpView);
 
         _timerToken = Application.TimedEvents.Add(TimeSpan.FromMilliseconds(16), OnTimer);
@@ -100,9 +101,12 @@ public sealed class Apple1TuiScreen : ITerminalScreen
     {
         _machine.Reset();
         _coordinator.Reset();
+        _outputBuffer.Clear();
+        _terminalOutput.Text = string.Empty;
         if (_machine.Apple1Terminal is not null)
             _lastOutputOffset = _machine.Apple1Terminal.OutputLength;
         _startCycle = _machine.Cpu.CycleCount;
+        AppendOutput("*** RESET ***\n");
     }
 
     private bool OnTimer()

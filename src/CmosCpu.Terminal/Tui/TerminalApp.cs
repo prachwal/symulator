@@ -1,5 +1,6 @@
 using CmosCpu.Terminal.Commands;
 using CmosCpu.Terminal.Session;
+using CmosCpu.Terminal.Tui.Common;
 using NLog;
 
 namespace CmosCpu.Terminal.Tui;
@@ -83,13 +84,10 @@ public sealed class TerminalApp
     private int HandleTui(string platformId, ISimulatorSession session, string[] args)
     {
         string? profilePath = GetArgValue(args, "--profile")
-            ?? (platformId == "kim-1" ? "profiles/kim-1.json" : "profiles/apple-1.json");
+            ?? _factory.GetDefaultProfilePath(platformId);
 
-        if (!TerminalScreenFactory.LoadProfileForTui(session, profilePath))
-        {
-            Console.Error.WriteLine($"Profile not found: {profilePath}");
+        if (profilePath is null || !TerminalProfileLoader.LoadIfNeeded(session, profilePath))
             return 1;
-        }
 
         if (!_factory.Supports(platformId))
         {

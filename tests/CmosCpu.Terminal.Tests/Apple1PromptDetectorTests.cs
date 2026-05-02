@@ -1,4 +1,4 @@
-using CmosCpu.Terminal.Tui;
+using CmosCpu.Terminal.Tui.Apple1;
 using FluentAssertions;
 
 namespace CmosCpu.Terminal.Tests;

@@ -1,6 +1,6 @@
 using CmosCpu.Terminal.Session;
 
-namespace CmosCpu.Terminal.Tui;
+namespace CmosCpu.Terminal.Tui.Common;
 
 public interface ITerminalScreen
 {

@@ -1,6 +1,6 @@
 using System.IO;
 
-namespace CmosCpu.Terminal.Tui;
+namespace CmosCpu.Terminal.Tui.Apple1;
 
 public sealed class Apple1InputCoordinator
 {

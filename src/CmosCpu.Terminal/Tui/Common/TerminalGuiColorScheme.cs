@@ -1,4 +1,4 @@
-namespace CmosCpu.Terminal.Tui;
+namespace CmosCpu.Terminal.Tui.Common;
 
 public static class TerminalGuiColorScheme
 {

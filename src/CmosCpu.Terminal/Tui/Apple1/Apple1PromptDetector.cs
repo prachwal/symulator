@@ -1,4 +1,4 @@
-namespace CmosCpu.Terminal.Tui;
+namespace CmosCpu.Terminal.Tui.Apple1;
 
 public static class Apple1PromptDetector
 {

@@ -1,7 +1,7 @@
 using System.Reflection;
 using CmosCpu.Core;
 using CmosCpu.Cpu;
-using CmosCpu.Terminal.Tui;
+using CmosCpu.Terminal.Tui.Common;
 using FluentAssertions;
 using Moq;
 

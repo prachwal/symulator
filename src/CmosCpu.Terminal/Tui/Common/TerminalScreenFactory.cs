@@ -1,30 +1,34 @@
-using CmosCpu.Terminal.Session;
+using CmosCpu.Terminal.Tui.Apple1;
+using CmosCpu.Terminal.Tui.Kim1;
 
-namespace CmosCpu.Terminal.Tui;
+namespace CmosCpu.Terminal.Tui.Common;
 
 public sealed class TerminalScreenFactory : ITerminalScreenFactory
 {
-    private static readonly Dictionary<string, Func<string[], ITerminalScreen>> Creators = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, TerminalPlatformDescriptor> Platforms = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["apple-1"] = CreateApple1,
-        ["kim-1"] = CreateKim1,
+        ["apple-1"] = new("apple-1", "profiles/apple-1.json", CreateApple1),
+        ["kim-1"] = new("kim-1", "profiles/kim-1.json", CreateKim1),
     };
 
     public ITerminalScreen Create(string platformId)
     {
-        if (Creators.TryGetValue(platformId, out var factory))
-            return factory([]);
+        if (Platforms.TryGetValue(platformId, out var descriptor))
+            return descriptor.CreateScreen([]);
         throw new ArgumentException($"Unknown platform: {platformId}", nameof(platformId));
     }
 
     public ITerminalScreen Create(string platformId, string[] args)
     {
-        if (Creators.TryGetValue(platformId, out var factory))
-            return factory(args);
+        if (Platforms.TryGetValue(platformId, out var descriptor))
+            return descriptor.CreateScreen(args);
         throw new ArgumentException($"Unknown platform: {platformId}", nameof(platformId));
     }
 
-    public bool Supports(string platformId) => Creators.ContainsKey(platformId);
+    public bool Supports(string platformId) => Platforms.ContainsKey(platformId);
+
+    public string? GetDefaultProfilePath(string platformId) =>
+        Platforms.TryGetValue(platformId, out var descriptor) ? descriptor.DefaultProfilePath : null;
 
     private static ITerminalScreen CreateApple1(string[] args)
     {
@@ -37,17 +41,6 @@ public sealed class TerminalScreenFactory : ITerminalScreenFactory
     private static ITerminalScreen CreateKim1(string[] args)
     {
         return new Kim1TuiScreen();
-    }
-
-    public static bool LoadProfileForTui(ISimulatorSession session, string profilePath)
-    {
-        if (session.IsLoaded)
-            return true;
-
-        if (File.Exists(profilePath))
-            return session.LoadProfileFromFile(profilePath);
-
-        return false;
     }
 
     private static string? GetArgValue(string[] args, string name)
