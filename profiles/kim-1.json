@@ -15,7 +15,7 @@
         "id": "6530-003-monitor-rom",
         "start": "0x1800",
         "size": "0x0400",
-        "file": "roms/kim-1/6530-003-fillerbyte00.bin",
+        "file": "roms/kim-1/6530-003 fillerbyte00.bin",
         "sourceFile": "6530-003 fillerbyte00.bin",
         "description": "Original verified 6530-003 ROM dump, mapped at $1800-$1BFF"
       },
@@ -23,7 +23,7 @@
         "id": "6530-002-monitor-rom",
         "start": "0x1C00",
         "size": "0x0400",
-        "file": "roms/kim-1/6530-002-fillerbyte00.bin",
+        "file": "roms/kim-1/6530-002 fillerbyte00.bin",
         "sourceFile": "6530-002 fillerbyte00.bin",
         "description": "Original 6530-002 ROM dump, mapped at $1C00-$1FFF"
       }
@@ -63,8 +63,8 @@
     "panels": ["cpu", "memory-map", "roms", "kim1-led-display", "kim1-keypad", "execution-control"]
   },
   "expectedFiles": [
-    "roms/kim-1/6530-003-fillerbyte00.bin",
-    "roms/kim-1/6530-002-fillerbyte00.bin"
+    "roms/kim-1/6530-003 fillerbyte00.bin",
+    "roms/kim-1/6530-002 fillerbyte00.bin"
   ],
   "notes": [
     "Use filler byte 00 ROM dumps for emulation, not assembler-rebuilt FF filler versions.",

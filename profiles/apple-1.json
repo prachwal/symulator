@@ -15,7 +15,7 @@
         "id": "apple1-basic",
         "start": "0xE000",
         "size": "0x1000",
-        "file": "roms/apple-1/apple-1-basic.bin",
+        "file": "roms/apple-1/Apple-1 BASIC ROM.bin",
         "sourceFile": "Apple-1 BASIC ROM.bin",
         "optional": true,
         "description": "Apple-1 BASIC ROM, mapped at $E000-$EFFF"
@@ -24,7 +24,7 @@
         "id": "woz-monitor",
         "start": "0xFF00",
         "size": "0x0100",
-        "file": "roms/apple-1/apple-1-monitor.bin",
+        "file": "roms/apple-1/Apple-1 ROM.bin",
         "sourceFile": "Apple-1 ROM.bin",
         "description": "Apple-1 Woz Monitor ROM, mapped at $FF00-$FFFF"
       }
@@ -50,7 +50,7 @@
       "type": "character-rom",
       "id": "signetics-2513",
       "status": "asset-only",
-      "file": "roms/apple-1/signetics-2513-video-rom.bin",
+        "file": "roms/apple-1/Signetics 2513 Video ROM.bin",
       "sourceFile": "Signetics 2513 Video ROM.bin",
       "size": "0x0400",
       "description": "Signetics 2513 character generator ROM asset for video rendering; not CPU-addressable RAM/ROM."
@@ -70,9 +70,9 @@
     "panels": ["cpu", "memory-map", "roms", "terminal", "keyboard-input", "execution-control"]
   },
   "expectedFiles": [
-    "roms/apple-1/apple-1-monitor.bin",
-    "roms/apple-1/apple-1-basic.bin",
-    "roms/apple-1/signetics-2513-video-rom.bin"
+    "roms/apple-1/Apple-1 ROM.bin",
+    "roms/apple-1/Apple-1 BASIC ROM.bin",
+    "roms/apple-1/Signetics 2513 Video ROM.bin"
   ],
   "notes": [
     "Woz Monitor alone can be loaded at $FF00-$FFFF, but visible interaction requires Apple-1 PIA terminal emulation.",

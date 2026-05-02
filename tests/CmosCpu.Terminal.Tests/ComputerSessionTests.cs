@@ -50,14 +50,15 @@ public sealed class ComputerSessionTests
         var session = new ComputerSession();
         session.LoadProfile(TestProfile);
 
-        session.Step();
-        ushort pcAfterStep = session.Machine!.Cpu.PC;
+        ushort pcBefore = session.Machine!.Cpu.PC;
+        ulong cyclesBefore = session.Machine.Cpu.CycleCount;
 
+        session.Step();
         session.Reset();
-        // After reset, CPU reads reset vector from 0xFFFC-0xFFFD
-        // Without ROM, these are 0x0000, so PC = 0x0000
-        // Reset adds 7 cycles
-        session.Machine.Cpu.PC.Should().Be(0x0000);
+
+        // Reset restores PC and cycle count to initial values
+        session.Machine.Cpu.PC.Should().Be(pcBefore);
+        session.Machine.Cpu.CycleCount.Should().Be(cyclesBefore);
     }
 
     [TestMethod]

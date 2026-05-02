@@ -39,6 +39,8 @@ public sealed class ComputerSession : ISimulatorSession
         var machine = new ComputerMachine(result.Profile);
         _controller.SetMachine(machine);
         _currentProfileJson = jsonOrFilePath;
+        TryLoadProfileRoms(machine, result.Profile);
+        machine.Reset();
         Logger.Info("Loaded profile: {Profile}", result.Profile.Name);
         return true;
     }
@@ -62,15 +64,14 @@ public sealed class ComputerSession : ISimulatorSession
         var machine = new ComputerMachine(result.Profile);
         _controller.SetMachine(machine);
         Logger.Info("Loaded profile from file: {Path} -> {Profile}", path, result.Profile.Name);
+        TryLoadProfileRoms(machine, result.Profile);
+        machine.Reset();
         return true;
     }
 
     public void Reset()
     {
-        if (_controller.Machine is null) return;
-        _controller.Stop();
-        _controller.Machine.Reset();
-        _controller.SetMachine(_controller.Machine);
+        _controller.Machine?.Reset();
         Logger.Info("Machine reset");
     }
 
@@ -156,5 +157,35 @@ public sealed class ComputerSession : ISimulatorSession
         _controller.Machine.Reset();
         Logger.Info("Compiled and loaded {Bytes} bytes at 0x8000", binary.Length);
         return true;
+    }
+
+    private static void TryLoadProfileRoms(ComputerMachine machine, ComputerProfile profile)
+    {
+        if (profile.Memory?.Rom is null) return;
+
+        string baseDir = Directory.GetCurrentDirectory();
+        foreach (var rom in profile.Memory.Rom)
+        {
+            if (string.IsNullOrEmpty(rom.File)) continue;
+
+            string romPath = Path.Combine(baseDir, rom.File);
+            if (!File.Exists(romPath))
+            {
+                Logger.Debug("ROM file not found: {Path}", romPath);
+                continue;
+            }
+
+            try
+            {
+                byte[] data = File.ReadAllBytes(romPath);
+                var start = ComputerProfileLoader.ParseHex(rom.Start!);
+                machine.Memory.LoadRom(start, data);
+                Logger.Info("Loaded ROM: {File} ({Bytes} bytes at 0x{Addr:X4})", rom.File, data.Length, start);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("Failed to load ROM {File}: {Error}", rom.File, ex.Message);
+            }
+        }
     }
 }

@@ -15,10 +15,18 @@ public static class BatchCommands
     private const int ExitAsmError = 4;
     private const int ExitUnsupported = 5;
 
-    private static bool EnsureLoaded(ISimulatorSession session)
+    private static bool EnsureLoaded(ISimulatorSession session, string[]? args = null)
     {
         if (session.IsLoaded)
             return true;
+
+        string? profilePath = args is not null ? GetArgValue(args, "--profile") : null;
+        if (profilePath is not null)
+        {
+            if (File.Exists(profilePath))
+                return session.LoadProfileFromFile(profilePath);
+            return session.LoadProfile(profilePath);
+        }
 
         const string defaultJson = """
         {
@@ -83,7 +91,7 @@ public static class BatchCommands
 
     public static int HandleState(ISimulatorSession session, string[] args)
     {
-        if (!EnsureLoaded(session))
+        if (!EnsureLoaded(session, args))
         {
             Console.Error.WriteLine("Failed to load default profile");
             return ExitValidationError;
@@ -162,7 +170,7 @@ public static class BatchCommands
 
     public static int HandleReset(ISimulatorSession session, string[] args)
     {
-        if (!EnsureLoaded(session))
+        if (!EnsureLoaded(session, args))
         {
             Console.Error.WriteLine("No profile loaded");
             return ExitValidationError;
@@ -174,7 +182,7 @@ public static class BatchCommands
 
     public static int HandleStep(ISimulatorSession session, string[] args)
     {
-        if (!EnsureLoaded(session))
+        if (!EnsureLoaded(session, args))
         {
             Console.Error.WriteLine("Failed to load profile");
             return ExitValidationError;
@@ -212,7 +220,7 @@ public static class BatchCommands
 
     public static int HandleRun(ISimulatorSession session, string[] args)
     {
-        if (!EnsureLoaded(session))
+        if (!EnsureLoaded(session, args))
         {
             Console.Error.WriteLine("Failed to load profile");
             return ExitValidationError;
@@ -267,7 +275,7 @@ public static class BatchCommands
 
     public static int HandleRegisters(ISimulatorSession session, string[] args)
     {
-        if (!EnsureLoaded(session) || session.Machine is null)
+        if (!EnsureLoaded(session, args) || session.Machine is null)
         {
             Console.Error.WriteLine("Failed to load profile");
             return ExitValidationError;
@@ -279,7 +287,7 @@ public static class BatchCommands
 
     public static int HandleMemory(ISimulatorSession session, string[] args)
     {
-        if (!EnsureLoaded(session) || session.Machine is null)
+        if (!EnsureLoaded(session, args) || session.Machine is null)
         {
             Console.Error.WriteLine("Failed to load profile");
             return ExitValidationError;
@@ -309,7 +317,7 @@ public static class BatchCommands
 
     public static int HandleStack(ISimulatorSession session, string[] args)
     {
-        if (!EnsureLoaded(session) || session.Machine is null)
+        if (!EnsureLoaded(session, args) || session.Machine is null)
         {
             Console.Error.WriteLine("Failed to load profile");
             return ExitValidationError;
@@ -321,7 +329,7 @@ public static class BatchCommands
 
     public static int HandleTerminal(ISimulatorSession session, string[] args)
     {
-        if (!EnsureLoaded(session) || session.Machine is null)
+        if (!EnsureLoaded(session, args) || session.Machine is null)
         {
             Console.Error.WriteLine("Failed to load profile");
             return ExitValidationError;
@@ -341,7 +349,7 @@ public static class BatchCommands
 
     public static int HandleLoad(ISimulatorSession session, string[] args)
     {
-        if (!EnsureLoaded(session))
+        if (!EnsureLoaded(session, args))
         {
             Console.Error.WriteLine("Failed to load profile");
             return ExitValidationError;
@@ -384,7 +392,7 @@ public static class BatchCommands
 
     public static int HandleLoadRom(ISimulatorSession session, string[] args)
     {
-        if (!EnsureLoaded(session))
+        if (!EnsureLoaded(session, args))
         {
             Console.Error.WriteLine("Failed to load profile");
             return ExitValidationError;
@@ -427,7 +435,7 @@ public static class BatchCommands
 
     public static int HandleSave(ISimulatorSession session, string[] args)
     {
-        if (!EnsureLoaded(session))
+        if (!EnsureLoaded(session, args))
         {
             Console.Error.WriteLine("Failed to load profile");
             return ExitValidationError;
@@ -471,7 +479,7 @@ public static class BatchCommands
 
     public static int HandleAsm(ISimulatorSession session, string[] args)
     {
-        if (!EnsureLoaded(session))
+        if (!EnsureLoaded(session, args))
         {
             Console.Error.WriteLine("Failed to load profile");
             return ExitValidationError;
@@ -535,7 +543,7 @@ public static class BatchCommands
 
     public static int HandleBreakpoints(ISimulatorSession session, string[] args)
     {
-        if (!EnsureLoaded(session) || session.Machine is null)
+        if (!EnsureLoaded(session, args) || session.Machine is null)
         {
             Console.Error.WriteLine("No profile loaded");
             return ExitValidationError;
