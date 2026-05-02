@@ -40,11 +40,19 @@
   "devices": [
     {
       "type": "kim1-6530-io",
-      "id": "kim1-riot-io",
+      "id": "kim1-riot-002",
       "status": "implemented",
       "start": "0x1700",
       "size": "0x0100",
-      "description": "KIM-1 6530 RAM/I/O/timer behavior. Minimal register map for monitor interaction."
+      "description": "KIM-1 6530-002 RAM/I/O/timer behavior. Port A = keypad column outputs, Port B = LED segment outputs."
+    },
+    {
+      "type": "kim1-6530-003-io",
+      "id": "kim1-riot-003",
+      "status": "implemented",
+      "start": "0x1400",
+      "size": "0x0100",
+      "description": "KIM-1 6530-003 RAM/I/O/timer behavior. Port A = keypad row inputs, Port B = cassette/RS-232."
     },
     {
       "type": "kim1-led-display",

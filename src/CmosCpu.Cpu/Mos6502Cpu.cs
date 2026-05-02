@@ -5,6 +5,7 @@ namespace CmosCpu.Cpu;
 public sealed class Mos6502Cpu
 {
     private readonly IMemoryBus _bus;
+    private bool _irqLineActive;
 
     public byte A { get; private set; }
     public byte X { get; private set; }
@@ -47,6 +48,7 @@ public sealed class Mos6502Cpu
         Negative = false;
         CycleCount = 0;
         IsHalted = false;
+        _irqLineActive = false;
         PC = ReadWord(0xFFFC);
         CycleCount += 7;
     }
@@ -61,7 +63,18 @@ public sealed class Mos6502Cpu
 
         int cycles = Execute(opcode);
         CycleCount += (ulong)cycles;
+
+        if (_irqLineActive && !InterruptDisable)
+        {
+            Irq();
+        }
+
         return cycles;
+    }
+
+    public void SetIrqLine(bool active)
+    {
+        _irqLineActive = active;
     }
 
     public void Nmi()

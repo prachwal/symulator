@@ -60,6 +60,7 @@ public sealed class TerminalApp
         router.Register("asm", args => BatchCommands.HandleAsm(s, args));
         router.Register("speed", args => BatchCommands.HandleSpeed(s, args));
         router.Register("breakpoints", args => BatchCommands.HandleBreakpoints(s, args));
+        router.Register("kim1-io", args => BatchCommands.HandleKim1Io(s, args));
 
         router.RegisterAlias("?", "help");
         router.RegisterAlias("-h", "help");

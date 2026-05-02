@@ -11,6 +11,7 @@ public sealed class ComputerMachine
     public TextDisplayRegion? TextDisplay { get; private set; }
     public KeyboardRegion? Keyboard { get; private set; }
     public Kim1Riot6530IoDevice? Kim1Riot { get; private set; }
+    public Kim1Riot6530IoDevice? Kim1Riot003 { get; private set; }
     public Kim1LedDisplayState? Kim1LedDisplay { get; private set; }
     public Kim1KeypadState? Kim1Keypad { get; private set; }
     public Apple1PiaTerminalDevice? Apple1Terminal { get; private set; }
@@ -32,7 +33,19 @@ public sealed class ComputerMachine
 
     public int Step()
     {
-        return Cpu.Step();
+        bool irqPending = (Kim1Riot is not null && Kim1Riot.IrqPending)
+                       || (Kim1Riot003 is not null && Kim1Riot003.IrqPending);
+        Cpu.SetIrqLine(irqPending);
+
+        int cycles = Cpu.Step();
+
+        if (cycles > 0)
+        {
+            Kim1Riot?.Tick(cycles);
+            Kim1Riot003?.Tick(cycles);
+        }
+
+        return cycles;
     }
 
     public void RunSteps(int maxSteps)
@@ -130,12 +143,22 @@ public sealed class ComputerMachine
             }
             case "kim1-6530-io":
             {
-                var riot = new Kim1Riot6530IoDevice();
+                var start = ComputerProfileLoader.ParseHex(dev.Start!);
+                var size = string.IsNullOrEmpty(dev.Size) ? (ushort)0x0100 : ComputerProfileLoader.ParseHex(dev.Size!);
+                var riot = new Kim1Riot6530IoDevice(start, (ushort)(start + size - 1));
                 Kim1Riot = riot;
                 if (Kim1Keypad is not null)
                     riot.Keypad = Kim1Keypad;
-                Memory.MapDevice(riot.StartAddress, (ushort)(riot.EndAddress - riot.StartAddress + 1),
-                    riot.Read, riot.Write);
+                Memory.MapDevice(start, size, riot.Read, riot.Write);
+                break;
+            }
+            case "kim1-6530-003-io":
+            {
+                var start = ComputerProfileLoader.ParseHex(dev.Start!);
+                var size = string.IsNullOrEmpty(dev.Size) ? (ushort)0x0100 : ComputerProfileLoader.ParseHex(dev.Size!);
+                var riot = new Kim1Riot6530IoDevice(start, (ushort)(start + size - 1));
+                Kim1Riot003 = riot;
+                Memory.MapDevice(start, size, riot.Read, riot.Write);
                 break;
             }
             case "kim1-led-display":

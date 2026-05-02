@@ -41,17 +41,21 @@ public sealed class Kim1DeviceTests
     }
 
     [TestMethod]
-    public void Kim1Io_ReadWrite_RegisterRoundtrip()
+    public void Kim1Io_PortA_WithDDR_ReturnsWrittenValue()
     {
         var riot = new Kim1Riot6530IoDevice();
-
+        riot.Write(0x1701, 0xFF); // DDRA = all outputs
         riot.Write(0x1700, 0xAB);
-        riot.Write(0x1710, 0xCD);
-        riot.Write(0x17FF, 0xEF);
 
         riot.Read(0x1700).Should().Be(0xAB);
-        riot.Read(0x1710).Should().Be(0xCD);
-        riot.Read(0x17FF).Should().Be(0xEF);
+    }
+
+    [TestMethod]
+    public void Kim1Io_DDR_RegisterRoundtrip()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1701, 0xAB);
+        riot.Read(0x1701).Should().Be(0xAB);
     }
 
     [TestMethod]
@@ -60,14 +64,164 @@ public sealed class Kim1DeviceTests
         var riot = new Kim1Riot6530IoDevice();
 
         long v0 = riot.Version;
-        riot.Write(0x1700, 0x42);
+        riot.Write(0x1701, 0x42);
         riot.Version.Should().Be(v0 + 1);
 
-        riot.Write(0x1700, 0x42);
+        riot.Write(0x1701, 0x42);
         riot.Version.Should().Be(v0 + 1);
 
-        riot.Write(0x1700, 0xFF);
+        riot.Write(0x1701, 0xFF);
         riot.Version.Should().Be(v0 + 2);
+    }
+
+    [TestMethod]
+    public void Kim1Io_PortA_InputBitsComeFromExternalInput()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1701, 0xF0); // upper nibble output, lower nibble input
+        riot.Write(0x1700, 0xFF); // output latch = all ones
+        riot.SetPortAInput(0x0A); // lower input bits = 1010
+
+        byte result = riot.Read(0x1700);
+        result.Should().Be(0xFA); // upper = latch(FF), lower = input(0A)
+    }
+
+    [TestMethod]
+    public void Kim1Io_PortB_WithDDR_ReturnsWrittenValue()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1703, 0xFF); // DDRB = all outputs
+        riot.Write(0x1702, 0xCD);
+
+        riot.Read(0x1702).Should().Be(0xCD);
+    }
+
+    [TestMethod]
+    public void Kim1Io_PortB_MixedDDR()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1703, 0x0F); // lower nibble output, upper nibble input
+        riot.Write(0x1702, 0xFF); // output latch = all ones
+        riot.SetPortBInput(0xB0); // upper input bits = 1011
+
+        byte result = riot.Read(0x1702);
+        result.Should().Be(0xBF); // upper = input(B0), lower = latch(FF)
+    }
+
+    [TestMethod]
+    public void Kim1Io_TimerWritePrescaler1_TicksCorrectly()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1704, 10); // load timer = 10, prescaler /1
+
+        riot.Tick(5);
+        riot.TimerValue.Should().Be(5);
+
+        riot.Tick(5);
+        riot.TimerValue.Should().Be(0);
+        riot.TimerUnderflow.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void Kim1Io_TimerPrescaler8_TicksCorrectly()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1705, 5); // load timer = 5, prescaler /8
+
+        riot.Tick(40); // 5 * 8 = 40 cycles to underflow
+        riot.TimerValue.Should().Be(0);
+        riot.TimerUnderflow.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void Kim1Io_TimerPrescaler64_TicksCorrectly()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1706, 3); // load timer, prescaler /64
+
+        riot.Tick(192); // 3 * 64 = 192 cycles
+        riot.TimerValue.Should().Be(0);
+        riot.TimerUnderflow.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void Kim1Io_TimerPrescaler1024_TicksCorrectly()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1707, 2); // load timer, prescaler /1024
+
+        riot.Tick(2048); // 2 * 1024 = 2048 cycles
+        riot.TimerValue.Should().Be(0);
+        riot.TimerUnderflow.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void Kim1Io_TimerUnderflow_SetsIrqPending_WhenIrqEnabled()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1708, 5); // load timer=5, prescaler /1, IRQ enabled
+
+        riot.Tick(5);
+        riot.TimerUnderflow.Should().BeTrue();
+        riot.IrqPending.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void Kim1Io_TimerUnderflow_DoesNotSetIrqPending_WhenIrqDisabled()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1704, 5); // load timer=5, prescaler /1, IRQ NOT enabled
+
+        riot.Tick(5);
+        riot.TimerUnderflow.Should().BeTrue();
+        riot.IrqPending.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void Kim1Io_ReadTimerFlagRegister_ClearsUnderflowAndIrq()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1708, 5);
+        riot.Tick(5);
+        riot.TimerUnderflow.Should().BeTrue();
+
+        riot.Read(0x1705);
+        riot.TimerUnderflow.Should().BeFalse();
+        riot.IrqPending.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void Kim1Io_TimerWrite_AfterUnderflow_RestartsTimer()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1704, 2);
+        riot.Tick(2);
+        riot.TimerUnderflow.Should().BeTrue();
+
+        riot.Write(0x1704, 10);
+        riot.TimerUnderflow.Should().BeFalse();
+        riot.TimerValue.Should().Be(10);
+    }
+
+    [TestMethod]
+    public void Kim1Io_IrqEnable_WriteTo08_EnablesIrq()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.IrqEnabled.Should().BeFalse();
+
+        riot.Write(0x1708, 10);
+        riot.IrqEnabled.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void Kim1Io_IrqDisable_WriteTo09_DisablesIrq()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1708, 10);
+        riot.IrqEnabled.Should().BeTrue();
+
+        riot.Write(0x1709, 0);
+        riot.IrqEnabled.Should().BeFalse();
     }
 
     [TestMethod]
@@ -109,6 +263,7 @@ public sealed class Kim1DeviceTests
         machine.Should().NotBeNull();
         machine.Profile.Id.Should().Be("kim-1");
         machine.Kim1Riot.Should().NotBeNull();
+        machine.Kim1Riot003.Should().BeNull();
         machine.Kim1LedDisplay.Should().NotBeNull();
         machine.Kim1Keypad.Should().NotBeNull();
     }
@@ -118,11 +273,14 @@ public sealed class Kim1DeviceTests
     {
         var machine = ComputerMachineFactory.CreateFromProfile(Kim1Profile);
 
+        machine.Kim1Riot!.Write(0x1701, 0xFF); // DDRA all outputs
         machine.Memory.WriteByte(0x1700, 0x55);
-        machine.Memory.WriteByte(0x17FF, 0xAA);
 
         machine.Memory.ReadByte(0x1700).Should().Be(0x55);
-        machine.Memory.ReadByte(0x17FF).Should().Be(0xAA);
+
+        machine.Kim1Riot.Write(0x1703, 0xFF); // DDRB all outputs
+        machine.Memory.WriteByte(0x1702, 0xAA);
+        machine.Memory.ReadByte(0x1702).Should().Be(0xAA);
     }
 
     [TestMethod]

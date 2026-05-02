@@ -69,6 +69,7 @@ public static class BatchCommands
         Console.WriteLine("  memory       - Show memory hex dump");
         Console.WriteLine("  stack        - Show stack");
         Console.WriteLine("  breakpoints  - Planned, not yet implemented");
+        Console.WriteLine("  kim1-io      - Show KIM-1 RIOT 6530 I/O state");
         Console.WriteLine("  terminal     - Show terminal I/O");
         Console.WriteLine("  load         - Load binary file");
         Console.WriteLine("  load-rom     - Load ROM binary");
@@ -545,6 +546,44 @@ public static class BatchCommands
     {
         Console.WriteLine("Breakpoints: not implemented in CPU core yet.");
         Console.WriteLine("Use register/memory watch manually via step and registers.");
+        return ExitSuccess;
+    }
+
+    public static int HandleKim1Io(ISimulatorSession session, string[] args)
+    {
+        if (!EnsureLoaded(session, args) || session.Machine is null)
+        {
+            Console.Error.WriteLine("Failed to load profile");
+            return ExitValidationError;
+        }
+
+        var riot = session.Machine.Kim1Riot;
+        var riot003 = session.Machine.Kim1Riot003;
+
+        if (riot is null && riot003 is null)
+        {
+            Console.WriteLine("No KIM-1 RIOT 6530 devices in current profile");
+            return ExitSuccess;
+        }
+
+        if (riot is not null)
+        {
+            Console.WriteLine("=== 6530-002 (0x1700) ===");
+            Console.WriteLine($"  Port A Data:     0x{riot.PortAData:X2}  DDR: 0x{riot.PortADdr:X2}  Input: 0x{riot.PortAInputValue:X2}");
+            Console.WriteLine($"  Port B Data:     0x{riot.PortBData:X2}  DDR: 0x{riot.PortBDdr:X2}  Input: 0x{riot.PortBInputValue:X2}");
+            Console.WriteLine($"  Timer Counter:   {riot.TimerValue}  Prescaler: /{riot.TimerPrescalerDivider}");
+            Console.WriteLine($"  Timer Underflow: {riot.TimerUnderflow}  IRQ Pending: {riot.IrqPending}  IRQ Enabled: {riot.IrqEnabled}");
+        }
+
+        if (riot003 is not null)
+        {
+            Console.WriteLine("=== 6530-003 (0x1400) ===");
+            Console.WriteLine($"  Port A Data:     0x{riot003.PortAData:X2}  DDR: 0x{riot003.PortADdr:X2}  Input: 0x{riot003.PortAInputValue:X2}");
+            Console.WriteLine($"  Port B Data:     0x{riot003.PortBData:X2}  DDR: 0x{riot003.PortBDdr:X2}  Input: 0x{riot003.PortBInputValue:X2}");
+            Console.WriteLine($"  Timer Counter:   {riot003.TimerValue}  Prescaler: /{riot003.TimerPrescalerDivider}");
+            Console.WriteLine($"  Timer Underflow: {riot003.TimerUnderflow}  IRQ Pending: {riot003.IrqPending}  IRQ Enabled: {riot003.IrqEnabled}");
+        }
+
         return ExitSuccess;
     }
 
