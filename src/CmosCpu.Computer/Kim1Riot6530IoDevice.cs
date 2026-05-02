@@ -12,12 +12,17 @@ public sealed class Kim1Riot6530IoDevice
     private byte _portBDdr;
     private byte _portAInput;
     private byte _portBInput;
+    private readonly byte[] _internalRam = new byte[128];
+
     private int _timerCounter;
     private int _timerPrescalerDivider;
     private int _timerPrescalerCounter;
     private bool _timerUnderflow;
-    private bool _irqEnabled;
-    private bool _irqPending;
+    private bool _timerIrqEnabled;
+    private bool _timerIrqPending;
+
+    private byte _prevPa7Input;
+    private bool _pa7IrqPending;
 
     private ushort _startAddress;
     private ushort _endAddress;
@@ -27,7 +32,7 @@ public sealed class Kim1Riot6530IoDevice
     public ushort EndAddress => _endAddress;
     public long Version => _version;
 
-    public bool IrqPending => _irqPending && _irqEnabled;
+    public bool IrqPending => (_timerIrqPending && _timerIrqEnabled) || _pa7IrqPending;
     public int TimerValue => _timerCounter;
     public int TimerPrescalerDivider => _timerPrescalerDivider;
     public bool TimerUnderflow => _timerUnderflow;
@@ -37,7 +42,10 @@ public sealed class Kim1Riot6530IoDevice
     public byte PortBDdr => _portBDdr;
     public byte PortAInputValue => _portAInput;
     public byte PortBInputValue => _portBInput;
-    public bool IrqEnabled => _irqEnabled;
+    public bool TimerIrqEnabled => _timerIrqEnabled;
+    public bool TimerIrqPendingRaw => _timerIrqPending;
+    public bool Pa7IrqPending => _pa7IrqPending;
+    public byte[] InternalRam => _internalRam;
 
     public Kim1KeypadState? Keypad { get; set; }
 
@@ -52,7 +60,13 @@ public sealed class Kim1Riot6530IoDevice
     public byte Read(ushort address)
     {
         int offset = address - _startAddress;
-        offset &= 0x3F;
+        offset &= 0xFF;
+
+        if (offset >= 0x40 && offset < 0xC0)
+            return _internalRam[offset - 0x40];
+
+        if ((offset & 0xC0) == 0xC0)
+            offset &= 0x3F;
 
         switch (offset)
         {
@@ -65,23 +79,12 @@ public sealed class Kim1Riot6530IoDevice
             case 0x03:
                 return _portBDdr;
             case 0x04:
-                {
-                    int lowBits = _timerCounter & 0xFF;
-                    return (byte)lowBits;
-                }
+                return (byte)(_timerCounter & 0xFF);
             case 0x05:
-                {
-                    int highBits = (_timerCounter >> 8) & 0x7F;
-                    byte flags = 0;
-                    flags |= (byte)(_timerUnderflow ? 0x80 : 0x00);
-                    ClearTimerFlags();
-                    return (byte)(highBits | flags);
-                }
             case 0x06:
                 {
                     int highBits = (_timerCounter >> 8) & 0x7F;
-                    byte flags = 0;
-                    flags |= (byte)(_timerUnderflow ? 0x80 : 0x00);
+                    byte flags = (byte)(_timerUnderflow ? 0x80 : 0x00);
                     ClearTimerFlags();
                     return (byte)(highBits | flags);
                 }
@@ -93,7 +96,20 @@ public sealed class Kim1Riot6530IoDevice
     public void Write(ushort address, byte value)
     {
         int offset = address - _startAddress;
-        offset &= 0x3F;
+        offset &= 0xFF;
+
+        if (offset >= 0x40 && offset < 0xC0)
+        {
+            if (_internalRam[offset - 0x40] != value)
+            {
+                _internalRam[offset - 0x40] = value;
+                _version++;
+            }
+            return;
+        }
+
+        if ((offset & 0xC0) == 0xC0)
+            offset &= 0x3F;
 
         switch (offset)
         {
@@ -123,10 +139,10 @@ public sealed class Kim1Riot6530IoDevice
                 break;
             case 0x08:
                 LoadTimer(value, 1);
-                _irqEnabled = true;
+                _timerIrqEnabled = true;
                 break;
             case 0x09:
-                _irqEnabled = false;
+                _timerIrqEnabled = false;
                 break;
             default:
                 break;
@@ -150,8 +166,8 @@ public sealed class Kim1Riot6530IoDevice
                     if (_timerCounter == 0)
                     {
                         _timerUnderflow = true;
-                        if (_irqEnabled)
-                            _irqPending = true;
+                        if (_timerIrqEnabled)
+                            _timerIrqPending = true;
                     }
                 }
             }
@@ -160,12 +176,26 @@ public sealed class Kim1Riot6530IoDevice
 
     public void SetPortAInput(byte value)
     {
+        byte newPa7 = (byte)((value >> 7) & 1);
+        byte oldPa7 = (byte)((_portAInput >> 7) & 1);
+
+        if (oldPa7 == 1 && newPa7 == 0)
+        {
+            _pa7IrqPending = true;
+        }
+
         _portAInput = value;
     }
 
     public void SetPortBInput(byte value)
     {
         _portBInput = value;
+    }
+
+    public void ClearIrq()
+    {
+        _timerIrqPending = false;
+        _pa7IrqPending = false;
     }
 
     public byte[] DumpRegisters()
@@ -177,13 +207,8 @@ public sealed class Kim1Riot6530IoDevice
         data[0x03] = _portBDdr;
         data[0x04] = (byte)(_timerCounter & 0xFF);
         data[0x05] = (byte)(((_timerCounter >> 8) & 0x7F) | (_timerUnderflow ? 0x80 : 0x00));
-        int timerHi = (_timerCounter >> 8) & 0x7F;
+        Array.Copy(_internalRam, 0, data, 0x40, 128);
         return data;
-    }
-
-    public void ClearIrq()
-    {
-        _irqPending = false;
     }
 
     private byte CombinePortWithInput(byte latch, byte ddr, byte input)
@@ -199,11 +224,12 @@ public sealed class Kim1Riot6530IoDevice
         _timerPrescalerDivider = prescalerDivider;
         _timerPrescalerCounter = 0;
         _timerUnderflow = false;
+        _timerIrqPending = false;
     }
 
     private void ClearTimerFlags()
     {
         _timerUnderflow = false;
-        _irqPending = false;
+        _timerIrqPending = false;
     }
 }

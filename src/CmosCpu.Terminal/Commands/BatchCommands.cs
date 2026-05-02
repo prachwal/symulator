@@ -571,8 +571,10 @@ public static class BatchCommands
             Console.WriteLine("=== 6530-002 (0x1700) ===");
             Console.WriteLine($"  Port A Data:     0x{riot.PortAData:X2}  DDR: 0x{riot.PortADdr:X2}  Input: 0x{riot.PortAInputValue:X2}");
             Console.WriteLine($"  Port B Data:     0x{riot.PortBData:X2}  DDR: 0x{riot.PortBDdr:X2}  Input: 0x{riot.PortBInputValue:X2}");
+            Console.WriteLine($"  RAM[0x40]:       {string.Join(" ", riot.InternalRam.Take(16).Select(b => $"{b:X2}"))}");
             Console.WriteLine($"  Timer Counter:   {riot.TimerValue}  Prescaler: /{riot.TimerPrescalerDivider}");
-            Console.WriteLine($"  Timer Underflow: {riot.TimerUnderflow}  IRQ Pending: {riot.IrqPending}  IRQ Enabled: {riot.IrqEnabled}");
+            Console.WriteLine($"  Timer Underflow: {riot.TimerUnderflow}  Timer IRQ: {riot.TimerIrqPendingRaw}  Timer IRQ En: {riot.TimerIrqEnabled}");
+            Console.WriteLine($"  PA7 IRQ:         {riot.Pa7IrqPending}  IRQ Line: {riot.IrqPending}");
         }
 
         if (riot003 is not null)
@@ -580,8 +582,10 @@ public static class BatchCommands
             Console.WriteLine("=== 6530-003 (0x1400) ===");
             Console.WriteLine($"  Port A Data:     0x{riot003.PortAData:X2}  DDR: 0x{riot003.PortADdr:X2}  Input: 0x{riot003.PortAInputValue:X2}");
             Console.WriteLine($"  Port B Data:     0x{riot003.PortBData:X2}  DDR: 0x{riot003.PortBDdr:X2}  Input: 0x{riot003.PortBInputValue:X2}");
+            Console.WriteLine($"  RAM[0x40]:       {string.Join(" ", riot003.InternalRam.Take(16).Select(b => $"{b:X2}"))}");
             Console.WriteLine($"  Timer Counter:   {riot003.TimerValue}  Prescaler: /{riot003.TimerPrescalerDivider}");
-            Console.WriteLine($"  Timer Underflow: {riot003.TimerUnderflow}  IRQ Pending: {riot003.IrqPending}  IRQ Enabled: {riot003.IrqEnabled}");
+            Console.WriteLine($"  Timer Underflow: {riot003.TimerUnderflow}  Timer IRQ: {riot003.TimerIrqPendingRaw}  Timer IRQ En: {riot003.TimerIrqEnabled}");
+            Console.WriteLine($"  PA7 IRQ:         {riot003.Pa7IrqPending}  IRQ Line: {riot003.IrqPending}");
         }
 
         return ExitSuccess;

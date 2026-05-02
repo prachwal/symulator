@@ -207,10 +207,10 @@ public sealed class Kim1DeviceTests
     public void Kim1Io_IrqEnable_WriteTo08_EnablesIrq()
     {
         var riot = new Kim1Riot6530IoDevice();
-        riot.IrqEnabled.Should().BeFalse();
+        riot.TimerIrqEnabled.Should().BeFalse();
 
         riot.Write(0x1708, 10);
-        riot.IrqEnabled.Should().BeTrue();
+        riot.TimerIrqEnabled.Should().BeTrue();
     }
 
     [TestMethod]
@@ -218,10 +218,10 @@ public sealed class Kim1DeviceTests
     {
         var riot = new Kim1Riot6530IoDevice();
         riot.Write(0x1708, 10);
-        riot.IrqEnabled.Should().BeTrue();
+        riot.TimerIrqEnabled.Should().BeTrue();
 
         riot.Write(0x1709, 0);
-        riot.IrqEnabled.Should().BeFalse();
+        riot.TimerIrqEnabled.Should().BeFalse();
     }
 
     [TestMethod]
@@ -305,5 +305,201 @@ public sealed class Kim1DeviceTests
         display.Update("00FF00");
 
         display.Digits.Should().Be("00FF00");
+    }
+
+    // --- Phase 1: Internal RAM ---
+
+    [TestMethod]
+    public void Kim1Riot6530Ram_WriteRead_002()
+    {
+        var riot = new Kim1Riot6530IoDevice(0x1700, 0x17FF);
+        riot.Write(0x1740, 0xAB);
+        riot.Write(0x17BF, 0xCD);
+
+        riot.Read(0x1740).Should().Be(0xAB);
+        riot.Read(0x17BF).Should().Be(0xCD);
+    }
+
+    [TestMethod]
+    public void Kim1Riot6530Ram_WriteRead_003()
+    {
+        var riot = new Kim1Riot6530IoDevice(0x1400, 0x14FF);
+        riot.Write(0x1440, 0x12);
+        riot.Write(0x14BF, 0x34);
+
+        riot.Read(0x1440).Should().Be(0x12);
+        riot.Read(0x14BF).Should().Be(0x34);
+    }
+
+    [TestMethod]
+    public void Kim1Riot6530Ram_DoesNotAffectPorts()
+    {
+        var riot = new Kim1Riot6530IoDevice(0x1700, 0x17FF);
+        riot.Write(0x1740, 0xFF);
+        riot.Write(0x1741, 0xFF);
+
+        riot.Write(0x1701, 0xFF); // DDRA all outputs
+        riot.Write(0x1700, 0x00);
+        riot.Read(0x1700).Should().Be(0x00);
+        riot.Read(0x1740).Should().Be(0xFF);
+    }
+
+    // --- Phase 2: Keypad matrix ---
+
+    [TestMethod]
+    public void Kim1KeypadMatrix_PressedKeyVisibleOnSelectedColumn()
+    {
+        var keypad = new Kim1KeypadState();
+        keypad.PressKey("5");
+
+        byte columnSelect = 0xFD; // column 1 (bit 1 = 0, others = 1)
+        byte rowBits = keypad.GetRowState(columnSelect);
+        rowBits.Should().Be(0x0D); // row 1 (bit 1) = 0
+    }
+
+    [TestMethod]
+    public void Kim1KeypadMatrix_KeyNotVisibleOnWrongColumn()
+    {
+        var keypad = new Kim1KeypadState();
+        keypad.PressKey("5");
+
+        byte columnSelect = 0xFE; // column 0 (bit 0 = 0)
+        byte rowBits = keypad.GetRowState(columnSelect);
+        rowBits.Should().Be(0x0F); // no key in this column
+    }
+
+    [TestMethod]
+    public void Kim1KeypadMatrix_ReleaseKeyClearsInput()
+    {
+        var keypad = new Kim1KeypadState();
+        keypad.PressKey("5");
+        keypad.ReleaseKey("5");
+
+        byte columnSelect = 0xFD;
+        byte rowBits = keypad.GetRowState(columnSelect);
+        rowBits.Should().Be(0x0F);
+    }
+
+    [TestMethod]
+    public void Kim1KeypadMatrix_NoColumnsSelected_ReturnsIdle()
+    {
+        var keypad = new Kim1KeypadState();
+        keypad.PressKey("5");
+
+        byte columnSelect = 0xFF; // no column active
+        byte rowBits = keypad.GetRowState(columnSelect);
+        rowBits.Should().Be(0x0F);
+    }
+
+    [TestMethod]
+    public void Kim1KeypadMatrix_GetKeyMatrix_ReturnsCorrectCoordinates()
+    {
+        var keypad = new Kim1KeypadState();
+        var (row, col) = keypad.GetKeyMatrix("F");
+        row.Should().Be(3);
+        col.Should().Be(3);
+    }
+
+    // --- Phase 3: PA7 edge detect ---
+
+    [TestMethod]
+    public void Kim1Riot6530_Pa7FallingEdge_SetsIrqPending()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.SetPortAInput(0x80); // PA7 = 1
+        riot.SetPortAInput(0x00); // PA7 = 0 (falling edge)
+
+        riot.Pa7IrqPending.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void Kim1Riot6530_Pa7RisingEdge_DoesNotSetIrqPending()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.SetPortAInput(0x00); // PA7 = 0
+        riot.SetPortAInput(0x80); // PA7 = 1 (rising edge)
+
+        riot.Pa7IrqPending.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void Kim1Riot6530_TimerIrq_IndependentFromPa7Irq()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1708, 5); // timer with IRQ enabled
+        riot.Tick(5);
+
+        riot.TimerIrqPendingRaw.Should().BeTrue();
+        riot.Pa7IrqPending.Should().BeFalse();
+        riot.IrqPending.Should().BeTrue();
+
+        // Now trigger PA7 IRQ
+        riot.SetPortAInput(0x80);
+        riot.SetPortAInput(0x00);
+        riot.Pa7IrqPending.Should().BeTrue();
+
+        // Both should show on combined line
+        riot.IrqPending.Should().BeTrue();
+    }
+
+    // --- Phase 4: Timer underflow hardening ---
+
+    [TestMethod]
+    public void Kim1Riot6530_IrqDisable_DeactivatesIrqLine()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1708, 5);
+        riot.Tick(5);
+        riot.IrqPending.Should().BeTrue();
+
+        riot.Write(0x1709, 0); // IRQ disable
+        riot.IrqPending.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void Kim1Riot6530_IrqDisable_DoesNotClearUnderflowFlag()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1704, 5);
+        riot.Tick(5);
+        riot.TimerUnderflow.Should().BeTrue();
+
+        riot.Write(0x1709, 0); // IRQ disable
+        riot.TimerUnderflow.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void Kim1Riot6530_TimerReload_ClearsUnderflowAndIrq()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1708, 5); // timer with IRQ
+        riot.Tick(5);
+        riot.TimerUnderflow.Should().BeTrue();
+        riot.TimerIrqPendingRaw.Should().BeTrue();
+
+        riot.Write(0x1704, 10); // reload timer
+        riot.TimerUnderflow.Should().BeFalse();
+        riot.TimerIrqPendingRaw.Should().BeFalse();
+    }
+
+    // --- Phase 4: ClearTimerFlags via read ---
+
+    [TestMethod]
+    public void Kim1Riot6530_ReadFlagRegister_ClearsTimerUnderflowOnly()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1708, 5);
+        riot.Tick(5);
+
+        riot.SetPortAInput(0x80);
+        riot.SetPortAInput(0x00);
+        riot.Pa7IrqPending.Should().BeTrue();
+
+        riot.Read(0x1705); // timer flag read clears timer flags
+        riot.TimerUnderflow.Should().BeFalse();
+        riot.TimerIrqPendingRaw.Should().BeFalse();
+
+        // PA7 IRQ should remain
+        riot.Pa7IrqPending.Should().BeTrue();
     }
 }

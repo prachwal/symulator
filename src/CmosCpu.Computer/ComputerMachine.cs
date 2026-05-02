@@ -43,9 +43,27 @@ public sealed class ComputerMachine
         {
             Kim1Riot?.Tick(cycles);
             Kim1Riot003?.Tick(cycles);
+            UpdateKim1KeypadMatrix();
         }
 
         return cycles;
+    }
+
+    private void UpdateKim1KeypadMatrix()
+    {
+        if (Kim1Riot is null || Kim1Riot003 is null || Kim1Keypad is null)
+            return;
+
+        byte columnOutput = Kim1Riot.PortAData;
+        byte columnDdr = Kim1Riot.PortADdr;
+
+        byte activeColumns = (byte)(columnOutput & columnDdr);
+        byte rowInput = Kim1Keypad.GetRowState(activeColumns);
+
+        byte existingInput = Kim1Riot003.PortAInputValue;
+        byte existingDdr = Kim1Riot003.PortADdr;
+        byte mergedInput = (byte)((existingInput & existingDdr) | rowInput);
+        Kim1Riot003.SetPortAInput(mergedInput);
     }
 
     public void RunSteps(int maxSteps)
@@ -158,6 +176,8 @@ public sealed class ComputerMachine
                 var size = string.IsNullOrEmpty(dev.Size) ? (ushort)0x0100 : ComputerProfileLoader.ParseHex(dev.Size!);
                 var riot = new Kim1Riot6530IoDevice(start, (ushort)(start + size - 1));
                 Kim1Riot003 = riot;
+                if (Kim1Keypad is not null)
+                    riot.Keypad = Kim1Keypad;
                 Memory.MapDevice(start, size, riot.Read, riot.Write);
                 break;
             }
