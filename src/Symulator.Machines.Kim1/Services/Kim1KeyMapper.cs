@@ -1,6 +1,6 @@
 using System.Collections.Frozen;
 
-namespace Symulator.Application.Services;
+namespace Symulator.Machines.Kim1.Services;
 
 public static class Kim1KeyMapper
 {

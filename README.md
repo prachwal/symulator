@@ -14,26 +14,31 @@ Educational 8-bit CPU simulator inspired by CMOS/TTL-based computers. Built with
 - Universal machine abstraction (`IMachine`, `IMachineProfile`, `ICpuCore`)
 - `CpuStepResult` with per-instruction cycle count
 - `IDebugger` with breakpoint support (stop-on-breakpoint during Run)
-- Blazor diagnostic frontend (Machine Status, Memory Map, Settings, Debugger pages)
-- 140+ unit and integration tests
+- **Avalonia UI** frontend with modular machine support (Apple-1, KIM-1)
+- 200+ unit and integration tests
 
 ## Project Structure
 
 ```
 CmosCpuSimulator/
 ├─ src/
-│  ├─ CmosCpu.Core/          Core interfaces, types, and emulator contracts
-│  ├─ CmosCpu.Bus/           System bus implementation (IBus)
-│  ├─ CmosCpu.Memory/        RAM, ROM, MemoryMap
-│  ├─ CmosCpu.Cpu/           CPU core with instruction set
-│  ├─ CmosCpu.Devices/       I/O devices (LED, Timer, RTC)
-│  ├─ CmosCpu.Assembler/     Text assembler
-│  ├─ CmosCpu.Runtime/       DI container, Machine, MachineBuilder, profile, adapter
-│  ├─ CmosCpu.ConsoleApp/    CLI application
-│  └─ CmosCpu.BlazorApp/     Blazor Server diagnostic frontend
-├─ tests/                    Unit and integration tests (MSTest + Moq + FluentAssertions)
-├─ docs/                     Documentation
-├─ examples/                 Example programs
+│  ├─ CmosCpu.Core/              Core interfaces, types, and emulator contracts
+│  ├─ CmosCpu.Bus/               System bus implementation (IBus)
+│  ├─ CmosCpu.Memory/            RAM, ROM, MemoryMap
+│  ├─ CmosCpu.Cpu/               CPU core with instruction set
+│  ├─ CmosCpu.Devices/           I/O devices (LED, Timer, RTC)
+│  ├─ CmosCpu.Assembler/         Text assembler
+│  ├─ CmosCpu.Runtime/           DI container, Machine, MachineBuilder, profile, adapter
+│  ├─ CmosCpu.Computer/          Universal computer machine abstraction
+│  ├─ Symulator.Application/     Application layer: controller, catalog, machine contracts
+│  ├─ Symulator.Machines.Apple1/ Apple-1 machine module (terminal, PIA, profiles)
+│  ├─ Symulator.Machines.Kim1/   KIM-1 machine module (keypad, LED, RIOT)
+│  └─ Symulator.Avalonia/        Avalonia UI frontend
+├─ tests/                         Unit and integration tests (MSTest + Moq + FluentAssertions)
+├─ docs/                          Documentation
+├─ examples/                      Example programs
+├─ profiles/                      Machine profiles
+├─ roms/                          ROM binaries
 └─ README.md
 ```
 
@@ -54,37 +59,13 @@ dotnet build
 dotnet test
 ```
 
-## Run Console App
-
-Run the default blink program (10000 cycles):
+## Run Avalonia Frontend
 
 ```bash
-dotnet run --project src/CmosCpu.ConsoleApp
+dotnet run --project src/Symulator.Avalonia
 ```
-
-Run with a custom program:
-
-```bash
-dotnet run --project src/CmosCpu.ConsoleApp -- --program examples/blink.asm --cycles 100000
-```
-
-With trace logging (instruction-level debug):
-
-```bash
-dotnet run --project src/CmosCpu.ConsoleApp -- --program examples/blink.asm --cycles 1000 --trace
-```
-
-## Run Blazor Frontend
-
-```bash
-dotnet run --project src/CmosCpu.BlazorApp
-```
-
-Navigate to `http://localhost:5113` in your browser.
 
 ## Emulator Contracts
-
-The solution introduces a universal emulator architecture for future multi-CPU support:
 
 | Interface | Purpose |
 |-----------|---------|
@@ -99,7 +80,17 @@ The solution introduces a universal emulator architecture for future multi-CPU s
 | `IEmulatorUiSettings` | Runtime/UI settings (log toggles, limits) |
 | `CpuStepResult` | Per-instruction result (PC, cycles) |
 
-See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
+## Machine Module Contracts
+
+| Interface | Purpose |
+|-----------|---------|
+| `IMachineModule` | Machine family provider (Apple-1, KIM-1) |
+| `IMachineSession` | Active emulation session with lifecycle |
+| `IMachinePanelDescriptor` | Machine-specific UI panel descriptor |
+| `IEmulatorController` | Top-level controller for session management |
+| `IMachineCatalog` | Registry of available machines |
+
+See [docs/machine-modules.md](docs/machine-modules.md) for detailed module architecture.
 
 ## Example: Blink LED
 
@@ -123,16 +114,6 @@ loop:
     SUB #0x01
     JNZ loop
     RET
-```
-
-Expected output:
-```
-Loading program from examples/blink.asm
-Running for 100000 cycles...
-Cycle 3: LED ON
-Cycle 518: LED OFF
-Cycle 1033: LED ON
-...
 ```
 
 ## Architecture
@@ -177,4 +158,5 @@ See [docs/instruction-set.md](docs/instruction-set.md) for the complete instruct
 
 ## Platform Note
 
-The solution targets **net10.0**. WPF has been removed; the new UI direction is **Blazor Server**.
+The solution targets **net10.0**. The UI is **Avalonia** (cross-platform desktop).
+Legacy frontends (Blazor Server, ConsoleApp, Terminal.Gui TUI) have been removed in favor of the modular Avalonia architecture.

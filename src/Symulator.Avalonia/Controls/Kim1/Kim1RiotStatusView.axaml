@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Symulator.Avalonia.Controls.Kim1.Kim1RiotStatusView">
+    <StackPanel Spacing="4">
+        <TextBlock FontWeight="Bold">RIOT/6530 Status</TextBlock>
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,4,0,0">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Port A:" Margin="0,0,8,2" />
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding PortA}" FontFamily="Courier New" Margin="0,0,0,2" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Port B:" Margin="0,0,8,2" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PortB}" FontFamily="Courier New" Margin="0,0,0,2" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="DDRA:" Margin="0,0,8,2" />
+            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding DDRA}" FontFamily="Courier New" Margin="0,0,0,2" />
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="DDRB:" Margin="0,0,8,0" />
+            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DDRB}" FontFamily="Courier New" />
+        </Grid>
+    </StackPanel>
+</UserControl>

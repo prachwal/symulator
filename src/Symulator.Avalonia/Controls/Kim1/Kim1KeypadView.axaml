@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Symulator.Avalonia.Controls.Kim1.Kim1KeypadView">
+    <StackPanel Spacing="4">
+        <TextBlock FontWeight="Bold">Keypad</TextBlock>
+        <UniformGrid Columns="4" Rows="4" Margin="4">
+            <Button Content="D7" />
+            <Button Content="D8" />
+            <Button Content="D9" />
+            <Button Content="A" />
+            <Button Content="D4" />
+            <Button Content="D5" />
+            <Button Content="D6" />
+            <Button Content="B" />
+            <Button Content="D1" />
+            <Button Content="D2" />
+            <Button Content="D3" />
+            <Button Content="C" />
+            <Button Content="D0" />
+            <Button Content="F" />
+            <Button Content="E" />
+            <Button Content="D" />
+        </UniformGrid>
+        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+            <Button Content="Enter" />
+            <Button Content="Backspace" />
+        </StackPanel>
+        <TextBlock FontStyle="Italic" Text="{Binding LastKey, StringFormat='Last key: {0}'}" />
+    </StackPanel>
+</UserControl>

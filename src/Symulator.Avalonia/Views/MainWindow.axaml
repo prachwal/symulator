@@ -22,32 +22,21 @@
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" FontWeight="Bold" Margin="0,0,0,4">Machines</TextBlock>
                     <ListBox ItemsSource="{Binding Machines}"
-                             SelectedItem="{Binding SelectedMachine}"
+                             SelectedItem="{Binding SelectedMachineDescriptor}"
                              Name="MachineList" />
                 </DockPanel>
             </Border>
 
             <Border Grid.Column="1" Margin="4">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" FontWeight="Bold" Margin="0,0,0,4">Emulator</TextBlock>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,0,0,4">
+                        <Button Content="Start" Command="{Binding StartCommand}" />
+                        <Button Content="Pause" Command="{Binding PauseCommand}" />
+                        <Button Content="Reset" Command="{Binding ResetCommand}" />
+                        <Button Content="Step" Command="{Binding StepCommand}" />
+                    </StackPanel>
                     <ScrollViewer>
-                        <StackPanel Spacing="8">
-                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                <Button Content="Start" Command="{Binding StartCommand}" />
-                                <Button Content="Pause" Command="{Binding PauseCommand}" />
-                                <Button Content="Reset" Command="{Binding ResetCommand}" />
-                                <Button Content="Step" Command="{Binding StepCommand}" />
-                            </StackPanel>
-
-                            <TextBlock Text="Terminal Output" FontWeight="Bold" />
-                            <Border BorderBrush="Gray" BorderThickness="1" MinHeight="200">
-                                <ScrollViewer Name="TerminalScroll">
-                                    <TextBlock Text="{Binding TerminalText}"
-                                               FontFamily="Courier New"
-                                               TextWrapping="Wrap" />
-                                </ScrollViewer>
-                            </Border>
-                        </StackPanel>
+                        <ContentControl Content="{Binding ActivePanelViewModel}" />
                     </ScrollViewer>
                 </DockPanel>
             </Border>

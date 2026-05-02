@@ -1,18 +1,20 @@
 namespace Symulator.Application.Abstractions;
 
-public interface IEmulatorController
+public interface IMachineSession : IAsyncDisposable
 {
-    IMachineCatalog Catalog { get; }
-    IMachineSession? ActiveSession { get; }
-    EmulatorStateSnapshot? Current { get; }
+    string MachineId { get; }
+    string DisplayName { get; }
+    EmulatorStateSnapshot Current { get; }
+    IReadOnlyList<IMachinePanelDescriptor> Panels { get; }
 
     event EventHandler<EmulatorStateSnapshot>? StateChanged;
+    event EventHandler<string>? OutputReceived;
     event EventHandler<string>? StatusChanged;
 
-    Task<bool> SelectMachineAsync(string machineId, CancellationToken cancellationToken = default);
     Task ResetAsync(CancellationToken cancellationToken = default);
     Task StepInstructionAsync(CancellationToken cancellationToken = default);
     Task RunAsync(CancellationToken cancellationToken = default);
     Task PauseAsync(CancellationToken cancellationToken = default);
     Task SendInputAsync(string text, CancellationToken cancellationToken = default);
+    Task ExecuteMachineCommandAsync(string commandId, object? parameter = null, CancellationToken cancellationToken = default);
 }

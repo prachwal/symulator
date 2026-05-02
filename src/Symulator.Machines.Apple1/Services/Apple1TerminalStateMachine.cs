@@ -1,7 +1,7 @@
 using System.Text;
-using Symulator.Application.Models;
+using Symulator.Machines.Apple1.Models;
 
-namespace Symulator.Application.Services;
+namespace Symulator.Machines.Apple1.Services;
 
 public sealed class Apple1TerminalStateMachine
 {

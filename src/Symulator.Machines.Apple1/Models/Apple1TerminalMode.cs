@@ -1,4 +1,4 @@
-namespace Symulator.Application.Models;
+namespace Symulator.Machines.Apple1.Models;
 
 public enum Apple1TerminalMode
 {
