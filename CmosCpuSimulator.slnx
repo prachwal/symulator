@@ -10,6 +10,7 @@
     <Project Path="src/CmosCpu.Devices/CmosCpu.Devices.csproj" />
     <Project Path="src/CmosCpu.Memory/CmosCpu.Memory.csproj" />
     <Project Path="src/CmosCpu.Runtime/CmosCpu.Runtime.csproj" />
+    <Project Path="src/CmosCpu.Terminal/CmosCpu.Terminal.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CmosCpu.Assembler.Tests/CmosCpu.Assembler.Tests.csproj" />
@@ -21,5 +22,6 @@
     <Project Path="tests/CmosCpu.Devices.Tests/CmosCpu.Devices.Tests.csproj" />
     <Project Path="tests/CmosCpu.Memory.Tests/CmosCpu.Memory.Tests.csproj" />
     <Project Path="tests/CmosCpu.Runtime.Tests/CmosCpu.Runtime.Tests.csproj" />
+    <Project Path="tests/CmosCpu.Terminal.Tests/CmosCpu.Terminal.Tests.csproj" />
   </Folder>
 </Solution>
