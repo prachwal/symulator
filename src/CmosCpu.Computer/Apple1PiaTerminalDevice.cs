@@ -10,6 +10,8 @@ public sealed class Apple1PiaTerminalDevice
     private bool _keyReady;
     private byte _displayControl;
     private long _version;
+    private int _lastConsumedLineIndex;
+    private long _lastConsumedVersion;
 
     public ushort StartAddress { get; } = 0xD010;
     public ushort EndAddress { get; } = 0xD013;
@@ -29,6 +31,39 @@ public sealed class Apple1PiaTerminalDevice
     }
     public string Text => string.Join("\n", Lines);
     public long Version => _version;
+
+    public string ConsumeOutputSince(long version)
+    {
+        if (_version <= version)
+            return string.Empty;
+
+        var sb = new StringBuilder();
+        int lineIndex = 0;
+
+        foreach (var line in _lines)
+        {
+            if (lineIndex >= _lastConsumedLineIndex)
+            {
+                if (sb.Length > 0)
+                    sb.Append('\n');
+                sb.Append(line);
+            }
+            lineIndex++;
+        }
+
+        // Include the current (in-progress) line if it has content
+        string current = _currentLine.ToString();
+        if (current.Length > 0)
+        {
+            if (sb.Length > 0)
+                sb.Append('\n');
+            sb.Append(current);
+        }
+
+        _lastConsumedLineIndex = _lines.Count;
+        _lastConsumedVersion = _version;
+        return sb.ToString();
+    }
 
     public Apple1PiaTerminalDevice(int columns = 40, int rows = 24)
     {

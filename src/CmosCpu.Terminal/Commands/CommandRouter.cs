@@ -79,6 +79,8 @@ public sealed class CommandRouter
         Console.WriteLine("  save                 Save memory dump to file (--file path --from addr --length N)");
         Console.WriteLine("  asm                  Compile and load ASM file (--file path)");
         Console.WriteLine("  speed                Set emulation speed (--batch N --delay Nms)");
+        Console.WriteLine("  kim1-io              Show KIM-1 RIOT 6530 I/O state");
+        Console.WriteLine("  apple1-basic         Apple-1 BASIC interactive terminal");
         Console.WriteLine("  version              Display version information");
         Console.WriteLine();
         Console.WriteLine("Options (global):");

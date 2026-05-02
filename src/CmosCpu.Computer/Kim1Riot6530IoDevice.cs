@@ -21,8 +21,10 @@ public sealed class Kim1Riot6530IoDevice
     private bool _timerIrqEnabled;
     private bool _timerIrqPending;
 
-    private byte _prevPa7Input;
     private bool _pa7IrqPending;
+    private bool _pa7IrqEnabled;
+    private bool _pa7DetectFallingEdge;
+    private bool _pa7DetectRisingEdge;
 
     private ushort _startAddress;
     private ushort _endAddress;
@@ -45,7 +47,22 @@ public sealed class Kim1Riot6530IoDevice
     public bool TimerIrqEnabled => _timerIrqEnabled;
     public bool TimerIrqPendingRaw => _timerIrqPending;
     public bool Pa7IrqPending => _pa7IrqPending;
+    public bool Pa7IrqEnabled => _pa7IrqEnabled;
+    public bool Pa7DetectFallingEdge => _pa7DetectFallingEdge;
+    public bool Pa7DetectRisingEdge => _pa7DetectRisingEdge;
     public byte[] InternalRam => _internalRam;
+
+    public void ConfigurePa7Irq(bool enabled, bool fallingEdge, bool risingEdge)
+    {
+        _pa7IrqEnabled = enabled;
+        _pa7DetectFallingEdge = fallingEdge;
+        _pa7DetectRisingEdge = risingEdge;
+    }
+
+    public void ClearPa7Irq()
+    {
+        _pa7IrqPending = false;
+    }
 
     public Kim1KeypadState? Keypad { get; set; }
 
@@ -179,9 +196,13 @@ public sealed class Kim1Riot6530IoDevice
         byte newPa7 = (byte)((value >> 7) & 1);
         byte oldPa7 = (byte)((_portAInput >> 7) & 1);
 
-        if (oldPa7 == 1 && newPa7 == 0)
+        // Functional 6530 PA7 edge detection model, not full datasheet-complete mapping yet
+        if (_pa7IrqEnabled)
         {
-            _pa7IrqPending = true;
+            if (_pa7DetectFallingEdge && oldPa7 == 1 && newPa7 == 0)
+                _pa7IrqPending = true;
+            if (_pa7DetectRisingEdge && oldPa7 == 0 && newPa7 == 1)
+                _pa7IrqPending = true;
         }
 
         _portAInput = value;

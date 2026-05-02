@@ -33,6 +33,11 @@ public sealed class Mos6502Cpu
         _bus = bus ?? throw new ArgumentNullException(nameof(bus));
     }
 
+    public void SetProgramCounter(ushort address)
+    {
+        PC = address;
+    }
+
     public void Reset()
     {
         A = 0;

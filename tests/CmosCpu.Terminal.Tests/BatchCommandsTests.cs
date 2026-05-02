@@ -145,6 +145,17 @@ public sealed class BatchCommandsTests
         var mock = CreateMockSession(loaded: false, canAutoLoad: false);
 
         int result = BatchCommands.HandleTerminal(mock.Object, []);
+
+        result.Should().Be(1);
+    }
+
+    [TestMethod]
+    public void HandleApple1Basic_NoProfile_ReturnsValidationError()
+    {
+        var mock = CreateMockSession(loaded: false, canAutoLoad: true);
+
+        int result = BatchCommands.HandleApple1Basic(mock.Object, []);
+
         result.Should().Be(1);
     }
 }

@@ -135,4 +135,44 @@ public sealed class Apple1PiaTerminalTests
 
         terminal.Text.Should().Be("AB");
     }
+
+    [TestMethod]
+    public void ConsumeOutputSince_ReturnsNewContent()
+    {
+        var terminal = new Apple1PiaTerminalDevice();
+
+        long v0 = terminal.Version;
+        terminal.Write(0xD012, (byte)'H');
+        terminal.Write(0xD012, (byte)'i');
+
+        string output = terminal.ConsumeOutputSince(v0);
+        output.Should().Be("Hi");
+
+        // Tracking version - second call should return empty
+        long v1 = terminal.Version;
+        terminal.ConsumeOutputSince(v1).Should().BeEmpty();
+    }
+
+    [TestMethod]
+    public void ConsumeOutputSince_ReturnsEmpty_WhenNoChange()
+    {
+        var terminal = new Apple1PiaTerminalDevice();
+
+        long v = terminal.Version;
+        terminal.ConsumeOutputSince(v).Should().BeEmpty();
+    }
+
+    [TestMethod]
+    public void ConsumeOutputSince_IncludesLines()
+    {
+        var terminal = new Apple1PiaTerminalDevice();
+
+        terminal.Write(0xD012, (byte)'A');
+        terminal.Write(0xD012, (byte)'\r');
+        terminal.Write(0xD012, (byte)'B');
+
+        string output = terminal.ConsumeOutputSince(0);
+        output.Should().Contain("A");
+        output.Should().Contain("B");
+    }
 }

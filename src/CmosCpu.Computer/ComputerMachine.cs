@@ -56,13 +56,10 @@ public sealed class ComputerMachine
 
         byte columnOutput = Kim1Riot.PortAData;
         byte columnDdr = Kim1Riot.PortADdr;
-
-        byte activeColumns = (byte)(columnOutput & columnDdr);
-        byte rowInput = Kim1Keypad.GetRowState(activeColumns);
+        byte rowInput = Kim1Keypad.GetRowState(columnOutput, columnDdr);
 
         byte existingInput = Kim1Riot003.PortAInputValue;
-        byte existingDdr = Kim1Riot003.PortADdr;
-        byte mergedInput = (byte)((existingInput & existingDdr) | rowInput);
+        byte mergedInput = (byte)((existingInput & 0xC0) | (rowInput & 0x3F));
         Kim1Riot003.SetPortAInput(mergedInput);
     }
 

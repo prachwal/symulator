@@ -41,30 +41,27 @@ public sealed class Kim1KeypadState
     public (int row, int col) GetKeyMatrix(string key) =>
         KeyMatrix.TryGetValue(key, out var pos) ? pos : (-1, -1);
 
-    public byte GetRowState(byte columnSelect)
+    public byte GetRowState(byte columnOutput, byte columnDdr)
     {
-        int activeCol = -1;
+        byte rowBits = 0x0F;
+        bool anyColumnActive = false;
         for (int c = 0; c < 4; c++)
         {
-            if ((columnSelect & (1 << c)) == 0)
+            bool ddrIsOutput = (columnDdr & (1 << c)) != 0;
+            bool outputIsLow = (columnOutput & (1 << c)) == 0;
+            if (ddrIsOutput && outputIsLow)
             {
-                activeCol = c;
-                break;
+                anyColumnActive = true;
+                foreach (string key in _pressed)
+                {
+                    if (!KeyMatrix.TryGetValue(key, out var pos))
+                        continue;
+                    if (pos.col == c)
+                        rowBits &= (byte)~(1 << pos.row);
+                }
             }
         }
 
-        if (activeCol < 0)
-            return 0x0F;
-
-        byte rowBits = 0x0F;
-        foreach (string key in _pressed)
-        {
-            if (!KeyMatrix.TryGetValue(key, out var pos))
-                continue;
-            if (pos.col == activeCol)
-                rowBits &= (byte)~(1 << pos.row);
-        }
-
-        return rowBits;
+        return anyColumnActive ? rowBits : (byte)0x0F;
     }
 }

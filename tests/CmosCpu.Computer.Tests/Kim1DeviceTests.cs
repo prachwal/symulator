@@ -352,8 +352,7 @@ public sealed class Kim1DeviceTests
         var keypad = new Kim1KeypadState();
         keypad.PressKey("5");
 
-        byte columnSelect = 0xFD; // column 1 (bit 1 = 0, others = 1)
-        byte rowBits = keypad.GetRowState(columnSelect);
+        byte rowBits = keypad.GetRowState(0xFD, 0xFF); // column 1 active, DDR = all outputs
         rowBits.Should().Be(0x0D); // row 1 (bit 1) = 0
     }
 
@@ -363,8 +362,7 @@ public sealed class Kim1DeviceTests
         var keypad = new Kim1KeypadState();
         keypad.PressKey("5");
 
-        byte columnSelect = 0xFE; // column 0 (bit 0 = 0)
-        byte rowBits = keypad.GetRowState(columnSelect);
+        byte rowBits = keypad.GetRowState(0xFE, 0xFF); // column 0 active, DDR = all outputs
         rowBits.Should().Be(0x0F); // no key in this column
     }
 
@@ -375,8 +373,7 @@ public sealed class Kim1DeviceTests
         keypad.PressKey("5");
         keypad.ReleaseKey("5");
 
-        byte columnSelect = 0xFD;
-        byte rowBits = keypad.GetRowState(columnSelect);
+        byte rowBits = keypad.GetRowState(0xFD, 0xFF);
         rowBits.Should().Be(0x0F);
     }
 
@@ -386,8 +383,7 @@ public sealed class Kim1DeviceTests
         var keypad = new Kim1KeypadState();
         keypad.PressKey("5");
 
-        byte columnSelect = 0xFF; // no column active
-        byte rowBits = keypad.GetRowState(columnSelect);
+        byte rowBits = keypad.GetRowState(0xFF, 0xFF); // no column active (all high)
         rowBits.Should().Be(0x0F);
     }
 
@@ -406,6 +402,7 @@ public sealed class Kim1DeviceTests
     public void Kim1Riot6530_Pa7FallingEdge_SetsIrqPending()
     {
         var riot = new Kim1Riot6530IoDevice();
+        riot.ConfigurePa7Irq(enabled: true, fallingEdge: true, risingEdge: false);
         riot.SetPortAInput(0x80); // PA7 = 1
         riot.SetPortAInput(0x00); // PA7 = 0 (falling edge)
 
@@ -416,6 +413,7 @@ public sealed class Kim1DeviceTests
     public void Kim1Riot6530_Pa7RisingEdge_DoesNotSetIrqPending()
     {
         var riot = new Kim1Riot6530IoDevice();
+        riot.ConfigurePa7Irq(enabled: true, fallingEdge: true, risingEdge: false);
         riot.SetPortAInput(0x00); // PA7 = 0
         riot.SetPortAInput(0x80); // PA7 = 1 (rising edge)
 
@@ -426,6 +424,7 @@ public sealed class Kim1DeviceTests
     public void Kim1Riot6530_TimerIrq_IndependentFromPa7Irq()
     {
         var riot = new Kim1Riot6530IoDevice();
+        riot.ConfigurePa7Irq(enabled: true, fallingEdge: true, risingEdge: false);
         riot.Write(0x1708, 5); // timer with IRQ enabled
         riot.Tick(5);
 
@@ -490,6 +489,7 @@ public sealed class Kim1DeviceTests
         var riot = new Kim1Riot6530IoDevice();
         riot.Write(0x1708, 5);
         riot.Tick(5);
+        riot.ConfigurePa7Irq(enabled: true, fallingEdge: true, risingEdge: false);
 
         riot.SetPortAInput(0x80);
         riot.SetPortAInput(0x00);
@@ -501,5 +501,216 @@ public sealed class Kim1DeviceTests
 
         // PA7 IRQ should remain
         riot.Pa7IrqPending.Should().BeTrue();
+    }
+
+    // --- Phase 5: PA7 configurable edge detect ---
+
+    [TestMethod]
+    public void Pa7Irq_DisabledByDefault_DoesNotTriggerOnFallingEdge()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        // PA7 IRQ not enabled by default
+        riot.SetPortAInput(0x80);
+        riot.SetPortAInput(0x00);
+
+        riot.Pa7IrqPending.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void Pa7Irq_WhenConfiguredForFallingEdge_TriggersOnOneToZero()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.ConfigurePa7Irq(enabled: true, fallingEdge: true, risingEdge: false);
+        riot.SetPortAInput(0x80);
+        riot.SetPortAInput(0x00);
+
+        riot.Pa7IrqPending.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void Pa7Irq_WhenConfiguredForRisingEdge_TriggersOnZeroToOne()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.ConfigurePa7Irq(enabled: true, fallingEdge: false, risingEdge: true);
+        riot.SetPortAInput(0x00);
+        riot.SetPortAInput(0x80);
+
+        riot.Pa7IrqPending.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void Pa7Irq_WhenConfiguredForFallingEdge_DoesNotTriggerOnRisingEdge()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.ConfigurePa7Irq(enabled: true, fallingEdge: true, risingEdge: false);
+        riot.SetPortAInput(0x00);
+        riot.SetPortAInput(0x80);
+
+        riot.Pa7IrqPending.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void Pa7Irq_ClearPa7Irq_ClearsOnlyPa7Flag()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.ConfigurePa7Irq(enabled: true, fallingEdge: true, risingEdge: false);
+        riot.Write(0x1708, 5);
+        riot.Tick(5);
+        riot.SetPortAInput(0x80);
+        riot.SetPortAInput(0x00);
+
+        riot.TimerIrqPendingRaw.Should().BeTrue();
+        riot.Pa7IrqPending.Should().BeTrue();
+
+        riot.ClearPa7Irq();
+        riot.Pa7IrqPending.Should().BeFalse();
+        riot.TimerIrqPendingRaw.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void TimerFlagRead_DoesNotClearPa7Irq()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1708, 5);
+        riot.Tick(5);
+        riot.ConfigurePa7Irq(enabled: true, fallingEdge: true, risingEdge: false);
+        riot.SetPortAInput(0x80);
+        riot.SetPortAInput(0x00);
+
+        riot.Pa7IrqPending.Should().BeTrue();
+
+        riot.Read(0x1705);
+        riot.Pa7IrqPending.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void ClearIrq_ClearsTimerAndPa7Irq()
+    {
+        var riot = new Kim1Riot6530IoDevice();
+        riot.Write(0x1708, 5);
+        riot.Tick(5);
+        riot.ConfigurePa7Irq(enabled: true, fallingEdge: true, risingEdge: false);
+        riot.SetPortAInput(0x80);
+        riot.SetPortAInput(0x00);
+
+        riot.IrqPending.Should().BeTrue();
+
+        riot.ClearIrq();
+        riot.IrqPending.Should().BeFalse();
+        riot.TimerIrqPendingRaw.Should().BeFalse();
+        riot.Pa7IrqPending.Should().BeFalse();
+    }
+
+    // --- Phase 5: Keypad matrix enhanced tests ---
+
+    [TestMethod]
+    public void KeypadMatrix_NoColumnActive_ReturnsIdleRows()
+    {
+        var keypad = new Kim1KeypadState();
+        keypad.PressKey("5");
+
+        byte rowBits = keypad.GetRowState(0xFF, 0x0F); // all outputs high
+        rowBits.Should().Be(0x0F);
+    }
+
+    [TestMethod]
+    public void KeypadMatrix_SelectedColumnLowAndDdrOutput_ReturnsPressedRowLow()
+    {
+        var keypad = new Kim1KeypadState();
+        keypad.PressKey("5");
+
+        byte rowBits = keypad.GetRowState(0xFD, 0x0F); // col 1 output low, DDR = lower nibble output
+        rowBits.Should().Be(0x0D);
+    }
+
+    [TestMethod]
+    public void KeypadMatrix_SelectedColumnLowButDdrInput_DoesNotActivateColumn()
+    {
+        var keypad = new Kim1KeypadState();
+        keypad.PressKey("5");
+
+        byte rowBits = keypad.GetRowState(0xFD, 0x00); // col 1 low but DDR = all input
+        rowBits.Should().Be(0x0F);
+    }
+
+    [TestMethod]
+    public void KeypadMatrix_MultipleColumnsActive_ReturnsCombinedRows()
+    {
+        var keypad = new Kim1KeypadState();
+        keypad.PressKey("5"); // col 1, row 1
+        keypad.PressKey("8"); // col 0, row 2
+
+        byte rowBits = keypad.GetRowState(0xFC, 0x0F); // cols 0 and 1 low, DDR = lower nibble output
+        // Row 1 for key 5 and row 2 for key 8
+        rowBits.Should().Be(0x09); // bits 1 and 2 low = 0000 1001
+    }
+
+    // --- Phase 5: ComputerMachine keypad scan tests ---
+
+    private const string Kim1FullProfile = """
+    {
+        "id": "kim-1-full",
+        "name": "KIM-1 Full",
+        "cpu": "mos6502",
+        "clockHz": 1000000,
+        "memory": {
+            "ram": [{ "start": "0x0000", "size": "0x0400" }],
+            "rom": [
+                { "start": "0x1800", "size": "0x0400" },
+                { "start": "0x1C00", "size": "0x0400" }
+            ],
+            "vectors": { "reset": "0x1C00", "nmi": "0x1C00", "irq": "0x1C00" }
+        },
+        "devices": [
+            { "type": "kim1-6530-io", "id": "riot6530", "start": "0x1700", "size": "0x0100" },
+            { "type": "kim1-6530-003-io", "id": "riot6530-003", "start": "0x1400", "size": "0x0100" },
+            { "type": "kim1-led-display", "id": "display", "digits": 6 },
+            { "type": "kim1-keypad", "id": "keypad" }
+        ]
+    }
+    """;
+
+    [TestMethod]
+    public void ComputerMachine_KeypadScan_PropagatesRowsFrom002To003()
+    {
+        var machine = ComputerMachineFactory.CreateFromProfile(Kim1FullProfile);
+
+        machine.Kim1Riot.Should().NotBeNull();
+        machine.Kim1Riot003.Should().NotBeNull();
+        machine.Kim1Keypad.Should().NotBeNull();
+
+        // Configure column DDR on 002
+        machine.Kim1Riot!.Write(0x1701, 0x0F); // Port A DDR = lower nibble output
+
+        // Press key "5" (col 1, row 1)
+        machine.Kim1Keypad!.PressKey("5");
+
+        // Set column output: column 1 = low (0xFD), others high
+        machine.Kim1Riot.Write(0x1700, 0xFD);
+
+        // Call the keypad matrix update
+        machine.Step();
+
+        // 6530-003 Port A should have row 1 (key 5) pulled low
+        byte input = machine.Kim1Riot003!.PortAInputValue;
+        (input & 0x02).Should().Be(0); // PA1 = row 1 = low (key 5)
+    }
+
+    [TestMethod]
+    public void ComputerMachine_KeypadScan_DoesNotDestroyNonKeypadInputBits()
+    {
+        var machine = ComputerMachineFactory.CreateFromProfile(Kim1FullProfile);
+
+        machine.Kim1Riot003!.SetPortAInput(0xC0); // upper 2 bits set externally
+
+        machine.Kim1Riot!.Write(0x1701, 0x0F); // Port A DDR = lower nibble output
+        machine.Kim1Riot.Write(0x1700, 0xFD);
+        machine.Kim1Keypad!.PressKey("5");
+
+        machine.Step();
+
+        byte input = machine.Kim1Riot003.PortAInputValue;
+        (input & 0xC0).Should().Be(0xC0); // upper bits preserved
+        (input & 0x3F).Should().NotBe(0x3F); // lower bits modified by keypad
     }
 }

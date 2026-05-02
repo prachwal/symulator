@@ -253,4 +253,16 @@ public sealed class ComputerMachineTests
         Action act = () => ComputerMachineFactory.CreateFromProfile("{ invalid }");
         act.Should().Throw<ArgumentException>();
     }
+
+    [TestMethod]
+    public void SetProgramCounter_ChangesCpuPc()
+    {
+        var machine = ComputerMachineFactory.CreateFromProfile(MinimalProfile);
+
+        machine.Cpu.PC.Should().Be(0);
+
+        machine.Cpu.SetProgramCounter(0xE000);
+
+        machine.Cpu.PC.Should().Be(0xE000);
+    }
 }

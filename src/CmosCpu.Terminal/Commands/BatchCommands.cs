@@ -1,5 +1,6 @@
 using System.Text;
 using CmosCpu.Terminal.Session;
+using CmosCpu.Terminal.Tui;
 using NLog;
 
 namespace CmosCpu.Terminal.Commands;
@@ -547,6 +548,72 @@ public static class BatchCommands
         Console.WriteLine("Breakpoints: not implemented in CPU core yet.");
         Console.WriteLine("Use register/memory watch manually via step and registers.");
         return ExitSuccess;
+    }
+
+    public static int HandleApple1Basic(ISimulatorSession session, string[] args)
+    {
+        if (args.Any(a => a is "--help" or "-h"))
+        {
+            Console.WriteLine("Apple-1 BASIC Interactive Terminal");
+            Console.WriteLine();
+            Console.WriteLine("Usage: apple1-basic [options]");
+            Console.WriteLine();
+            Console.WriteLine("Options:");
+            Console.WriteLine("  --profile <path>      Apple-1 profile JSON file (default: profiles/apple-1.json)");
+            Console.WriteLine("  --entry <hex>         Set entry address (e.g. 0xE000 for BASIC)");
+            Console.WriteLine("  --script <path>       Script file to feed as keyboard input");
+            Console.WriteLine("  --max-cycles <N>      Maximum CPU cycles (default: 2000000)");
+            Console.WriteLine("  --echo-input true|false  Echo typed input (default: false)");
+            Console.WriteLine("  --crlf apple1|native  Line ending mode (default: apple1)");
+            Console.WriteLine();
+            Console.WriteLine("Examples:");
+            Console.WriteLine("  apple1-basic --profile profiles/apple-1.json");
+            Console.WriteLine("  apple1-basic --profile profiles/apple-1.json --entry 0xE000");
+            Console.WriteLine("  apple1-basic --profile profiles/apple-1.json --script script.txt --max-cycles 500000");
+            return ExitSuccess;
+        }
+
+        string? profilePath = GetArgValue(args, "--profile");
+        if (profilePath is not null)
+        {
+            if (File.Exists(profilePath))
+            {
+                if (!session.LoadProfileFromFile(profilePath))
+                {
+                    Console.Error.WriteLine($"Failed to load profile: {profilePath}");
+                    return ExitFileError;
+                }
+            }
+            else
+            {
+                Console.Error.WriteLine($"Profile file not found: {profilePath}");
+                return ExitFileError;
+            }
+        }
+        else if (!session.IsLoaded)
+        {
+            // Default to profiles/apple-1.json
+            string defaultPath = "profiles/apple-1.json";
+            if (!File.Exists(defaultPath))
+            {
+                Console.Error.WriteLine("No profile loaded and default apple-1.json not found. Use --profile.");
+                return ExitValidationError;
+            }
+            if (!session.LoadProfileFromFile(defaultPath))
+            {
+                Console.Error.WriteLine("Failed to load default Apple-1 profile");
+                return ExitFileError;
+            }
+        }
+
+        if (session.Machine is null)
+        {
+            Console.Error.WriteLine("No machine loaded");
+            return ExitExecutionError;
+        }
+
+        var terminal = new Apple1InteractiveTerminal(session.Machine, args);
+        return terminal.Run();
     }
 
     public static int HandleKim1Io(ISimulatorSession session, string[] args)
