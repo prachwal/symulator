@@ -23,6 +23,11 @@ public sealed class Apple1TuiScreen : ITerminalScreen
     private int _maxCycles = 10000000;
     private object _timerToken = null!;
 
+    private readonly Queue<char> _inputQueue = new();
+    private bool _waitingForPrompt;
+    private int _cycleBudget;
+    private const int CyclesPerChar = 50;
+
     public void Run(ISimulatorSession session)
     {
         _session = session;
@@ -35,6 +40,7 @@ public sealed class Apple1TuiScreen : ITerminalScreen
 
         var top = new Window { Title = "Apple-1 Terminal", X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
         top.KeyDown += OnTopKeyDown;
+        TerminalGuiColorScheme.Apply(top);
 
         var terminalFrame = new FrameView { Title = "Terminal Output", X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Percent(65) };
         _terminalOutput = new TextView { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), ReadOnly = true, WordWrap = true, Text = _terminal.Text };
@@ -69,19 +75,47 @@ public sealed class Apple1TuiScreen : ITerminalScreen
 
     private bool OnTimer()
     {
-        if (!_machine.Cpu.IsHalted)
+        if (_machine.Cpu.IsHalted)
         {
-            for (int i = 0; i < 100; i++)
+            UpdateDisplay();
+            AppendOutput("\n*** CPU HALTED ***\n");
+            return true;
+        }
+
+        for (int i = 0; i < 100; i++)
+        {
+            _machine.Step();
+
+            ulong elapsed = _machine.Cpu.CycleCount - _startCycle;
+            if (elapsed >= (ulong)_maxCycles)
             {
-                _machine.Step();
-                ulong elapsed = _machine.Cpu.CycleCount - _startCycle;
-                if (elapsed >= (ulong)_maxCycles)
-                    break;
+                AppendOutput($"\n*** Max cycles ({_maxCycles}) reached ***\n");
+                Application.RequestStop();
+                return true;
             }
         }
 
+        StreamInput();
         UpdateDisplay();
         return true;
+    }
+
+    private void StreamInput()
+    {
+        if (_inputQueue.Count == 0)
+            return;
+
+        _cycleBudget += 100;
+        if (_cycleBudget < CyclesPerChar)
+            return;
+
+        _cycleBudget -= CyclesPerChar;
+
+        char c = _inputQueue.Dequeue();
+        _terminal.QueueKey(c);
+
+        if (c == '\r')
+            _waitingForPrompt = true;
     }
 
     private void UpdateDisplay()
@@ -89,24 +123,30 @@ public sealed class Apple1TuiScreen : ITerminalScreen
         string output = _terminal.ConsumeOutputSince(_lastOutputOffset);
         if (!string.IsNullOrEmpty(output))
         {
-            _terminalOutput.Text += output;
-            _lastOutputOffset = _terminal.OutputLength;
+            AppendOutput(output);
+            if (_waitingForPrompt && IsPrompt(output))
+            {
+                _waitingForPrompt = false;
+                _inputField.Visible = true;
+                _inputField.SetFocus();
+            }
         }
 
         _registersView.Text = TerminalGuiRenderer.FormatRegistersLine(_machine.Cpu);
         _flagsView.Text = TerminalGuiRenderer.FormatFlags(_machine.Cpu);
         _statusView.Text = $"Status: {TerminalGuiRenderer.FormatStatus(false, _machine.Cpu.IsHalted)}";
         _instructionsView.Text = $"Instructions: {_session.TotalInstructionsExecuted}";
+    }
 
-        if (_machine.Cpu.IsHalted)
-            _terminalOutput.Text += "\n*** CPU HALTED ***\n";
+    private void AppendOutput(string text)
+    {
+        _terminalOutput.Text += text;
+        _lastOutputOffset = _terminal.OutputLength;
+    }
 
-        ulong elapsed = _machine.Cpu.CycleCount - _startCycle;
-        if (elapsed >= (ulong)_maxCycles)
-        {
-            _terminalOutput.Text += $"\n*** Max cycles ({_maxCycles}) reached ***\n";
-            Application.RequestStop();
-        }
+    private static bool IsPrompt(string output)
+    {
+        return output.TrimEnd().EndsWith('>');
     }
 
     private void OnInputKey(object? sender, Key keyEvent)
@@ -115,8 +155,14 @@ public sealed class Apple1TuiScreen : ITerminalScreen
         {
             string text = _inputField.Text.ToString();
             _inputField.Text = string.Empty;
+
             foreach (char c in text)
-                _terminal.QueueKey(c == '\n' || c == '\r' ? '\r' : c);
+                _inputQueue.Enqueue(c);
+            _inputQueue.Enqueue('\r');
+
+            _inputField.Visible = false;
+            _waitingForPrompt = true;
+            _cycleBudget = 0;
             keyEvent.Handled = true;
         }
     }

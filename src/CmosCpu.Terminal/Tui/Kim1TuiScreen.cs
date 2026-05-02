@@ -39,6 +39,7 @@ public sealed class Kim1TuiScreen : ITerminalScreen
 
         var top = new Window { Title = "KIM-1 Emulator", X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
         top.KeyDown += OnTopKeyDown;
+        TerminalGuiColorScheme.Apply(top);
 
         BuildLedDisplay(top);
         BuildKeypadAndCpu(top);
