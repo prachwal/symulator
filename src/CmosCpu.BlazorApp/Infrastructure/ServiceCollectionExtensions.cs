@@ -37,6 +37,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IEmulatorUiSettings, EmulatorUiSettings>();
 
         services.AddSingleton<Retro70Service>();
+        services.AddSingleton<ComputerRunController>();
 
         return services;
     }

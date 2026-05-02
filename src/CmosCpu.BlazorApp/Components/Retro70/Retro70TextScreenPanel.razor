@@ -4,7 +4,6 @@
 @if (Retro70.TextDisplay is not null)
 {
     var display = Retro70.TextDisplay;
-    var buffer = display.GetBuffer();
     int width = display.Width;
     int height = display.Height;
 
@@ -16,7 +15,7 @@
                 <div class="text-screen-row">
                     @for (int x = 0; x < width; x++)
                     {
-                        var ch = display.GetChar(x, y);
+                        var ch = GetCachedChar(display, x, y);
                         <span class="text-screen-char">@ch</span>
                     }
                 </div>
@@ -32,4 +31,34 @@ else
             Load a profile to see the text screen
         </div>
     </div>
+}
+
+@code {
+    private long _lastVersion = -1;
+    private string[] _cachedLines = [];
+
+    private char GetCachedChar(TextDisplayRegion display, int x, int y)
+    {
+        if (display.Version != _lastVersion)
+        {
+            RebuildCache(display);
+        }
+        if (y < _cachedLines.Length && x < _cachedLines[y].Length)
+            return _cachedLines[y][x];
+        return ' ';
+    }
+
+    private void RebuildCache(TextDisplayRegion display)
+    {
+        _lastVersion = display.Version;
+        var lines = new string[display.Height];
+        for (int y = 0; y < display.Height; y++)
+        {
+            var chars = new char[display.Width];
+            for (int x = 0; x < display.Width; x++)
+                chars[x] = display.GetChar(x, y);
+            lines[y] = new string(chars);
+        }
+        _cachedLines = lines;
+    }
 }

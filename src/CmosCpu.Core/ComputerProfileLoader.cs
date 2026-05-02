@@ -46,8 +46,11 @@ public sealed record ComputerProfileDevice
     public string? Type { get; init; }
     public string? Id { get; init; }
     public string? Start { get; init; }
+    public string? Size { get; init; }
     public int Width { get; init; }
     public int Height { get; init; }
+    public int Columns { get; init; }
+    public int Rows { get; init; }
     public string? DataAddress { get; init; }
     public string? StatusAddress { get; init; }
 }
@@ -124,10 +127,16 @@ public static class ComputerProfileLoader
         {
             foreach (var dev in profile.Devices)
             {
-                string primaryAddr = dev.Type == "keyboard" ? dev.DataAddress ?? "" : dev.Start ?? "";
+                string primaryAddr = dev.Type switch
+                {
+                    "keyboard" => dev.DataAddress ?? "",
+                    _ => dev.Start ?? ""
+                };
                 if (string.IsNullOrWhiteSpace(primaryAddr))
                 {
-                    errors.Add($"Device '{dev.Id}': missing address (use 'start' for display, 'dataAddress' for keyboard)");
+                    if (dev.Type is "kim1-led-display" or "kim1-keypad" or "character-rom" or "text-terminal")
+                        continue;
+                    errors.Add($"Device '{dev.Id}': missing address");
                     continue;
                 }
 
@@ -145,14 +154,21 @@ public static class ComputerProfileLoader
                 if (!string.IsNullOrWhiteSpace(dev.StatusAddress) && !ok)
                     errors.Add($"Device '{dev.Id}': invalid statusAddress '{dev.StatusAddress}'");
 
+                ushort devEnd = devAddr;
+                if (!string.IsNullOrWhiteSpace(dev.Size))
+                {
+                    if (TryParseAddress(dev.Size, out var devSize, out _))
+                        devEnd = (ushort)(devAddr + devSize - 1);
+                }
+
                 string devName = $"Device {dev.Id}";
-                allRanges.Add((devName, devAddr, devAddr));
+                allRanges.Add((devName, devAddr, devEnd));
 
                 foreach (var range in allRanges)
                 {
                     if (range.name == devName) continue;
-                    if (devAddr >= range.start && devAddr <= range.end)
-                        errors.Add($"Device '{dev.Id}' at 0x{devAddr:X4} overlaps with {range.name}");
+                    if (devAddr <= range.end && devEnd >= range.start)
+                        errors.Add($"Device '{dev.Id}' at 0x{devAddr:X4}-0x{devEnd:X4} overlaps with {range.name}");
                 }
             }
         }

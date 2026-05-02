@@ -38,22 +38,22 @@
     {
       "type": "kim1-6530-io",
       "id": "kim1-riot-io",
-      "status": "not-yet-implemented",
+      "status": "implemented",
       "start": "0x1700",
       "size": "0x0100",
-      "description": "Placeholder for KIM-1 6530 RAM/I/O/timer behavior. Needed for real KIM-1 monitor interaction. Exact register map must be implemented in code."
+      "description": "KIM-1 6530 RAM/I/O/timer behavior. Minimal register map for monitor interaction."
     },
     {
       "type": "kim1-led-display",
       "id": "led-display",
-      "status": "not-yet-implemented",
+      "status": "implemented",
       "digits": 6,
       "description": "Six-digit seven-segment display device used by KIM-1 front panel."
     },
     {
       "type": "kim1-keypad",
       "id": "keypad",
-      "status": "not-yet-implemented",
+      "status": "implemented",
       "description": "KIM-1 hexadecimal keypad/front panel input device."
     }
   ],

@@ -1,0 +1,76 @@
+@using CmosCpu.Computer
+@using CmosCpu.Core
+@inject Retro70Service Retro70
+
+@if (Retro70.Memory is not null)
+{
+    <div class="panel" style="margin-bottom: 8px;">
+        <div class="panel-title">Memory View</div>
+        <div style="display: flex; gap: 4px; align-items: center; padding: 4px 0; font-size: 11px;">
+            <span class="mono" style="color: var(--text-dim);">Address:</span>
+            <input type="text" @bind="_addressText" placeholder="0x0000"
+                   style="width: 70px; background: var(--bg-root); color: var(--text); border: 1px solid var(--border); padding: 2px 4px; font-family: var(--font-mono); font-size: 11px;" />
+            <button class="btn" @onclick="LoadPage" style="font-size: 11px;">View</button>
+            <button class="btn" @onclick="PrevPage" style="font-size: 11px;">&lt;</button>
+            <button class="btn" @onclick="NextPage" style="font-size: 11px;">&gt;</button>
+            <span class="mono" style="color: var(--text-dim);">@_currentAddress.ToString("X4")</span>
+        </div>
+        <div style="max-height: 200px; overflow-y: auto; font-family: var(--font-mono); font-size: 11px; line-height: 1.6;">
+            @if (_pageData is not null)
+            {
+                @for (int row = 0; row < _pageData.Length; row += 16)
+                {
+                    var addr = (ushort)(_currentAddress + row);
+                    <div style="display: flex; gap: 4px;">
+                        <span style="color: var(--text-dim); min-width: 44px;">@addr.ToString("X4"):</span>
+                        @for (int col = 0; col < 16 && (row + col) < _pageData.Length; col++)
+                        {
+                            var b = _pageData[row + col];
+                            <span style="min-width: 18px; color: @(b == 0 ? "var(--text-dim)" : "var(--text)");">@b.ToString("X2")</span>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <span style="color: var(--text-dim);">Enter an address and click View</span>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private string _addressText = "0x0000";
+    private ushort _currentAddress;
+    private byte[]? _pageData;
+
+    private void LoadPage()
+    {
+        try
+        {
+            _currentAddress = ComputerProfileLoader.ParseHex(_addressText);
+        }
+        catch
+        {
+            return;
+        }
+        if (Retro70.Memory is not null)
+            _pageData = Retro70.Memory.GetMemoryPage(_currentAddress, 256);
+    }
+
+    private void PrevPage()
+    {
+        _currentAddress = (ushort)(_currentAddress - 256);
+        _addressText = $"0x{_currentAddress:X4}";
+        if (Retro70.Memory is not null)
+            _pageData = Retro70.Memory.GetMemoryPage(_currentAddress, 256);
+    }
+
+    private void NextPage()
+    {
+        _currentAddress = (ushort)(_currentAddress + 256);
+        _addressText = $"0x{_currentAddress:X4}";
+        if (Retro70.Memory is not null)
+            _pageData = Retro70.Memory.GetMemoryPage(_currentAddress, 256);
+    }
+}

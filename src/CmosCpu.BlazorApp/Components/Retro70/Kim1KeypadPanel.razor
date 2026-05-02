@@ -1,0 +1,53 @@
+@using CmosCpu.Computer
+@inject Retro70Service Retro70
+@implements IDisposable
+
+@if (Retro70.Kim1Keypad is not null)
+{
+    <div class="panel" style="margin-bottom: 8px;">
+        <div class="panel-title">KIM-1 Keypad</div>
+        <div style="display: grid; grid-template-columns: repeat(4, 48px); gap: 4px; padding: 8px; justify-content: center;">
+            @foreach (var key in _keyLayout)
+            {
+                var k = key;
+                bool isPressed = Retro70.Kim1Keypad.PressedKeys.Contains(key);
+                <button @onmousedown="() => PressKey(k)" @onmouseup="() => ReleaseKey(k)" @onmouseleave="() => ReleaseKey(k)"
+                        style="width: 48px; height: 40px; font-family: var(--font-mono); font-size: 13px; font-weight: bold; 
+                               border: 1px solid @(isPressed ? "#ff4444" : "#4a4a6a"); 
+                               background: @(isPressed ? "#3a1a2e" : "#1a1a2e"); 
+                               color: @(isPressed ? "#ff6666" : "#ccc"); 
+                               border-radius: 4px; cursor: pointer; user-select: none;">
+                    @key
+                </button>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private static readonly string[] _keyLayout =
+    [
+        "7", "8", "9", "A",
+        "4", "5", "6", "B",
+        "1", "2", "3", "C",
+        "0", "F", "E", "D",
+        "AD", "DA", "GO", "PC",
+        "+", "", "", ""
+    ];
+
+    private void PressKey(string key)
+    {
+        if (!string.IsNullOrEmpty(key))
+            Retro70.Kim1PressKey(key);
+    }
+
+    private void ReleaseKey(string key)
+    {
+        if (!string.IsNullOrEmpty(key))
+            Retro70.Kim1ReleaseKey(key);
+    }
+
+    public void Dispose()
+    {
+    }
+}

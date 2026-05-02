@@ -1,0 +1,20 @@
+@using CmosCpu.Computer
+@inject Retro70Service Retro70
+
+@if (Retro70.Apple1Terminal is not null)
+{
+    var terminal = Retro70.Apple1Terminal;
+    <div class="panel" style="margin-bottom: 8px;">
+        <div class="panel-title">Apple-1 Terminal</div>
+        <div style="background: #0a0a1a; border: 1px solid #4a4a6a; border-radius: 4px; padding: 8px; font-family: var(--font-mono); font-size: 13px; line-height: 1.4; min-height: 240px; white-space: pre; overflow: auto;">
+            @if (terminal.Lines.Length > 0)
+            {
+                @terminal.Text
+            }
+            else
+            {
+                <span style="color: var(--text-dim);">Terminal ready. Type in the keyboard field below.</span>
+            }
+        </div>
+    </div>
+}

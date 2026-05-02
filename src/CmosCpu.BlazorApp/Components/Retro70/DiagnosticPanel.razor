@@ -1,0 +1,28 @@
+@using CmosCpu.Computer
+@inject Retro70Service Retro70
+@inject ComputerRunController RunControl
+
+@if (Retro70.IsLoaded)
+{
+    <div class="panel" style="margin-bottom: 8px;">
+        <div class="panel-title">Diagnostics</div>
+        <div style="font-size: 11px; padding: 4px 0; font-family: var(--font-mono);">
+            <div>Running: <span style="color: @(RunControl.IsRunning ? "var(--green)" : "var(--text-dim)")">@RunControl.IsRunning</span></div>
+            <div>Instructions: @RunControl.TotalInstructionsExecuted</div>
+            @{
+                ulong? cycles = RunControl.GetCycleCount();
+                if (cycles.HasValue)
+                {
+                    <div>Cycles: @cycles.Value</div>
+                }
+            }
+            <div>Batch: @RunControl.InstructionsPerBatch</div>
+            <div>Delay: @RunControl.RenderDelayMs ms</div>
+            <div>Profile: @(Retro70.Profile?.Id ?? "—")</div>
+            @if (!string.IsNullOrEmpty(RunControl.LastError))
+            {
+                <div style="color: var(--red); margin-top: 4px;">Error: @RunControl.LastError</div>
+            }
+        </div>
+    </div>
+}

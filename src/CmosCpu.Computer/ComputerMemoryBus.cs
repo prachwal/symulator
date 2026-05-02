@@ -65,6 +65,17 @@ public sealed class ComputerMemoryBus : IMemoryBus
         return range?.Data;
     }
 
+    public byte[] GetMemoryPage(ushort start, int length = 256)
+    {
+        var result = new byte[length];
+        for (int i = 0; i < length; i++)
+        {
+            ushort addr = (ushort)(start + i);
+            result[i] = ReadByte(addr);
+        }
+        return result;
+    }
+
     private sealed record MappedRange(
         ushort Start,
         ushort End,

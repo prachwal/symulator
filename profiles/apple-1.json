@@ -42,12 +42,8 @@
       "status": "not-yet-implemented",
       "start": "0xD010",
       "size": "0x0004",
-      "registers": {
-        "keyboardData": "0xD010",
-        "keyboardControl": "0xD011",
-        "displayData": "0xD012",
-        "displayControl": "0xD013"
-      },
+      "columns": 40,
+      "rows": 24,
       "description": "Apple-1 style 6820/6821 PIA terminal interface. Needed for monitor I/O."
     },
     {

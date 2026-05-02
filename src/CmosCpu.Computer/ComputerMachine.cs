@@ -10,6 +10,10 @@ public sealed class ComputerMachine
     public ComputerMemoryBus Memory { get; }
     public TextDisplayRegion? TextDisplay { get; private set; }
     public KeyboardRegion? Keyboard { get; private set; }
+    public Kim1Riot6530IoDevice? Kim1Riot { get; private set; }
+    public Kim1LedDisplayState? Kim1LedDisplay { get; private set; }
+    public Kim1KeypadState? Kim1Keypad { get; private set; }
+    public Apple1PiaTerminalDevice? Apple1Terminal { get; private set; }
     public bool IsRunning { get; private set; }
 
     public ComputerMachine(ComputerProfile profile)
@@ -114,6 +118,43 @@ public sealed class ComputerMachine
                 }, (addr, val) => { });
                 break;
             }
+            case "kim1-6530-io":
+            {
+                var riot = new Kim1Riot6530IoDevice();
+                Kim1Riot = riot;
+                if (Kim1Keypad is not null)
+                    riot.Keypad = Kim1Keypad;
+                Memory.MapDevice(riot.StartAddress, (ushort)(riot.EndAddress - riot.StartAddress + 1),
+                    riot.Read, riot.Write);
+                break;
+            }
+            case "kim1-led-display":
+            {
+                Kim1LedDisplay = new Kim1LedDisplayState();
+                break;
+            }
+            case "kim1-keypad":
+            {
+                Kim1Keypad = new Kim1KeypadState();
+                if (Kim1Riot is not null)
+                    Kim1Riot.Keypad = Kim1Keypad;
+                break;
+            }
+            case "apple1-pia-terminal":
+            {
+                int columns = dev.Columns > 0 ? dev.Columns : 40;
+                int rows = dev.Rows > 0 ? dev.Rows : 24;
+                var terminal = new Apple1PiaTerminalDevice(columns, rows);
+                Apple1Terminal = terminal;
+                Memory.MapDevice(terminal.StartAddress, (ushort)(terminal.EndAddress - terminal.StartAddress + 1),
+                    terminal.Read, terminal.Write);
+                break;
+            }
+            case "character-rom":
+            case "text-terminal":
+                break;
+            default:
+                throw new InvalidOperationException($"Unknown device type: '{dev.Type}'");
         }
     }
 }

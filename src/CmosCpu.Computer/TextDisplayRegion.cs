@@ -3,10 +3,12 @@ namespace CmosCpu.Computer;
 public sealed class TextDisplayRegion
 {
     private readonly byte[] _buffer;
+    private long _version;
 
     public ushort StartAddress { get; }
     public int Width { get; }
     public int Height { get; }
+    public long Version => _version;
 
     public TextDisplayRegion(ushort startAddress, int width, int height)
     {
@@ -30,6 +32,7 @@ public sealed class TextDisplayRegion
         if (offset < 0 || offset >= _buffer.Length)
             return;
         _buffer[offset] = value;
+        _version++;
     }
 
     public byte[] GetBuffer() => _buffer;
@@ -46,5 +49,6 @@ public sealed class TextDisplayRegion
     public void Clear()
     {
         Array.Clear(_buffer);
+        _version++;
     }
 }

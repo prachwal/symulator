@@ -31,6 +31,10 @@ public sealed class Retro70Service
     public ComputerMemoryBus? Memory => _machine?.Memory;
     public TextDisplayRegion? TextDisplay => _machine?.TextDisplay;
     public KeyboardRegion? Keyboard => _machine?.Keyboard;
+    public Kim1Riot6530IoDevice? Kim1Riot => _machine?.Kim1Riot;
+    public Kim1LedDisplayState? Kim1LedDisplay => _machine?.Kim1LedDisplay;
+    public Kim1KeypadState? Kim1Keypad => _machine?.Kim1Keypad;
+    public Apple1PiaTerminalDevice? Apple1Terminal => _machine?.Apple1Terminal;
     public bool IsLoaded => _machine is not null;
 
     public string StatusMessage
@@ -130,7 +134,32 @@ public sealed class Retro70Service
 
     public void EnqueueKey(char c)
     {
-        _machine?.Keyboard?.EnqueueKey(c);
+        if (_machine?.Keyboard is not null)
+        {
+            _machine.Keyboard.EnqueueKey(c);
+        }
+        if (_machine?.Apple1Terminal is not null)
+        {
+            _machine.Apple1Terminal.QueueKey(c);
+        }
+        NotifyStateChanged();
+    }
+
+    public void Kim1PressKey(string key)
+    {
+        _machine?.Kim1Keypad?.PressKey(key);
+        NotifyStateChanged();
+    }
+
+    public void Kim1ReleaseKey(string key)
+    {
+        _machine?.Kim1Keypad?.ReleaseKey(key);
+        NotifyStateChanged();
+    }
+
+    public void Apple1QueueKey(char key)
+    {
+        _machine?.Apple1Terminal?.QueueKey(key);
         NotifyStateChanged();
     }
 
