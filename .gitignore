@@ -480,3 +480,8 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Reference test ROMs
+/tests/CmosCpu.Cpu.Tests/Reference/roms/*.bin
+/tests/CmosCpu.Cpu.Tests/Reference/roms/*.rom
+/tests/CmosCpu.Cpu.Tests/Reference/roms/*.prg

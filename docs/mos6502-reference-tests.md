@@ -24,42 +24,36 @@ Run well-known 6502 functional test suites against the `Mos6502Cpu` to validate 
 - For C64 compatibility, once undocumented opcodes are implemented
 - Tests the most common illegal opcodes (LAX, SAX, DCP, ISC, SLO, RLA, SRE, RRA, etc.)
 
-## Integration plan
+## Test runner
 
-1. Place test binaries in a well-known directory:
-   ```
-   tests/CmosCpu.Cpu.Tests/Reference/roms/
-   ```
+The `Reference6502TestRunner` class provides a generic runner:
 
-2. Write a test helper that:
-   - Loads the binary into RAM at the expected address
-   - Sets reset vector accordingly
-   - Runs `Step()` until a sentinel value appears at a success address
-   - Fails if the test times out or writes an error code
+```csharp
+ReferenceTestResult result = Reference6502TestRunner.Run(
+    romPath,                // path to .bin file
+    loadAddress: 0x0000,    // where to load the binary
+    resetVector: 0x0400,    // reset vector target
+    maxSteps: 100_000_000,  // timeout
+    probe: (ram, cpu) =>    // callback to detect success/failure
+    {
+        byte status = ram.ReadByte(0x8000);
+        if (status == 0x00) return ReferenceTestState.Success;
+        if (status != 0xFF) return ReferenceTestState.Failed;
+        return ReferenceTestState.Continue;
+    });
+```
 
-3. Example skeleton:
+## Integration status
+- [x] Reference runner helper (`Reference6502TestRunner`)
+- [x] Functional reference test (`Mos6502FunctionalReferenceTests`)
+- [x] Decimal reference test (`Mos6502DecimalReferenceTests`)
+- [ ] Actual ROM binaries (not committed — manual download needed)
 
-   ```csharp
-   public static void RunFunctionalTest(IMemoryBus ram, byte[] rom, int maxSteps)
-   {
-       // Load ROM at $0000
-       // Set reset vector
-       var cpu = new Mos6502Cpu(ram);
-       cpu.Reset();
-
-       for (int i = 0; i < maxSteps; i++)
-       {
-           cpu.Step();
-           byte status = ram.ReadByte(0x8000);
-           if (status == 0x00) return; // success
-           if (status != 0xFF) Assert.Fail($"Test failed with code 0x{status:X2}");
-       }
-       Assert.Fail("Timeout");
-   }
-   ```
-
-4. Reference ROM source:
-   - https://github.com/Klaus2m5/6502_65C02_functional_tests
+## How to run reference tests locally
+1. Build the ROM binary from https://github.com/Klaus2m5/6502_65C02_functional_tests
+2. Copy to `tests/CmosCpu.Cpu.Tests/Reference/roms/6502_functional_test.bin`
+3. Run `dotnet test tests/CmosCpu.Cpu.Tests/`
+4. If ROM is missing, test reports `Inconclusive`
 
 ## Constraints
 - Reference ROMs are not included in this repository due to licensing.

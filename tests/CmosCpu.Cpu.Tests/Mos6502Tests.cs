@@ -1332,3 +1332,264 @@ public sealed class Mos6502CycleTests
         cycles.Should().Be(4);
     }
 }
+
+[TestClass]
+public sealed class Mos6502BcdMatrixTests
+{
+    private static Mos6502Cpu CreateCpu(byte[] program, out Ram64K ram, ushort origin = 0x8000)
+    {
+        ram = new Ram64K();
+        ram.WriteByte(0xFFFC, (byte)(origin & 0xFF));
+        ram.WriteByte(0xFFFD, (byte)((origin >> 8) & 0xFF));
+        ram.LoadBytes(origin, program);
+        var cpu = new Mos6502Cpu(ram);
+        cpu.Reset();
+        return cpu;
+    }
+
+    private static byte ToBcd(int value)
+    {
+        int tens = value / 10;
+        int ones = value % 10;
+        return (byte)((tens << 4) | ones);
+    }
+
+    private static int FromBcd(byte value)
+    {
+        return ((value >> 4) & 0x0F) * 10 + (value & 0x0F);
+    }
+
+    [TestMethod]
+    public void ADC_DecimalMatrix_AllPairs()
+    {
+        var pairs = new (int a, int b, int expectedSum, bool expectCarry)[]
+        {
+            (00, 00, 00, false),
+            (00, 01, 01, false),
+            (01, 09, 10, false),
+            (09, 01, 10, false),
+            (10, 01, 11, false),
+            (15, 27, 42, false),
+            (49, 50, 99, false),
+            (50, 50, 00, true),
+            (99, 01, 00, true),
+            (99, 99, 98, true),
+        };
+
+        foreach (var (a, b, expectedSum, expectCarry) in pairs)
+        {
+            byte aBcd = ToBcd(a);
+            byte bBcd = ToBcd(b);
+            byte expectedBcd = ToBcd(expectedSum);
+
+            var cpu = CreateCpu(
+            [
+                0xF8,       // SED
+                0xA9, aBcd, // LDA #aBcd
+                0x69, bBcd, // ADC #bBcd
+            ], out _);
+
+            cpu.Step(); // SED
+            cpu.Step(); // LDA
+            cpu.Step(); // ADC
+
+            cpu.A.Should().Be(expectedBcd,
+                $"ADC BCD {a}+{b}: expected 0x{expectedBcd:X2}, got 0x{cpu.A:X2}");
+            cpu.Carry.Should().Be(expectCarry,
+                $"ADC BCD {a}+{b}: carry mismatch");
+            cpu.Zero.Should().Be(expectedSum == 0,
+                $"ADC BCD {a}+{b}: zero flag mismatch");
+            cpu.Negative.Should().Be((expectedBcd & 0x80) != 0,
+                $"ADC BCD {a}+{b}: negative flag mismatch");
+        }
+    }
+
+    [TestMethod]
+    public void SBC_DecimalMatrix_AllPairs()
+    {
+        var pairs = new (int a, int b, int expectedDiff, bool expectCarry)[]
+        {
+            (00, 00, 00, true),
+            (01, 00, 01, true),
+            (10, 01, 09, true),
+            (42, 27, 15, true),
+            (50, 49, 01, true),
+            (99, 01, 98, true),
+            (00, 01, 99, false),
+            (10, 11, 99, false),
+            (99, 99, 00, true),
+        };
+
+        foreach (var (a, b, expectedDiff, expectCarry) in pairs)
+        {
+            byte aBcd = ToBcd(a);
+            byte bBcd = ToBcd(b);
+            byte expectedBcd = ToBcd(expectedDiff);
+
+            var cpu = CreateCpu(
+            [
+                0xF8,       // SED
+                0xA9, aBcd, // LDA #aBcd
+                0x38,       // SEC (no borrow)
+                0xE9, bBcd, // SBC #bBcd
+            ], out _);
+
+            cpu.Step(); // SED
+            cpu.Step(); // LDA
+            cpu.Step(); // SEC
+            cpu.Step(); // SBC
+
+            cpu.A.Should().Be(expectedBcd,
+                $"SBC BCD {a}-{b}: expected 0x{expectedBcd:X2}, got 0x{cpu.A:X2}");
+            cpu.Carry.Should().Be(expectCarry,
+                $"SBC BCD {a}-{b}: carry mismatch");
+            cpu.Zero.Should().Be(expectedDiff == 0,
+                $"SBC BCD {a}-{b}: zero flag mismatch");
+            cpu.Negative.Should().Be((expectedBcd & 0x80) != 0,
+                $"SBC BCD {a}-{b}: negative flag mismatch");
+        }
+    }
+}
+
+[TestClass]
+public sealed class Mos6502InterruptDetailTests
+{
+    private static Mos6502Cpu SetupForInterrupts(byte[] program, out Ram64K ram,
+        ushort irqVector = 0x9000, ushort nmiVector = 0x9000, ushort origin = 0x8000)
+    {
+        ram = new Ram64K();
+        ram.WriteByte(0xFFFC, (byte)(origin & 0xFF));
+        ram.WriteByte(0xFFFD, (byte)((origin >> 8) & 0xFF));
+        ram.WriteByte(0xFFFE, (byte)(irqVector & 0xFF));
+        ram.WriteByte(0xFFFF, (byte)((irqVector >> 8) & 0xFF));
+        ram.WriteByte(0xFFFA, (byte)(nmiVector & 0xFF));
+        ram.WriteByte(0xFFFB, (byte)((nmiVector >> 8) & 0xFF));
+        ram.LoadBytes(origin, program);
+        if (irqVector >= 0x8000)
+            ram.LoadBytes(irqVector, [0x40]); // RTI at IRQ vector
+        if (nmiVector >= 0x8000 && nmiVector != irqVector)
+            ram.LoadBytes(nmiVector, [0x40]); // RTI at NMI vector
+        var cpu = new Mos6502Cpu(ram);
+        cpu.Reset();
+        return cpu;
+    }
+
+    [TestMethod]
+    public void BRK_LandsAtIrqVector()
+    {
+        var cpu = SetupForInterrupts(new byte[] { 0x00, 0x00, 0xEA }, out _);
+        cpu.Step();
+        cpu.PC.Should().Be(0x9000);
+        cpu.InterruptDisable.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void BRK_DecrementsSPBy3()
+    {
+        var cpu = SetupForInterrupts(new byte[] { 0x00, 0x00 }, out _);
+        cpu.Step();
+        cpu.SP.Should().Be(0xFA); // 0xFD - 3 (2 for PC, 1 for status)
+    }
+
+    [TestMethod]
+    public void BRK_SetsInterruptDisable()
+    {
+        var cpu = SetupForInterrupts(new byte[] { 0x58, 0x00, 0x00 }, out _);
+        cpu.Step(); // CLI
+        cpu.InterruptDisable.Should().BeFalse();
+        cpu.Step(); // BRK
+        cpu.InterruptDisable.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void IRQ_SetsInterruptDisableAndPushesPC()
+    {
+        var cpu = SetupForInterrupts(new byte[] { 0x58, 0xEA }, out _);
+        cpu.Step(); // CLI
+        cpu.Irq();
+        cpu.PC.Should().Be(0x9000);
+        cpu.InterruptDisable.Should().BeTrue();
+        cpu.SP.Should().Be(0xFA); // pushed PC (2) + status (1)
+    }
+
+    [TestMethod]
+    public void IRQ_IgnoredWhenInterruptDisable()
+    {
+        var cpu = SetupForInterrupts(new byte[] { 0xEA }, out _);
+        cpu.Irq();
+        cpu.PC.Should().Be(0x8000); // unchanged
+        cpu.SP.Should().Be(0xFD); // unchanged
+    }
+
+    [TestMethod]
+    public void NMI_WorksEvenWhenInterruptDisabled()
+    {
+        var cpu = SetupForInterrupts(new byte[] { 0x78, 0xEA }, out _,
+            nmiVector: 0x9000);
+        cpu.Nmi();
+        cpu.PC.Should().Be(0x9000);
+        cpu.InterruptDisable.Should().BeTrue();
+        cpu.SP.Should().Be(0xFA);
+    }
+
+    [TestMethod]
+    public void NMI_UsesCorrectVector()
+    {
+        var cpu = SetupForInterrupts(new byte[] { 0xEA }, out var ram,
+            irqVector: 0x9000, nmiVector: 0x9005);
+        ram.WriteByte(0x9005, 0xEA); // NOP at NMI vector
+        cpu.Nmi();
+        cpu.PC.Should().Be(0x9005);
+    }
+
+    [TestMethod]
+    public void RTI_RestoresPC()
+    {
+        var cpu = SetupForInterrupts(new byte[] { 0x58, 0xEA }, out _);
+        cpu.Step(); // CLI
+        cpu.Irq(); // pushes PC=0x8001, status → jumps to 0x9000
+        // 0x9000 has RTI (0x40) from SetupForInterrupts
+        // RTI in original program at 0x8001 is 0xEA (NOP), not used
+        cpu.PC.Should().Be(0x9000); // IRQ took us here
+        // Now step: RTI at 0x9000 should restore PC to 0x8001
+        cpu.Step();
+        cpu.PC.Should().Be(0x8001);
+    }
+
+    [TestMethod]
+    public void RTI_RestoresStatus()
+    {
+        var cpu = SetupForInterrupts(new byte[] { 0x38, 0xF8, 0xEA }, out _);
+        cpu.Step(); // SEC → C=1
+        cpu.Step(); // SED → D=1
+        // Now status has C=1, D=1, I=1 (from reset)
+        cpu.Irq(); // pushes status with B=0, I=1, C=1, D=1
+        cpu.Step(); // RTI at 0x9000 should restore
+        cpu.Carry.Should().BeTrue();
+        cpu.Decimal.Should().BeTrue();
+        cpu.PC.Should().Be(0x8003);
+    }
+
+    [TestMethod]
+    public void IRQ_BreakFlagNotSet()
+    {
+        var cpu = SetupForInterrupts(new byte[] { 0x58, 0xEA }, out var ram);
+        cpu.Step(); // CLI
+        // Manually inspect pushed status byte on stack
+        // Before IRQ: SP=0xFC (after one step)
+        byte spBefore = cpu.SP;
+        cpu.Irq();
+        byte spAfter = cpu.SP;
+        // IRQ pushed PCH, PCL, status (3 bytes)
+        // The status byte is at 0x0100 + spAfter + 1 (since SP decremented after push)
+        // Actually Push decrements SP after write:
+        // Write at 0x0100+SP, then SP--
+        // So for push1: SP=SP_before, write at 0x0100+SP_before, SP--
+        // for push3: status byte is at 0x0100 + (spBefore - 2)
+        byte pushedStatus = ram.ReadByte((ushort)(0x0100 + spBefore - 2));
+        // Break flag (bit 4) should NOT be set in IRQ
+        (pushedStatus & 0x10).Should().Be(0, "IRQ must not set break flag in pushed status");
+        // Bit 5 should be set (reserved)
+        (pushedStatus & 0x20).Should().Be(0x20, "IRQ pushed status must have bit 5 set");
+    }
+}
