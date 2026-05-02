@@ -55,7 +55,9 @@ public sealed class Mos6502Cpu
         byte opcode = Read(PC);
         PC++;
 
-        return Execute(opcode);
+        int cycles = Execute(opcode);
+        CycleCount += (ulong)cycles;
+        return cycles;
     }
 
     public void Nmi()
@@ -81,13 +83,11 @@ public sealed class Mos6502Cpu
 
     private byte Read(ushort addr)
     {
-        CycleCount++;
         return _bus.ReadByte(addr);
     }
 
     private void Write(ushort addr, byte value)
     {
-        CycleCount++;
         _bus.WriteByte(addr, value);
     }
 
@@ -241,13 +241,18 @@ public sealed class Mos6502Cpu
         return (sbyte)Read(PC++);
     }
 
-    private void Branch(sbyte offset)
+    private int BranchIf(bool condition)
     {
-        ushort dest = (ushort)(PC + offset);
-        CycleCount++;
-        if ((PC & 0xFF00) != (dest & 0xFF00))
-            CycleCount++;
-        PC = dest;
+        sbyte offset = GetRelative();
+
+        if (!condition)
+            return 2;
+
+        ushort oldPc = PC;
+        ushort newPc = (ushort)(PC + offset);
+        PC = newPc;
+
+        return (oldPc & 0xFF00) != (newPc & 0xFF00) ? 4 : 3;
     }
 
     private int Execute(byte opcode)
@@ -276,41 +281,41 @@ public sealed class Mos6502Cpu
 
             // --- ASL ---
             case 0x0A: { A = ShiftLeft(A); return 2; }
-            case 0x06: { byte v = ShiftLeft(Read(GetZeroPage())); Write(GetZeroPage(), v); return 5; }
+            case 0x06: { var addr = GetZeroPage(); byte v = ShiftLeft(Read(addr)); Write(addr, v); return 5; }
             case 0x16: { var addr = GetZeroPageX(); byte v = ShiftLeft(Read(addr)); Write(addr, v); return 6; }
             case 0x0E: { var addr = GetAbsolute(); byte v = ShiftLeft(Read(addr)); Write(addr, v); return 6; }
             case 0x1E: { var addr = GetAbsoluteXAddr(); byte v = ShiftLeft(Read(addr)); Write(addr, v); return 7; }
 
             // --- BCC ---
-            case 0x90: { sbyte off = GetRelative(); if (!Carry) Branch(off); return 2; }
+            case 0x90: return BranchIf(!Carry);
 
             // --- BCS ---
-            case 0xB0: { sbyte off = GetRelative(); if (Carry) Branch(off); return 2; }
+            case 0xB0: return BranchIf(Carry);
 
             // --- BEQ ---
-            case 0xF0: { sbyte off = GetRelative(); if (Zero) Branch(off); return 2; }
+            case 0xF0: return BranchIf(Zero);
 
             // --- BIT ---
             case 0x24: { byte v = Read(GetZeroPage()); BitTest(v); return 3; }
             case 0x2C: { byte v = Read(GetAbsolute()); BitTest(v); return 4; }
 
             // --- BMI ---
-            case 0x30: { sbyte off = GetRelative(); if (Negative) Branch(off); return 2; }
+            case 0x30: return BranchIf(Negative);
 
             // --- BNE ---
-            case 0xD0: { sbyte off = GetRelative(); if (!Zero) Branch(off); return 2; }
+            case 0xD0: return BranchIf(!Zero);
 
             // --- BPL ---
-            case 0x10: { sbyte off = GetRelative(); if (!Negative) Branch(off); return 2; }
+            case 0x10: return BranchIf(!Negative);
 
             // --- BRK ---
             case 0x00: { PC++; PushWord(PC); PushStatus(true); InterruptDisable = true; PC = ReadWord(0xFFFE); return 7; }
 
             // --- BVC ---
-            case 0x50: { sbyte off = GetRelative(); if (!Overflow) Branch(off); return 2; }
+            case 0x50: return BranchIf(!Overflow);
 
             // --- BVS ---
-            case 0x70: { sbyte off = GetRelative(); if (Overflow) Branch(off); return 2; }
+            case 0x70: return BranchIf(Overflow);
 
             // --- CLC ---
             case 0x18: { Carry = false; return 2; }
@@ -550,12 +555,14 @@ public sealed class Mos6502Cpu
         ushort diff;
         if (Decimal)
         {
-            byte al = (byte)((A & 0x0F) - (value & 0x0F) - (Carry ? 0 : 1));
-            if ((al & 0x10) != 0) al = (byte)((al - 6) & 0x0F);
-            byte ah = (byte)(((A >> 4) & 0x0F) - ((value >> 4) & 0x0F) - ((al & 0x10) != 0 ? 1 : 0));
-            if ((ah & 0x10) != 0) ah = (byte)((ah - 6) & 0x0F);
+            int al = (A & 0x0F) - (value & 0x0F) - (Carry ? 0 : 1);
+            int lowBorrow = (al & 0x10) != 0 ? 1 : 0;
+            if (lowBorrow != 0) al = (al - 6) & 0x0F;
+            int ah = ((A >> 4) & 0x0F) - ((value >> 4) & 0x0F) - lowBorrow;
+            int highBorrow = (ah & 0x10) != 0 ? 1 : 0;
+            if (highBorrow != 0) ah = (ah - 6) & 0x0F;
             A = (byte)((ah << 4) | (al & 0x0F));
-            Carry = (ah & 0x10) == 0;
+            Carry = highBorrow == 0;
         }
         else
         {
