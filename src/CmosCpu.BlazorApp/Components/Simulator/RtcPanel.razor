@@ -1,14 +1,14 @@
 @using CmosCpu.BlazorApp.Models
 
-<div class="sim-subpanel">
-    <div class="sim-subpanel-title">RTC (0xC020-0xC025)</div>
-    <div class="sim-reg-grid">
-        <span class="sim-reg-label">Second:</span><span class="sim-reg-value">@State.RtcSecond</span>
-        <span class="sim-reg-label">Minute:</span><span class="sim-reg-value">@State.RtcMinute</span>
-        <span class="sim-reg-label">Hour:</span><span class="sim-reg-value">@State.RtcHour</span>
-        <span class="sim-reg-label">Day:</span><span class="sim-reg-value">@State.RtcDay</span>
-        <span class="sim-reg-label">Month:</span><span class="sim-reg-value">@State.RtcMonth</span>
-        <span class="sim-reg-label">Year:</span><span class="sim-reg-value">@State.RtcYear</span>
+<div>
+    <div style="color:var(--text-mnemonic); font-size:11px; font-weight:600; margin-bottom:4px;">RTC (0xC020-0xC025)</div>
+    <div class="regs-grid">
+        <span class="reg-label">Second</span><span class="reg-value mono">@State.RtcSecond</span>
+        <span class="reg-label">Minute</span><span class="reg-value mono">@State.RtcMinute</span>
+        <span class="reg-label">Hour</span><span class="reg-value mono">@State.RtcHour</span>
+        <span class="reg-label">Day</span><span class="reg-value mono">@State.RtcDay</span>
+        <span class="reg-label">Month</span><span class="reg-value mono">@State.RtcMonth</span>
+        <span class="reg-label">Year</span><span class="reg-value mono">@State.RtcYear</span>
     </div>
 </div>
 

@@ -1,4 +1,5 @@
 using CmosCpu.Assembler;
+using CmosCpu.BlazorApp.Models;
 using CmosCpu.Core;
 using CmosCpu.Runtime;
 using NLog;
@@ -11,6 +12,7 @@ public class BlazorSimulationController : IBlazorSimulationController, IDisposab
     private readonly Simulator _simulator;
     private readonly SimpleAssembler _assembler = new();
     private CancellationTokenSource? _runCts;
+    private Task? _runTask;
     private int _speedHz = 100;
 
     public bool IsRunning => _runCts is not null && !_runCts.IsCancellationRequested;
@@ -102,12 +104,19 @@ public class BlazorSimulationController : IBlazorSimulationController, IDisposab
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
+        if (_runTask is not null && !_runTask.IsCompleted)
+            return;
+
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var token = _runCts.Token;
-
         StatusChanged?.Invoke(this, "Running");
         Logger.Info("Simulation started");
+        _runTask = RunLoopAsync(token);
+        await Task.CompletedTask;
+    }
 
+    private async Task RunLoopAsync(CancellationToken token)
+    {
         try
         {
             while (!token.IsCancellationRequested && !_simulator.Cpu.Halted)
@@ -131,6 +140,7 @@ public class BlazorSimulationController : IBlazorSimulationController, IDisposab
         {
             _runCts?.Dispose();
             _runCts = null;
+            _runTask = null;
             string state = _simulator.Cpu.Halted ? "HALTED" : "Paused";
             StatusChanged?.Invoke(this, state);
             Logger.Info("Simulation {State}", state);
@@ -152,6 +162,63 @@ public class BlazorSimulationController : IBlazorSimulationController, IDisposab
     }
 
     public SimulatorSnapshot GetSnapshot() => _simulator.GetSnapshot();
+
+    public CompileResultViewModel CompileAsm(string source)
+    {
+        var (binary, errors) = _assembler.Assemble(source, 0x8000);
+
+        if (errors.Count > 0)
+        {
+            return new CompileResultViewModel
+            {
+                Success = false,
+                Errors = errors.ToList(),
+                StatusMessage = "Compile failed",
+            };
+        }
+
+        var hexDump = FormatHexDump(0x8000, binary);
+
+        return new CompileResultViewModel
+        {
+            Success = true,
+            ByteCount = binary.Length,
+            Origin = 0x8000,
+            HexDump = hexDump,
+            StatusMessage = $"Compile OK — {binary.Length} bytes at 0x8000",
+        };
+    }
+
+    public CompileResultViewModel CompileLoadResetAsm(string source)
+    {
+        var result = CompileAsm(source);
+        if (!result.Success)
+            return result;
+
+        _simulator.Rom.Load(result.ByteCount > 0 ? _assembler.Assemble(source, 0x8000).binary : Array.Empty<byte>());
+        _simulator.Vectors.Write(0xFFFC, 0x00);
+        _simulator.Vectors.Write(0xFFFD, 0x80);
+        _simulator.Reset();
+
+        result.StatusMessage = $"Loaded {result.ByteCount} bytes at 0x8000, CPU reset";
+        StatusChanged?.Invoke(this, result.StatusMessage);
+        SnapshotChanged?.Invoke(this, _simulator.GetSnapshot());
+
+        return result;
+    }
+
+    private static string FormatHexDump(ushort origin, byte[] data)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < data.Length; i += 16)
+        {
+            sb.Append($"{(ushort)(origin + i):X4}: ");
+            for (int j = 0; j < 16 && i + j < data.Length; j++)
+                sb.Append($"{data[i + j]:X2} ");
+            sb.AppendLine();
+        }
+        return sb.ToString();
+    }
 
     public void ReportStatus(string message)
     {

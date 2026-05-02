@@ -19,7 +19,7 @@
             @foreach (var instr in InstructionInfo.All)
             {
                 <tr>
-                    <td><code>0x@instr.Key.ToString("X2")</code></td>
+                    <td><code>@($"0x{instr.Key:X2}")</code></td>
                     <td><strong>@instr.Value.Mnemonic</strong></td>
                     <td>@instr.Value.OperandFormat</td>
                     <td>@instr.Value.ByteCount</td>

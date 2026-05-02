@@ -1,3 +1,4 @@
+using CmosCpu.BlazorApp.Models;
 using CmosCpu.Core;
 
 namespace CmosCpu.BlazorApp.Services;
@@ -9,6 +10,9 @@ public interface IBlazorSimulationController
 
     Task LoadAsmAsync(Stream stream, string fileName, CancellationToken cancellationToken);
     Task LoadBinAsync(Stream stream, string fileName, ushort loadAddress, CancellationToken cancellationToken);
+
+    CompileResultViewModel CompileAsm(string source);
+    CompileResultViewModel CompileLoadResetAsm(string source);
 
     void Reset();
     void Step();

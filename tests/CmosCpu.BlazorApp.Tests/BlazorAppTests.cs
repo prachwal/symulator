@@ -210,6 +210,89 @@ public class BlazorAppTests
         error.Should().Contain("large");
     }
 
+    [TestMethod]
+    public void CompileAsm_ReturnsOkForValidBlink()
+    {
+        var simulator = new Simulator();
+        var controller = new BlazorSimulationController(simulator);
+
+        string source = @"
+.org 0x8000
+start:
+    LDA #0x01
+    STA 0xC000
+    CALL delay
+    JMP start
+delay:
+    LDA #0xFF
+loop:
+    SUB #0x01
+    JNZ loop
+    RET
+";
+
+        var result = controller.CompileAsm(source);
+
+        result.Success.Should().BeTrue();
+        result.ByteCount.Should().BeGreaterThan(0);
+        result.HexDump.Should().NotBeNullOrEmpty();
+    }
+
+    [TestMethod]
+    public void CompileAsm_ReturnsErrorsForBadLabel()
+    {
+        var simulator = new Simulator();
+        var controller = new BlazorSimulationController(simulator);
+
+        string source = @"
+.org 0x8000
+    JMP nonexistent_label
+";
+
+        var result = controller.CompileAsm(source);
+
+        result.Success.Should().BeFalse();
+        result.Errors.Should().NotBeEmpty();
+    }
+
+    [TestMethod]
+    public void CompileLoadResetAsm_LoadsProgramIntoSimulator()
+    {
+        var simulator = new Simulator();
+        var controller = new BlazorSimulationController(simulator);
+
+        string source = @"
+.org 0x8000
+    LDA #0x42
+    HLT
+";
+
+        var result = controller.CompileLoadResetAsm(source);
+
+        result.Success.Should().BeTrue();
+        simulator.Cpu.Registers.PC.Should().Be(0x8000);
+        simulator.Cpu.Registers.A.Should().Be(0);
+    }
+
+    [TestMethod]
+    public void CompileLoadResetAsm_StepExecutesLoadedProgram()
+    {
+        var simulator = new Simulator();
+        var controller = new BlazorSimulationController(simulator);
+
+        string source = @"
+.org 0x8000
+    LDA #0x42
+    HLT
+";
+
+        controller.CompileLoadResetAsm(source);
+        controller.Step();
+
+        simulator.Cpu.Registers.A.Should().Be(0x42);
+        simulator.Cpu.Registers.Halted.Should().BeFalse();
+    }
+
     // --- Helpers ---
 
     private static SimulatorSnapshot CreateSnapshot(Action<CpuRegisters>? configureRegs = null, bool ledOn = false)

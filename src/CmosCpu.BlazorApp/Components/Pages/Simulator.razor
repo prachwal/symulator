@@ -2,60 +2,146 @@
 @using CmosCpu.BlazorApp.Models
 @using CmosCpu.BlazorApp.Components.Simulator
 @using CmosCpu.Core
+@using Microsoft.JSInterop
 @inject CmosCpu.BlazorApp.Services.IBlazorSimulationController Controller
+@inject IJSRuntime Js
 @implements IDisposable
 
-<div class="sim-page">
-    <div class="sim-status-bar">
-        <span class="sim-status-text">@StatusMessage</span>
-        <span class="sim-status-detail">PC: 0x@State.PC.ToString("X4")</span>
-        <span class="sim-status-detail">Cycles: @State.Cycles</span>
-        <span class="sim-status-detail">State: @(State.Halted ? "HALTED" : "Running")</span>
-        <span class="sim-status-detail">@StatusMessage</span>
+<div class="simulator-page">
+
+    <!-- Status bar -->
+    <div class="status-bar">
+        <span class="status-text">@StatusMessage</span>
+        <span class="status-sep">|</span>
+        <span class="mono">PC: @Hex16(State.PC)</span>
+        <span class="status-sep">|</span>
+        <span class="mono">Cycles: @State.Cycles</span>
+        <span class="status-sep">|</span>
+        <span class="mono @(State.Halted ? "status-error" : "status-ok")">
+            @(State.Halted ? "HALTED" : "Running")
+        </span>
     </div>
 
-    <Toolbar Controller="Controller"
-             OnStep="@(() => { InvokeAsync(StateHasChanged); })"
-             OnRun="@(() => { InvokeAsync(StateHasChanged); })" />
-
-    <div class="sim-panels-row">
-        <div class="sim-panel sim-panel-registers">
-            <CpuRegistersPanel State="State" />
-        </div>
-        <div class="sim-panel sim-panel-flags">
-            <FlagsPanel State="State" />
-        </div>
-        <div class="sim-panel sim-panel-led">
-            <LedPanel State="State" />
-        </div>
+    <!-- Toolbar -->
+    <div class="simulator-toolbar">
+        <label class="btn" role="button">
+            Load ASM
+            <InputFile OnChange="@(async e => await OnFilePicked(e))" accept=".asm" hidden />
+        </label>
+        <label class="btn" role="button">
+            Load BIN
+            <InputFile OnChange="@(async e => await OnBinPicked(e))" accept=".bin" hidden />
+        </label>
+        <button class="btn" @onclick="() => Compile()">Compile ASM</button>
+        <button class="btn btn-primary" @onclick="() => CompileLoadReset()">Compile + Load + Reset</button>
+        <span class="tb-sep"></span>
+        <button class="btn" @onclick="() => Controller.Reset()">Reset</button>
+        <button class="btn" @onclick="Step">Step</button>
+        <button class="btn btn-run" @onclick="Run" disabled="@(Controller.IsRunning)">Run</button>
+        <button class="btn" @onclick="() => Controller.Pause()" disabled="@(!Controller.IsRunning)">Pause</button>
+        <button class="btn" @onclick="() => Controller.Stop()">Stop</button>
+        <span class="tb-sep"></span>
+        <span class="tb-label">Speed:</span>
+        <select class="tb-select" @bind="_speedText">
+            <option value="1">1 Hz</option>
+            <option value="10">10 Hz</option>
+            <option value="100" selected>100 Hz</option>
+            <option value="1000">1 kHz</option>
+            <option value="0">Max</option>
+        </select>
     </div>
 
-    <div class="sim-panels-row">
-        <div class="sim-panel sim-panel-memory">
+    <!-- Main grid: left = editor + compile output, right = cpu state -->
+    <div class="sim-grid">
+        <div class="sim-left">
+
+            <!-- ASM Editor -->
+            <div class="panel">
+                <div class="panel-title">ASM Editor</div>
+                <textarea class="asm-editor" id="asm-editor" rows="16" @bind="_asmSource"></textarea>
+            </div>
+
+            <!-- Compile output -->
+            <div class="panel">
+                <div class="panel-title">Compiler Output</div>
+                @if (_compileResult is not null)
+                {
+                    <div class="compile-status @(_compileResult.Success ? "status-ok" : "status-error")">
+                        @_compileResult.StatusMessage
+                    </div>
+                    @if (!_compileResult.Success && _compileResult.Errors.Count > 0)
+                    {
+                        <ul class="compile-errors">
+                            @foreach (var err in _compileResult.Errors)
+                            {
+                                <li class="status-error mono">@err</li>
+                            }
+                        </ul>
+                    }
+                    @if (_compileResult.Success && !string.IsNullOrEmpty(_compileResult.HexDump))
+                    {
+                        <pre class="hex-dump mono">@_compileResult.HexDump</pre>
+                    }
+                }
+                else
+                {
+                    <div style="color: var(--text-dim); font-size: 12px;">Click "Compile ASM" to assemble the code above.</div>
+                }
+            </div>
+
+        </div>
+        <div class="sim-right">
+
+            <!-- CPU Registers + Flags + LED row -->
+            <div class="sim-right-top">
+                <CpuRegistersPanel State="State" />
+                <FlagsPanel State="State" />
+                <LedPanel State="State" />
+            </div>
+
+            <!-- Memory viewer -->
             <MemoryViewer State="State" />
+
+            <!-- Device panels row -->
+            <div class="sim-devices-row">
+                <InterruptsPanel State="State" />
+                <DevicesPanel State="State" />
+            </div>
+
         </div>
     </div>
 
-    <div class="sim-panels-row sim-panels-bottom">
-        <div class="sim-panel sim-panel-trace">
+    <!-- Tabs: Trace Log / Bus Log -->
+    <div class="panel" style="margin-top: 8px;">
+        <div class="tabs">
+            <button class="tab @(_activeTab == 0 ? "tab-active" : "")" @onclick="() => _activeTab = 0">Trace Log</button>
+            <button class="tab @(_activeTab == 1 ? "tab-active" : "")" @onclick="() => _activeTab = 1">Bus Log</button>
+            <span style="flex:1"></span>
+            <button class="btn-small" @onclick="ClearTrace">Clear Trace</button>
+            <button class="btn-small" @onclick="ClearBus">Clear Bus</button>
+        </div>
+        @if (_activeTab == 0)
+        {
             <TraceLog Entries="_traceEntries" OnClear="@ClearTrace" />
-        </div>
-        <div class="sim-panel sim-panel-log">
+        }
+        else
+        {
             <BusLog Entries="_busEntries" OnClear="@ClearBus" />
-        </div>
-        <div class="sim-panel sim-panel-devices">
-            <DevicesPanel State="State" />
-            <InterruptsPanel State="State" />
-        </div>
+        }
     </div>
+
 </div>
 
 @code {
     private UiSimulatorState State { get; set; } = new();
+    private string _asmSource = DefaultBlinkProgram;
+    private string _speedText = "100";
+    private string StatusMessage { get; set; } = "Ready";
+    private CompileResultViewModel? _compileResult;
+    private int _activeTab;
     private List<TraceEntryViewModel> _traceEntries = new();
     private List<BusTransactionViewModel> _busEntries = new();
     private const int MaxTraceEntries = 10000;
-    private string StatusMessage { get; set; } = "Ready";
 
     protected override void OnInitialized()
     {
@@ -66,45 +152,95 @@
         State.UpdateFromSnapshot(Controller.GetSnapshot());
     }
 
-    private void OnSnapshotChanged(object? sender, SimulatorSnapshot snap)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        State.UpdateFromSnapshot(snap);
-        InvokeAsync(StateHasChanged);
+        if (firstRender)
+        {
+            await Js.InvokeVoidAsync("cmosAsmEditor.create", "asm-editor", _asmSource);
+        }
     }
 
-    private void OnTraceEntryAdded(object? sender, TraceEntry entry)
+    private async Task OnFilePicked(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+        using var reader = new StreamReader(file.OpenReadStream(maxAllowedSize: 1 * 1024 * 1024));
+        _asmSource = await reader.ReadToEndAsync();
+        await Js.InvokeVoidAsync("cmosAsmEditor.setValue", "asm-editor", _asmSource);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnBinPicked(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+        await using var stream = file.OpenReadStream(maxAllowedSize: 1 * 1024 * 1024);
+        await Controller.LoadBinAsync(stream, file.Name, 0x8000, CancellationToken.None);
+    }
+
+    private void Compile()
+    {
+        _compileResult = Controller.CompileAsm(_asmSource);
+        StatusMessage = _compileResult.StatusMessage;
+        StateHasChanged();
+    }
+
+    private void CompileLoadReset()
+    {
+        _compileResult = Controller.CompileLoadResetAsm(_asmSource);
+        StatusMessage = _compileResult.StatusMessage;
+        State.UpdateFromSnapshot(Controller.GetSnapshot());
+        StateHasChanged();
+    }
+
+    private void Step()
+    {
+        Controller.Step();
+        State.UpdateFromSnapshot(Controller.GetSnapshot());
+        StateHasChanged();
+    }
+
+    private async Task Run()
+    {
+        Controller.SpeedHz = int.TryParse(_speedText, out var hz) ? hz : 100;
+        await Controller.RunAsync(CancellationToken.None);
+        State.UpdateFromSnapshot(Controller.GetSnapshot());
+        StateHasChanged();
+    }
+
+    private async void OnSnapshotChanged(object? sender, SimulatorSnapshot snap)
+    {
+        State.UpdateFromSnapshot(snap);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void OnTraceEntryAdded(object? sender, TraceEntry entry)
     {
         _traceEntries.Insert(0, TraceEntryViewModel.FromEntry(entry));
         if (_traceEntries.Count > MaxTraceEntries)
             _traceEntries.RemoveAt(_traceEntries.Count - 1);
-        InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void OnBusTransactionAdded(object? sender, BusTransaction tx)
+    private async void OnBusTransactionAdded(object? sender, BusTransaction tx)
     {
         _busEntries.Insert(0, BusTransactionViewModel.FromTransaction(tx));
         if (_busEntries.Count > 1000)
             _busEntries.RemoveAt(_busEntries.Count - 1);
-        InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void OnStatusChanged(object? sender, string msg)
+    private async void OnStatusChanged(object? sender, string msg)
     {
         StatusMessage = msg;
-        InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void ClearTrace()
-    {
-        _traceEntries.Clear();
-        InvokeAsync(StateHasChanged);
-    }
+    private void ClearTrace() { _traceEntries.Clear(); StateHasChanged(); }
+    private void ClearBus() { _busEntries.Clear(); StateHasChanged(); }
 
-    private void ClearBus()
-    {
-        _busEntries.Clear();
-        InvokeAsync(StateHasChanged);
-    }
+    private static string Hex8(byte value) => $"0x{value:X2}";
+    private static string Hex16(ushort value) => $"0x{value:X4}";
 
     public void Dispose()
     {
@@ -113,4 +249,23 @@
         Controller.BusTransactionAdded -= OnBusTransactionAdded;
         Controller.StatusChanged -= OnStatusChanged;
     }
+
+    private const string DefaultBlinkProgram = @".org 0x8000
+
+start:
+    LDA #0x01
+    STA 0xC000
+    CALL delay
+    LDA #0x00
+    STA 0xC000
+    CALL delay
+    JMP start
+
+delay:
+    LDA #0x20
+loop:
+    SUB #0x01
+    JNZ loop
+    RET
+";
 }

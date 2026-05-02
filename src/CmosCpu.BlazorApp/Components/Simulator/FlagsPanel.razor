@@ -1,14 +1,22 @@
 @using CmosCpu.BlazorApp.Models
 
-<div class="sim-panel-header">Flags</div>
-<div class="sim-panel-body">
-    <div class="sim-flags-grid">
-        <span class="sim-flag @(State.Zero ? "sim-flag-on sim-flag-green" : "sim-flag-off")">Zero</span>
-        <span class="sim-flag @(State.Carry ? "sim-flag-on sim-flag-green" : "sim-flag-off")">Carry</span>
-        <span class="sim-flag @(State.Negative ? "sim-flag-on sim-flag-red" : "sim-flag-off")">Negative</span>
-        <span class="sim-flag @(State.InterruptDisable ? "sim-flag-on sim-flag-yellow" : "sim-flag-off")">I.Disable</span>
+<div class="panel">
+    <div class="panel-title">Flags</div>
+    <div class="flags-grid">
+        <span class="flag-badge @(State.Zero ? "flag-on flag-green" : "flag-off")">
+            Zero: @(State.Zero ? "ON" : "OFF")
+        </span>
+        <span class="flag-badge @(State.Carry ? "flag-on flag-green" : "flag-off")">
+            Carry: @(State.Carry ? "ON" : "OFF")
+        </span>
+        <span class="flag-badge @(State.Negative ? "flag-on flag-red" : "flag-off")">
+            Negative: @(State.Negative ? "ON" : "OFF")
+        </span>
+        <span class="flag-badge @(State.InterruptDisable ? "flag-on flag-yellow" : "flag-off")">
+            I.Disable: @(State.InterruptDisable ? "ON" : "OFF")
+        </span>
     </div>
-    <div class="sim-flags-text">@State.FlagsText</div>
+    <div class="mono" style="color: var(--text-dim); font-size: 10px; margin-top: 4px;">@State.FlagsText</div>
 </div>
 
 @code {

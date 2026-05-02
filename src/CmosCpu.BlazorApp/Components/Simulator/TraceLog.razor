@@ -1,45 +1,39 @@
 @using CmosCpu.BlazorApp.Models
 
-<div class="sim-panel-header">
-    <span>Trace Log</span>
-    <button class="sim-btn-small" @onclick="OnClear">Clear</button>
-</div>
-<div class="sim-panel-body">
-    <div class="sim-table-container">
-        <table class="sim-table">
-            <thead>
+<div class="table-wrap">
+    <table class="hex-table">
+        <thead>
+            <tr>
+                <th>Cycle</th>
+                <th>PC</th>
+                <th>Opcode</th>
+                <th>Mnemonic</th>
+                <th>A</th>
+                <th>X</th>
+                <th>Y</th>
+                <th>SP</th>
+                <th>Flags</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var entry in Entries)
+            {
                 <tr>
-                    <th>Cycle</th>
-                    <th>PC</th>
-                    <th>Opcode</th>
-                    <th>Mnemonic</th>
-                    <th>A</th>
-                    <th>X</th>
-                    <th>Y</th>
-                    <th>SP</th>
-                    <th>Flags</th>
-                    <th>Description</th>
+                    <td class="mono">@entry.Cycle</td>
+                    <td class="mono">@entry.PC</td>
+                    <td class="mono">@entry.Opcode</td>
+                    <td><strong>@entry.Mnemonic</strong></td>
+                    <td class="mono">@entry.A</td>
+                    <td class="mono">@entry.X</td>
+                    <td class="mono">@entry.Y</td>
+                    <td class="mono">@entry.SP</td>
+                    <td class="mono">@entry.Flags</td>
+                    <td>@entry.Description</td>
                 </tr>
-            </thead>
-            <tbody>
-                @foreach (var entry in Entries)
-                {
-                    <tr>
-                        <td>@entry.Cycle</td>
-                        <td>@entry.PC</td>
-                        <td>@entry.Opcode</td>
-                        <td><strong>@entry.Mnemonic</strong></td>
-                        <td>@entry.A</td>
-                        <td>@entry.X</td>
-                        <td>@entry.Y</td>
-                        <td>@entry.SP</td>
-                        <td>@entry.Flags</td>
-                        <td>@entry.Description</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+            }
+        </tbody>
+    </table>
 </div>
 
 @code {

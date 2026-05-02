@@ -1,27 +1,17 @@
 @using CmosCpu.BlazorApp.Models
 
-<div class="sim-panel-header">CPU Registers</div>
-<div class="sim-panel-body">
-    <div class="sim-reg-grid">
-        <span class="sim-reg-label">A:</span>
-        <span class="sim-reg-value">0x@State.A.ToString("X2")</span>
-        <span class="sim-reg-label">X:</span>
-        <span class="sim-reg-value">0x@State.X.ToString("X2")</span>
-
-        <span class="sim-reg-label">Y:</span>
-        <span class="sim-reg-value">0x@State.Y.ToString("X2")</span>
-        <span class="sim-reg-label">PC:</span>
-        <span class="sim-reg-value">0x@State.PC.ToString("X4")</span>
-
-        <span class="sim-reg-label">SP:</span>
-        <span class="sim-reg-value">0x@State.SP.ToString("X4")</span>
-        <span class="sim-reg-label">Cycles:</span>
-        <span class="sim-reg-value">@State.Cycles</span>
-
-        <span class="sim-reg-label">Instr:</span>
-        <span class="sim-reg-value sim-reg-instr">@State.CurrentInstruction</span>
-        <span class="sim-reg-label">State:</span>
-        <span class="sim-reg-value sim-reg-state @(State.Halted ? "sim-state-halted" : "sim-state-running")">
+<div class="panel">
+    <div class="panel-title">CPU Registers</div>
+    <div class="regs-grid">
+        <span class="reg-label">A</span><span class="reg-value mono">@Hex8(State.A)</span>
+        <span class="reg-label">X</span><span class="reg-value mono">@Hex8(State.X)</span>
+        <span class="reg-label">Y</span><span class="reg-value mono">@Hex8(State.Y)</span>
+        <span class="reg-label">PC</span><span class="reg-value mono">@Hex16(State.PC)</span>
+        <span class="reg-label">SP</span><span class="reg-value mono">@Hex16(State.SP)</span>
+        <span class="reg-label">Cycles</span><span class="reg-value mono">@State.Cycles</span>
+        <span class="reg-label">Instr</span><span class="reg-value mono reg-instr">@State.CurrentInstruction</span>
+        <span class="reg-label">State</span>
+        <span class="reg-value mono @(State.Halted ? "status-error" : "status-ok")">
             @(State.Halted ? "HALTED" : "Running")
         </span>
     </div>
@@ -29,4 +19,7 @@
 
 @code {
     [Parameter] public UiSimulatorState State { get; set; } = null!;
+
+    private static string Hex8(byte value) => $"0x{value:X2}";
+    private static string Hex16(ushort value) => $"0x{value:X4}";
 }

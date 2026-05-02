@@ -1,12 +1,12 @@
-@using CmosCpu.BlazorApp.Models
-
-<div class="sim-panel-header">LED</div>
-<div class="sim-panel-body">
-    <div class="sim-led-container">
-        <div class="sim-led @(State.LedOn ? "sim-led-on" : "sim-led-off")"></div>
-        <span class="sim-led-text @(State.LedOn ? "sim-led-text-on" : "")">@(State.LedOn ? "ON" : "OFF")</span>
+<div class="panel">
+    <div class="panel-title">LED</div>
+    <div class="led-container">
+        <div class="led-indicator @(State.LedOn ? "led-on" : "led-off")"></div>
+        <span class="mono @(State.LedOn ? "status-ok" : "")" style="font-weight:bold; font-size:14px;">
+            @(State.LedOn ? "ON" : "OFF")
+        </span>
     </div>
-    <div class="sim-reg-label">Address: 0xC000</div>
+    <div style="color: var(--text-dim); font-size:11px;">Address: 0xC000</div>
 </div>
 
 @code {
