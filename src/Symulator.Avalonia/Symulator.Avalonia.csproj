@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
     <UseAvalonia>true</UseAvalonia>
     <RootNamespace>Symulator.Avalonia</RootNamespace>
+    <NoWarn>NU1903</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,6 +23,7 @@
     <ProjectReference Include="..\Symulator.Application\Symulator.Application.csproj" />
     <ProjectReference Include="..\Symulator.Machines.Apple1\Symulator.Machines.Apple1.csproj" />
     <ProjectReference Include="..\Symulator.Machines.Kim1\Symulator.Machines.Kim1.csproj" />
+    <ProjectReference Include="..\Symulator.Machines.MinimalBlink\Symulator.Machines.MinimalBlink.csproj" />
   </ItemGroup>
 
   <ItemGroup>

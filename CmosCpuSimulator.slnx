@@ -11,6 +11,7 @@
     <Project Path="src/Symulator.Application/Symulator.Application.csproj" />
     <Project Path="src/Symulator.Machines.Apple1/Symulator.Machines.Apple1.csproj" />
     <Project Path="src/Symulator.Machines.Kim1/Symulator.Machines.Kim1.csproj" />
+    <Project Path="src/Symulator.Machines.MinimalBlink/Symulator.Machines.MinimalBlink.csproj" />
     <Project Path="src/Symulator.Avalonia/Symulator.Avalonia.csproj" />
   </Folder>
   <Folder Name="/tests/">
@@ -25,5 +26,6 @@
     <Project Path="tests/Symulator.Application.Tests/Symulator.Application.Tests.csproj" />
     <Project Path="tests/Symulator.Machines.Apple1.Tests/Symulator.Machines.Apple1.Tests.csproj" />
     <Project Path="tests/Symulator.Machines.Kim1.Tests/Symulator.Machines.Kim1.Tests.csproj" />
+    <Project Path="tests/Symulator.Machines.MinimalBlink.Tests/Symulator.Machines.MinimalBlink.Tests.csproj" />
   </Folder>
 </Solution>

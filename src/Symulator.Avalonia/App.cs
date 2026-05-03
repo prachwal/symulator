@@ -15,6 +15,8 @@ using Symulator.Machines.Apple1.Module;
 using Symulator.Machines.Apple1.Views;
 using Symulator.Machines.Kim1.Module;
 using Symulator.Machines.Kim1.Views;
+using Symulator.Machines.MinimalBlink.Module;
+using Symulator.Machines.MinimalBlink.Views;
 
 namespace Symulator.Avalonia;
 
@@ -38,6 +40,7 @@ public class App : global::Avalonia.Application
         Logger.Debug("App base directory: {BaseDirectory}", AppContext.BaseDirectory);
 
         Styles.Add(new FluentTheme());
+        RequestedThemeVariant = global::Avalonia.Styling.ThemeVariant.Dark;
         Logger.Debug("FluentTheme registered");
 
         var collection = new ServiceCollection();
@@ -47,6 +50,7 @@ public class App : global::Avalonia.Application
         collection.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
         collection.AddSingleton<IMachineModule, Apple1MachineModule>();
         collection.AddSingleton<IMachineModule, Kim1MachineModule>();
+        collection.AddSingleton<IMachineModule, MinimalBlinkMachineModule>();
         collection.AddSingleton<MachineCatalog>();
         collection.AddSingleton<IMachineCatalog>(sp => sp.GetRequiredService<MachineCatalog>());
         collection.AddSingleton<IEmulatorController, EmulatorController>();
@@ -56,7 +60,8 @@ public class App : global::Avalonia.Application
 
         DataTemplates.Add(new FuncDataTemplate<Apple1WorkspaceViewModel>((vm, _) => new Apple1WorkspaceView { DataContext = vm }));
         DataTemplates.Add(new FuncDataTemplate<Kim1WorkspaceViewModel>((vm, _) => new Kim1WorkspaceView { DataContext = vm }));
-        Logger.Debug("Workspace data templates registered for Apple-1 and KIM-1");
+        DataTemplates.Add(new FuncDataTemplate<MinimalBlinkWorkspaceViewModel>((vm, _) => new MinimalBlinkWorkspaceView { DataContext = vm }));
+        Logger.Debug("Workspace data templates registered for Apple-1, KIM-1 and Minimal Blink");
     }
 
     public override void OnFrameworkInitializationCompleted()
