@@ -48,10 +48,18 @@ public static class MinimalBlinkPredefinedPrograms
         new MinimalBlinkPredefinedProgram(
             Id: "hello-lcd-poll",
             Name: "Hello World (LCD, busy-poll)",
-            Description: "LCD Hello World with busy-flag polling for binary-compatible init.",
+            Description: "LCD Hello World with busy-flag polling.",
             LoadAddress: 0x0100,
             StartAddress: 0x0100,
             Bytes: GetHelloWorldPollBytes()),
+
+        new MinimalBlinkPredefinedProgram(
+            Id: "hello-lcd-i2c",
+            Name: "Hello LCD via PCF8574 (I2C)",
+            Description: "Initializes LCD through I2C+PCF8574 backpack, writes 'A'. Uses $FE30-$FE33.",
+            LoadAddress: 0x0100,
+            StartAddress: 0x0100,
+            Bytes: GetI2cLcdBytes()),
     };
 
     private static byte[] GetHelloWorldBytes()
@@ -103,13 +111,72 @@ public static class MinimalBlinkPredefinedPrograms
         };
     }
 
+    private static byte[] GetI2cLcdBytes()
+    {
+        var bytes = new List<byte>();
+
+        void Emit(params byte[] b) => bytes.AddRange(b);
+
+        void LdaStaAbs(byte val, ushort addr)
+        {
+            Emit(0x01, val, 0x02, (byte)(addr & 0xFF), (byte)(addr >> 8));
+        }
+
+        void I2cWrite(byte val)
+        {
+            LdaStaAbs(val, 0xFE32);
+            LdaStaAbs(0x04, 0xFE30);
+        }
+
+        void SendNibblePair(byte rs, byte nibble)
+        {
+            byte data = (byte)(nibble << 4);
+            byte bl = 0x08;
+            I2cWrite((byte)(data | bl | rs | 0x04));
+            I2cWrite((byte)(data | bl | rs));
+        }
+
+        void SendLcdCmd(byte cmd)
+        {
+            SendNibblePair(0, (byte)(cmd >> 4));
+            SendNibblePair(0, (byte)(cmd & 0x0F));
+        }
+
+        void SendLcdData(byte ch)
+        {
+            SendNibblePair(1, (byte)(ch >> 4));
+            SendNibblePair(1, (byte)(ch & 0x0F));
+        }
+
+        void InlineDelay()
+        {
+            Emit(0x01, 0x60);
+            Emit(0x09, 0x80);
+            int decAddr = 0x0100 + bytes.Count;
+            Emit(0x05, 0x80, 0x00);
+            Emit(0x06, (byte)(decAddr & 0xFF), (byte)((decAddr >> 8) & 0xFF));
+        }
+
+        LdaStaAbs(0x27, 0xFE31);
+
+        SendLcdCmd(0x28); InlineDelay();
+        SendLcdCmd(0x0C); InlineDelay();
+        SendLcdCmd(0x06); InlineDelay();
+        SendLcdCmd(0x01); InlineDelay();
+
+        SendLcdData((byte)'A');
+
+        Emit(0x07);
+
+        return bytes.ToArray();
+    }
+
     public static IReadOnlyList<MinimalBlinkPredefinedProgram> All => Programs;
 
     public static MinimalBlinkPredefinedProgram? FindById(string id)
     {
         if (string.IsNullOrWhiteSpace(id))
             return null;
-
         return Programs.FirstOrDefault(p =>
             string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
     }
@@ -118,7 +185,6 @@ public static class MinimalBlinkPredefinedPrograms
     {
         if (string.IsNullOrWhiteSpace(name))
             return null;
-
         return Programs.FirstOrDefault(p =>
             string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
     }

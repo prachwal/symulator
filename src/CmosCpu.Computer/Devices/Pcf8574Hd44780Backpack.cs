@@ -1,3 +1,4 @@
+using CmosCpu.Computer.Devices.I2c;
 using NLog;
 
 namespace CmosCpu.Computer.Devices;
@@ -14,30 +15,35 @@ public sealed class Pcf8574Hd44780PinMap
     public int D7Bit { get; init; } = 7;
 }
 
-/// <summary>PCF8574 I2C backpack adapter: maps I2C byte to 4-bit LCD pins.</summary>
-public sealed class Pcf8574Hd44780Backpack
+public sealed class Pcf8574Hd44780Backpack : II2cDevice
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
     private readonly Hd44780Parallel4BitAdapter _lcd4Bit;
     private readonly Pcf8574Hd44780PinMap _map;
+    private byte _lastValue;
 
+    public byte Address { get; }
     public bool BacklightOn { get; private set; }
 
-    public Pcf8574Hd44780Backpack(Hd44780Parallel4BitAdapter lcd4Bit, Pcf8574Hd44780PinMap? map = null)
+    public Pcf8574Hd44780Backpack(
+        byte address,
+        Hd44780Parallel4BitAdapter lcd4Bit,
+        Pcf8574Hd44780PinMap? map = null)
     {
+        Address = address;
         _lcd4Bit = lcd4Bit;
         _map = map ?? new Pcf8574Hd44780PinMap();
     }
 
     public void WriteByte(byte value)
     {
+        _lastValue = value;
         bool rs = ((value >> _map.RsBit) & 1) != 0;
         bool rw = ((value >> _map.RwBit) & 1) != 0;
         bool e  = ((value >> _map.EBit) & 1) != 0;
         BacklightOn = ((value >> _map.BacklightBit) & 1) != 0;
 
-        // D4-D7 are mapped from the I2C byte bits
         byte d4 = (byte)(((value >> _map.D4Bit) & 1) << 4);
         byte d5 = (byte)(((value >> _map.D5Bit) & 1) << 5);
         byte d6 = (byte)(((value >> _map.D6Bit) & 1) << 6);
@@ -50,4 +56,6 @@ public sealed class Pcf8574Hd44780Backpack
         var pins = new Hd44780Pins(rs, rw, e, data);
         _lcd4Bit.WritePins(pins);
     }
+
+    public byte ReadByte() => _lastValue;
 }

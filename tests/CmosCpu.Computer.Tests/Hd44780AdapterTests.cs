@@ -1,4 +1,5 @@
 using CmosCpu.Computer.Devices;
+using CmosCpu.Computer.Devices.I2c;
 using FluentAssertions;
 
 namespace CmosCpu.Computer.Tests;
@@ -185,7 +186,7 @@ public sealed class Hd44780AdapterTests
     {
         var lcd = CreateLcd();
         var lcd4 = new Hd44780Parallel4BitAdapter(lcd);
-        var backpack = new Pcf8574Hd44780Backpack(lcd4);
+        var backpack = new Pcf8574Hd44780Backpack(0x27, lcd4);
 
         // Set DDRAM addr 0 first
         lcd.ExecuteInstruction(0x80);
@@ -227,7 +228,7 @@ public sealed class Hd44780AdapterTests
         };
         var lcd = CreateLcd();
         var lcd4 = new Hd44780Parallel4BitAdapter(lcd);
-        var backpack = new Pcf8574Hd44780Backpack(lcd4, map);
+        var backpack = new Pcf8574Hd44780Backpack(0x27, lcd4, map);
 
         // BL at bit0, E at bit3
         // 0b0000_1001 = 0x09 → BL=1, E=1
@@ -235,5 +236,32 @@ public sealed class Hd44780AdapterTests
         // 0b0000_0001 = 0x01 → BL=1, E=0 (falling edge)
         backpack.WriteByte(0x01);
         backpack.BacklightOn.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void I2cBus_Backpack_WritesCharacterViaController()
+    {
+        var lcd = CreateLcd();
+        var lcd4 = new Hd44780Parallel4BitAdapter(lcd);
+
+        // Write 'H' (0x48) via PCF8574 backpack directly:
+        // RS=1, BL=1, D4=0? D5=1? D6=0? D7=0? No — high nibble 0x4: D7=0,D6=1,D5=0,D4=0
+        // Wait: 0x4 in upper nibble of 4-bit = 0100 = D7=0, D6=1, D5=0, D4=0
+        // D7 is bit 7 of I2C byte = 0, D6 is bit 6 = 1 (0x40), D5 is bit 5 = 0, D4 is bit 4 = 0
+        // Data = 0x40 (only D6=1)
+        // With RS=1(0x01), BL=1(0x08), E=1(0x04): 0x40|0x08|0x01|0x04 = 0x4D
+        // With E=0: 0x40|0x08|0x01 = 0x49
+        // Low nibble 0x8 = 1000 = D7=1(0x80), D6=0, D5=0, D4=0
+        // With RS=1, BL=1, E=1: 0x80|0x08|0x01|0x04 = 0x8D
+        // With E=0: 0x80|0x08|0x01 = 0x89
+        lcd.ExecuteInstruction(0x80); Wait(lcd); // DDRAM addr 0
+
+        var backpack = new Pcf8574Hd44780Backpack(0x27, lcd4);
+        backpack.WriteByte(0x4D); // high nibble, E=1
+        backpack.WriteByte(0x49); // high nibble, E=0
+        backpack.WriteByte(0x8D); // low nibble, E=1
+        backpack.WriteByte(0x89); // low nibble, E=0
+
+        lcd.Ddram[0].Should().Be((byte)'H', "backpack should write 'H' to DDRAM");
     }
 }

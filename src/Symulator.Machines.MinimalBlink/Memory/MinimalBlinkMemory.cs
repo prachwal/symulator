@@ -1,4 +1,5 @@
 using CmosCpu.Computer.Devices;
+using CmosCpu.Computer.Devices.I2c;
 using Symulator.Machines.MinimalBlink.Models;
 
 namespace Symulator.Machines.MinimalBlink.Memory;
@@ -15,15 +16,23 @@ public sealed class MinimalBlinkMemory
     public const ushort LedPort = 0xFF00;
     public const ushort LcdCommandPort = 0xFE00;
     public const ushort LcdDataPort = 0xFE01;
+    public const ushort I2cBase = 0xFE30;
+    public const ushort I2cEnd = 0xFE33;
 
     public MinimalBlinkLedState LedState { get; } = new();
     public Hd44780DirectBusAdapter? LcdBus { get; private set; }
     public Hd44780Lcd? LcdDevice { get; private set; }
+    public MemoryMappedI2cController? I2cController { get; private set; }
 
     public void AttachLcd(Hd44780Lcd lcd, Hd44780DirectBusAdapter bus)
     {
         LcdDevice = lcd;
         LcdBus = bus;
+    }
+
+    public void AttachI2c(MemoryMappedI2cController controller)
+    {
+        I2cController = controller;
     }
 
     public byte ReadByte(ushort address)
@@ -34,6 +43,8 @@ public sealed class MinimalBlinkMemory
             return _rom[address - RomStart];
         if (LcdBus is not null && (address == LcdCommandPort || address == LcdDataPort))
             return LcdBus.Read(address);
+        if (I2cController is not null && address >= I2cBase && address <= I2cEnd)
+            return I2cController.Read((ushort)(address - I2cBase));
         return 0;
     }
 
@@ -47,6 +58,8 @@ public sealed class MinimalBlinkMemory
             LedState.Write(value);
         else if (LcdBus is not null && (address == LcdCommandPort || address == LcdDataPort))
             LcdBus.Write(address, value);
+        else if (I2cController is not null && address >= I2cBase && address <= I2cEnd)
+            I2cController.Write((ushort)(address - I2cBase), value);
     }
 
     public void Load(ushort start, byte[] data)

@@ -1,4 +1,5 @@
 using CmosCpu.Computer.Devices;
+using CmosCpu.Computer.Devices.I2c;
 using NLog;
 using Symulator.Application.Abstractions;
 using Symulator.Machines.MinimalBlink.Cpu;
@@ -23,6 +24,10 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
     private readonly IUiDispatcher? _uiDispatcher;
     private Hd44780Lcd? _lcd;
     private Hd44780DirectBusAdapter? _lcdBus;
+    private Hd44780Parallel4BitAdapter? _lcd4BitAdapter;
+    private Pcf8574Hd44780Backpack? _lcdBackpack;
+    private I2cBus? _i2cBus;
+    private MemoryMappedI2cController? _i2cController;
     private MinimalBlinkLcdBuffer? _lcdBuffer;
     private string? _selectedProgramId;
     private string? _loadedProgramId;
@@ -84,6 +89,15 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         _lcd = new Hd44780Lcd();
         _lcdBus = new Hd44780DirectBusAdapter(_lcd, MinimalBlinkMemory.LcdCommandPort);
         _memory.AttachLcd(_lcd, _lcdBus);
+
+        // I2C bus + PCF8574 backpack → 4-bit LCD adapter
+        _lcd4BitAdapter = new Hd44780Parallel4BitAdapter(_lcd);
+        _i2cBus = new I2cBus();
+        _lcdBackpack = new Pcf8574Hd44780Backpack(0x27, _lcd4BitAdapter);
+        _i2cBus.Attach(_lcdBackpack);
+        _i2cController = new MemoryMappedI2cController(_i2cBus);
+        _memory.AttachI2c(_i2cController);
+
         _lcdBuffer = new MinimalBlinkLcdBuffer();
         _cpu = new MinimalBlinkCpu(_memory);
         _isInitialized = true;
