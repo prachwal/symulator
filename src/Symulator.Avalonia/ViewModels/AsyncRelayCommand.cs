@@ -1,4 +1,5 @@
 using System.Windows.Input;
+using Avalonia.Threading;
 using Symulator.Application.Abstractions;
 
 namespace Symulator.Avalonia.ViewModels;
@@ -45,5 +46,14 @@ public sealed class AsyncRelayCommand : ICommand
         }
     }
 
-    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+    public void RaiseCanExecuteChanged()
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty));
+    }
 }

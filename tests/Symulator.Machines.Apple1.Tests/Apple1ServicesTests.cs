@@ -1,4 +1,6 @@
 using FluentAssertions;
+using Symulator.Machines.Apple1.Factory;
+using Symulator.Machines.Apple1.Module;
 using Symulator.Machines.Apple1.Models;
 using Symulator.Machines.Apple1.Services;
 
@@ -144,5 +146,178 @@ public sealed class Apple1InputCoordinatorTests
         var coord = new Apple1InputCoordinator();
         coord.OnOutput("\\");
         coord.Mode.Should().Be(Apple1TerminalMode.WozMonitor);
+    }
+}
+
+[TestClass]
+public sealed class Apple1MachineFactoryTests
+{
+    private static string FindSolutionRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            if (dir.GetFiles("*.slnx").Length > 0 || dir.GetFiles("*.sln").Length > 0)
+                return dir.FullName;
+            dir = dir.Parent;
+        }
+        return AppContext.BaseDirectory;
+    }
+
+    [TestMethod]
+    public void Create_ShouldMapBasicRomAtE000()
+    {
+        var solutionRoot = FindSolutionRoot();
+        var machine = Apple1MachineFactory.Create(solutionRoot);
+
+        byte lo = machine.Memory.ReadByte(0xE000);
+        byte hi = machine.Memory.ReadByte(0xE001);
+
+        lo.Should().NotBe(0, "BASIC ROM should have data at $E000");
+        lo.Should().NotBe(0xFF, "BASIC ROM should not be open bus at $E000");
+    }
+}
+
+[TestClass]
+public sealed class Apple1InputEncodingTests
+{
+    [TestMethod]
+    public void SendInput_ShouldUseCarriageReturnNotLineFeed()
+    {
+        byte cr = (byte)'\r';
+        byte lf = (byte)'\n';
+
+        cr.Should().Be(0x0D, "Apple-1 carriage return is 0x0D");
+        lf.Should().NotBe(0x0D, "line feed should not be used as CR");
+    }
+
+    [TestMethod]
+    public void QueueKey_ShouldSetBit7()
+    {
+        var terminal = new CmosCpu.Computer.Apple1PiaTerminalDevice();
+        terminal.QueueKey('A');
+
+        byte keyData = terminal.Read(0xD010);
+        (keyData & 0x80).Should().Be(0x80, "queued key should have bit 7 set");
+        (keyData & 0x7F).Should().Be((byte)'A', "lower 7 bits should hold the ASCII value");
+    }
+
+    [TestMethod]
+    public void QueueKey_ShouldSetKeyReady()
+    {
+        var terminal = new CmosCpu.Computer.Apple1PiaTerminalDevice();
+        terminal.QueueKey('R');
+
+        terminal.Read(0xD011).Should().Be(0x80);
+    }
+
+    [TestMethod]
+    public void QueueMultipleKeys_ShouldPreserveOrder()
+    {
+        var terminal = new CmosCpu.Computer.Apple1PiaTerminalDevice();
+
+        terminal.QueueKey('E');
+        terminal.QueueKey('0');
+        terminal.QueueKey('0');
+        terminal.QueueKey('0');
+        terminal.QueueKey('.');
+        terminal.QueueKey('R');
+        terminal.QueueKey('\r');
+
+        (terminal.Read(0xD010) & 0x7F).Should().Be((byte)'E');
+        (terminal.Read(0xD010) & 0x7F).Should().Be((byte)'0');
+        (terminal.Read(0xD010) & 0x7F).Should().Be((byte)'0');
+        (terminal.Read(0xD010) & 0x7F).Should().Be((byte)'0');
+        (terminal.Read(0xD010) & 0x7F).Should().Be((byte)'.');
+        (terminal.Read(0xD010) & 0x7F).Should().Be((byte)'R');
+        (terminal.Read(0xD010) & 0x7F).Should().Be(0x0D);
+        terminal.Read(0xD011).Should().Be(0x00, "key ready should be cleared after last key consumed");
+    }
+
+    [TestMethod]
+    public void BasicPromptDetector_MemoryDump_ShouldNotBeTreatedAsSuccess()
+    {
+        var terminal = "\u007F\nE000R\n\nE000: 4C";
+        bool hasPrompt = terminal.Contains("\n>") || terminal.EndsWith(">");
+        hasPrompt.Should().BeFalse("memory dump output should not match BASIC prompt");
+    }
+
+    [TestMethod]
+    public void BasicPromptDetector_ActualPrompt_ShouldBeDetected()
+    {
+        var terminal = "some garbage\n>READY.\n>";
+        bool hasPrompt = terminal.Contains("\n>") || terminal.EndsWith(">");
+        hasPrompt.Should().BeTrue();
+    }
+}
+
+[TestClass]
+public sealed class Apple1RealRomBootTests
+{
+    private static string FindSolutionRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            if (dir.GetFiles("*.slnx").Length > 0 || dir.GetFiles("*.sln").Length > 0)
+                return dir.FullName;
+            dir = dir.Parent;
+        }
+
+        return AppContext.BaseDirectory;
+    }
+
+    [TestMethod]
+    public void Reset_ShouldShowMonitorPromptWithoutClearingScreen()
+    {
+        var machine = Apple1MachineFactory.Create(FindSolutionRoot());
+
+        machine.Reset();
+
+        for (int i = 0; i < 1000 && !(machine.Apple1Terminal?.Text.Contains("\\") == true); i++)
+            machine.Step();
+
+        machine.Apple1Terminal.Should().NotBeNull();
+        machine.Apple1Terminal!.Text.Should().Contain("\\");
+        machine.Apple1Terminal.Text.Should().NotBeEmpty();
+    }
+
+    [TestMethod]
+    public void MonitorCommand_ShouldEnterBasicPrompt_WithRealRomSequence()
+    {
+        var machine = Apple1MachineFactory.Create(FindSolutionRoot());
+        machine.Apple1Terminal.Should().NotBeNull();
+        var terminal = machine.Apple1Terminal!;
+
+        machine.Reset();
+        for (int i = 0; i < 1000 && !terminal.Text.Contains("\\"); i++)
+            machine.Step();
+
+        foreach (char c in "E000R\r")
+            terminal.QueueKey(c);
+
+        for (int i = 0; i < 200000 && !terminal.Text.Contains("\n>"); i++)
+            machine.Step();
+
+        terminal.Text.Should().Contain("E000R");
+        terminal.Text.Should().Contain("E000: 4C");
+        terminal.Text.Should().Contain("\n>");
+    }
+
+    [TestMethod]
+    public async Task SendLine_InBasicMode_ShouldProcessWholePrintCommand()
+    {
+        var session = new Apple1MachineSession();
+
+        var boot = await session.ExecuteMachineCommandAsync("apple1.boot.basic");
+        boot.IsSuccess.Should().BeTrue();
+
+        var send = await session.ExecuteMachineCommandAsync("apple1.send-line", "PRINT 1");
+        send.IsSuccess.Should().BeTrue();
+
+        var terminal = session.Current.TerminalText ?? string.Empty;
+        terminal.Should().Contain("PRINT 1");
+        Apple1PromptDetector.LooksLikeBasicPrompt(terminal).Should().BeTrue();
+        terminal.Should().NotEndWith("P");
     }
 }

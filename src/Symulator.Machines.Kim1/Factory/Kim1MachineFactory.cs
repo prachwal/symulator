@@ -1,21 +1,29 @@
 using CmosCpu.Computer;
 using CmosCpu.Cpu;
 using CmosCpu.Core;
+using NLog;
 using Symulator.Application.Abstractions;
 
 namespace Symulator.Machines.Kim1.Factory;
 
 public static class Kim1MachineFactory
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     public static ComputerMachine Create(string basePath)
     {
+        Logger.Debug("Kim1MachineFactory.Create called with basePath={BasePath}", basePath);
         var profilePath = Path.Combine(basePath, "profiles", "kim-1.json");
         if (!File.Exists(profilePath))
         {
+            Logger.Debug("KIM-1 profile not found at {ProfilePath}; searching upwards", profilePath);
             profilePath = FindProfileUpwards(basePath, "kim-1.json");
         }
 
+        Logger.Info("Using KIM-1 profile: {ProfilePath}", profilePath);
+
         var machine = ComputerMachineFactory.CreateFromFile(profilePath);
+        Logger.Debug("KIM-1 ComputerMachine created successfully");
         return machine;
     }
 
@@ -25,6 +33,7 @@ public static class Kim1MachineFactory
         while (dir is not null)
         {
             var candidate = Path.Combine(dir.FullName, "profiles", profileName);
+            Logger.Debug("Checking KIM-1 profile candidate: {Candidate}", candidate);
             if (File.Exists(candidate))
                 return candidate;
             dir = dir.Parent;
@@ -34,6 +43,7 @@ public static class Kim1MachineFactory
         if (solutionRoot is not null)
         {
             var slnCandidate = Path.Combine(solutionRoot, "profiles", profileName);
+            Logger.Debug("Checking KIM-1 solution-root profile candidate: {Candidate}", slnCandidate);
             if (File.Exists(slnCandidate))
                 return slnCandidate;
         }

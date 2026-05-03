@@ -7,6 +7,7 @@ public sealed class Apple1PiaTerminalDevice
     private readonly List<string> _lines = [];
     private readonly StringBuilder _currentLine = new();
     private readonly StringBuilder _outputStream = new();
+    private readonly Queue<byte> _keyBuffer = [];
     private byte _lastKey;
     private bool _keyReady;
     private byte _displayControl;
@@ -17,6 +18,7 @@ public sealed class Apple1PiaTerminalDevice
     public int Columns { get; }
     public int Rows { get; }
     public int OutputLength => _outputStream.Length;
+    public int PendingKeyCount => _keyBuffer.Count;
 
     public string[] Lines
     {
@@ -53,7 +55,7 @@ public sealed class Apple1PiaTerminalDevice
 
     public void QueueKey(char key)
     {
-        _lastKey = (byte)((key & 0x7F) | 0x80);
+        _keyBuffer.Enqueue((byte)((key & 0x7F) | 0x80));
         _keyReady = true;
     }
 
@@ -84,7 +86,11 @@ public sealed class Apple1PiaTerminalDevice
 
     private byte ReadKeyboardData()
     {
-        _keyReady = false;
+        if (_keyBuffer.Count > 0)
+        {
+            _lastKey = _keyBuffer.Dequeue();
+            _keyReady = _keyBuffer.Count > 0;
+        }
         return _lastKey;
     }
 

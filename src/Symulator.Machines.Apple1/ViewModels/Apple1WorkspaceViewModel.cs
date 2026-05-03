@@ -1,12 +1,15 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using NLog;
 using Symulator.Application.Abstractions;
 
 namespace Symulator.Machines.Apple1.Module;
 
 public sealed class Apple1WorkspaceViewModel : INotifyPropertyChanged
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     private readonly IMachineSession _session;
     private readonly IMachineNotificationSink? _sink;
     private string _terminalOutput = string.Empty;
@@ -18,10 +21,10 @@ public sealed class Apple1WorkspaceViewModel : INotifyPropertyChanged
     {
         _session = session;
         _sink = sink;
-        BootMonCommand = new AsyncResultCommand(() => _session.ExecuteMachineCommandAsync("apple1.boot.monitor"));
-        BootBasicCommand = new AsyncResultCommand(() => _session.ExecuteMachineCommandAsync("apple1.boot.basic"));
-        ClearCommand = new AsyncResultCommand(() => _session.ExecuteMachineCommandAsync("apple1.clear-terminal"));
-        SendCommand = new AsyncResultCommand(SendInputAsync);
+        BootMonCommand = new AsyncResultCommand(() => _session.ExecuteMachineCommandAsync("apple1.boot.monitor"), HandleResult, _sink, "Boot MON");
+        BootBasicCommand = new AsyncResultCommand(() => _session.ExecuteMachineCommandAsync("apple1.boot.basic"), HandleResult, _sink, "Boot BASIC");
+        ClearCommand = new AsyncResultCommand(() => _session.ExecuteMachineCommandAsync("apple1.clear-terminal"), HandleResult, _sink, "Clear terminal");
+        SendCommand = new AsyncResultCommand(SendInputAsync, HandleResult, _sink, "Send input");
     }
 
     public string TerminalOutput
@@ -53,18 +56,21 @@ public sealed class Apple1WorkspaceViewModel : INotifyPropertyChanged
     public ICommand ClearCommand { get; }
     public ICommand SendCommand { get; }
 
-    private async Task<MachineCommandResult> SendInputAsync()
+    private Task<MachineCommandResult> SendInputAsync()
     {
         var text = InputText;
+        Logger.Debug("Apple-1 workspace SendCommand input='{Text}'", text.Replace("\r", "\\r").Replace("\n", "\\n"));
         InputText = string.Empty;
-        var result = await _session.ExecuteMachineCommandAsync("apple1.send-line", text);
-        HandleResult(result, "Send input");
-        return result;
+        return _session.ExecuteMachineCommandAsync("apple1.send-line", text);
     }
 
     private void HandleResult(MachineCommandResult result, string context)
     {
-        if (result.IsSuccess) return;
+        if (result.IsSuccess)
+        {
+            StatusText = context;
+            return;
+        }
 
         var msg = $"[{context}] {result.ErrorMessage}";
         StatusText = msg;
@@ -82,9 +88,18 @@ public sealed class Apple1WorkspaceViewModel : INotifyPropertyChanged
 internal sealed class AsyncResultCommand : ICommand
 {
     private readonly Func<Task<MachineCommandResult>> _execute;
+    private readonly Action<MachineCommandResult, string> _onResult;
+    private readonly IMachineNotificationSink? _sink;
+    private readonly string _context;
     private bool _isExecuting;
 
-    public AsyncResultCommand(Func<Task<MachineCommandResult>> execute) => _execute = execute;
+    public AsyncResultCommand(Func<Task<MachineCommandResult>> execute, Action<MachineCommandResult, string> onResult, IMachineNotificationSink? sink, string context)
+    {
+        _execute = execute;
+        _onResult = onResult;
+        _sink = sink;
+        _context = context;
+    }
 
     public event EventHandler? CanExecuteChanged;
 
@@ -97,12 +112,11 @@ internal sealed class AsyncResultCommand : ICommand
         try
         {
             var result = await _execute();
-            if (!result.IsSuccess)
-                System.Diagnostics.Debug.WriteLine($"Command failed: {result.ErrorMessage}");
+            _onResult(result, _context);
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Command exception: {ex}");
+            _sink?.Error(ex, _context);
         }
         finally
         {

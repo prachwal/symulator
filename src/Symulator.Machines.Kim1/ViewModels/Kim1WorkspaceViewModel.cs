@@ -21,9 +21,8 @@ public sealed class Kim1WorkspaceViewModel : INotifyPropertyChanged
     {
         _session = session;
         _sink = sink;
-        ResetCommand = new AsyncResultCommand(() => _session.ExecuteMachineCommandAsync("kim1.reset"));
-        KeyPressCommand = new AsyncResultCommand<string>(key => _session.ExecuteMachineCommandAsync("kim1.press-key", key));
-        KeyReleaseCommand = new AsyncResultCommand<string>(key => _session.ExecuteMachineCommandAsync("kim1.release-key", key));
+        ResetCommand = new AsyncResultCommand(() => _session.ExecuteMachineCommandAsync("kim1.reset"), HandleResult, _sink, "Reset");
+        KeyPressCommand = new AsyncResultCommand<string>(PressAndReleaseAsync, HandleResult, _sink, "Key press");
     }
 
     public string DisplayText
@@ -51,7 +50,34 @@ public sealed class Kim1WorkspaceViewModel : INotifyPropertyChanged
 
     public ICommand ResetCommand { get; }
     public ICommand KeyPressCommand { get; }
-    public ICommand KeyReleaseCommand { get; }
+
+    private async Task<MachineCommandResult> PressAndReleaseAsync(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return MachineCommandResult.Failure("No key provided");
+
+        LastKey = key;
+        var press = await _session.ExecuteMachineCommandAsync("kim1.press-key", key);
+        if (!press.IsSuccess)
+            return press;
+
+        await Task.Delay(100);
+        var release = await _session.ExecuteMachineCommandAsync("kim1.release-key", key);
+        return release;
+    }
+
+    private void HandleResult(MachineCommandResult result, string context)
+    {
+        if (result.IsSuccess)
+        {
+            StatusText = context;
+            return;
+        }
+
+        var msg = $"[{context}] {result.ErrorMessage}";
+        StatusText = msg;
+        _sink?.Error(msg);
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -64,9 +90,18 @@ public sealed class Kim1WorkspaceViewModel : INotifyPropertyChanged
 internal sealed class AsyncResultCommand : ICommand
 {
     private readonly Func<Task<MachineCommandResult>> _execute;
+    private readonly Action<MachineCommandResult, string> _onResult;
+    private readonly IMachineNotificationSink? _sink;
+    private readonly string _context;
     private bool _isExecuting;
 
-    public AsyncResultCommand(Func<Task<MachineCommandResult>> execute) => _execute = execute;
+    public AsyncResultCommand(Func<Task<MachineCommandResult>> execute, Action<MachineCommandResult, string> onResult, IMachineNotificationSink? sink, string context)
+    {
+        _execute = execute;
+        _onResult = onResult;
+        _sink = sink;
+        _context = context;
+    }
 
     public event EventHandler? CanExecuteChanged;
 
@@ -76,8 +111,20 @@ internal sealed class AsyncResultCommand : ICommand
         if (_isExecuting) return;
         _isExecuting = true;
         RaiseCanExecuteChanged();
-        try { await _execute(); } catch { }
-        finally { _isExecuting = false; RaiseCanExecuteChanged(); }
+        try
+        {
+            var result = await _execute();
+            _onResult(result, _context);
+        }
+        catch (Exception ex)
+        {
+            _sink?.Error(ex, _context);
+        }
+        finally
+        {
+            _isExecuting = false;
+            RaiseCanExecuteChanged();
+        }
     }
 
     public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
@@ -86,9 +133,18 @@ internal sealed class AsyncResultCommand : ICommand
 internal sealed class AsyncResultCommand<T> : ICommand
 {
     private readonly Func<T?, Task<MachineCommandResult>> _execute;
+    private readonly Action<MachineCommandResult, string> _onResult;
+    private readonly IMachineNotificationSink? _sink;
+    private readonly string _context;
     private bool _isExecuting;
 
-    public AsyncResultCommand(Func<T?, Task<MachineCommandResult>> execute) => _execute = execute;
+    public AsyncResultCommand(Func<T?, Task<MachineCommandResult>> execute, Action<MachineCommandResult, string> onResult, IMachineNotificationSink? sink, string context)
+    {
+        _execute = execute;
+        _onResult = onResult;
+        _sink = sink;
+        _context = context;
+    }
 
     public event EventHandler? CanExecuteChanged;
 
@@ -98,8 +154,20 @@ internal sealed class AsyncResultCommand<T> : ICommand
         if (_isExecuting) return;
         _isExecuting = true;
         RaiseCanExecuteChanged();
-        try { await _execute((T?)parameter); } catch { }
-        finally { _isExecuting = false; RaiseCanExecuteChanged(); }
+        try
+        {
+            var result = await _execute((T?)parameter);
+            _onResult(result, _context);
+        }
+        catch (Exception ex)
+        {
+            _sink?.Error(ex, _context);
+        }
+        finally
+        {
+            _isExecuting = false;
+            RaiseCanExecuteChanged();
+        }
     }
 
     public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);

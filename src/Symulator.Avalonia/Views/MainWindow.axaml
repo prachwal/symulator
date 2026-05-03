@@ -3,12 +3,31 @@
         xmlns:vm="clr-namespace:Symulator.Avalonia.Views"
         x:Class="Symulator.Avalonia.Views.MainWindow"
         Title="Symulator"
-        Width="1024"
-        Height="768"
-        MinWidth="800"
-        MinHeight="600"
+        Width="1200"
+        Height="780"
+        MinWidth="900"
+        MinHeight="650"
         Background="#101418"
         Foreground="#D8E1EA">
+    <Window.Styles>
+        <Style Selector="Button">
+            <Setter Property="Background" Value="#202A34" />
+            <Setter Property="Foreground" Value="#D8E1EA" />
+            <Setter Property="BorderBrush" Value="#31404F" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+        </Style>
+        <Style Selector="Button:disabled">
+            <Setter Property="Background" Value="#151B21" />
+            <Setter Property="Foreground" Value="#6F7D8A" />
+            <Setter Property="BorderBrush" Value="#24303A" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Foreground" Value="#8A99A8" />
+        </Style>
+    </Window.Styles>
+
     <DockPanel LastChildFill="True">
         <Menu DockPanel.Dock="Top" Background="#182028">
             <MenuItem Header="_File">
@@ -16,26 +35,28 @@
             </MenuItem>
             <MenuItem Header="_Tools">
                 <MenuItem Header="_Errors" Command="{Binding ShowErrorsCommand}" />
+                <MenuItem Header="_Open Logs Folder" Command="{Binding OpenLogsCommand}" />
             </MenuItem>
         </Menu>
 
-        <Border DockPanel.Dock="Bottom" Padding="6" Background="#182028">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <TextBlock Grid.Column="0" Text="{Binding StatusText}" VerticalAlignment="Center" />
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <TextBlock FontSize="11" Foreground="#8A99A8">
-                        <Run Text="Errors:" />
-                        <Run Text="{Binding ErrorCount}" />
-                    </TextBlock>
-                    <TextBlock FontSize="11" Foreground="#8A99A8" Text="{Binding SelectedMachineTitle, TargetNullValue='(no machine)'}" />
-                </StackPanel>
+        <Border DockPanel.Dock="Bottom" Padding="6" Background="#182028" BorderBrush="#31404F" BorderThickness="1,1,1,0">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding StatusText}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <TextBlock Grid.Column="1" Classes="muted" Text="{Binding LogPath}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
+                <Button Grid.Column="2" Command="{Binding ShowErrorsCommand}" Margin="0,0,12,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Errors: " />
+                        <TextBlock Text="{Binding ErrorCount}" />
+                    </StackPanel>
+                </Button>
+                <TextBlock Grid.Column="3" Classes="muted" Text="{Binding SelectedMachineTitle}" VerticalAlignment="Center" />
             </Grid>
         </Border>
 
-        <Grid ColumnDefinitions="200,*,250">
+        <Grid ColumnDefinitions="250,*,310">
             <Border Grid.Column="0" Margin="4" Background="#182028" BorderBrush="#31404F" BorderThickness="1" Padding="8">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" FontWeight="Bold" Margin="0,0,0,4" FontSize="14">Machines</TextBlock>
+                    <TextBlock DockPanel.Dock="Top" FontWeight="Bold" Margin="0,0,0,8" FontSize="14">Machines</TextBlock>
                     <ListBox ItemsSource="{Binding Machines}"
                              SelectedItem="{Binding SelectedMachineDescriptor}"
                              Background="Transparent"
@@ -43,11 +64,13 @@
                              Name="MachineList">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <StackPanel Margin="4">
-                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                                    <TextBlock Text="{Binding Family}" FontSize="11" Foreground="#8A99A8" />
-                                    <TextBlock Text="{Binding Description}" FontSize="10" Foreground="#8A99A8" TextWrapping="Wrap" />
-                                </StackPanel>
+                                <Border Margin="0,0,0,6" Padding="6" Background="#202A34" BorderBrush="#31404F" BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Family}" Classes="muted" FontSize="11" />
+                                        <TextBlock Text="{Binding Description}" Classes="muted" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </Border>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
@@ -56,24 +79,24 @@
 
             <Border Grid.Column="1" Margin="4" Background="#182028" BorderBrush="#31404F" BorderThickness="1" Padding="8">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,0,0,4">
-                        <TextBlock FontWeight="Bold" FontSize="14" Text="{Binding SelectedMachineTitle, TargetNullValue='Symulator'}" VerticalAlignment="Center" />
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock FontWeight="Bold" FontSize="16" Text="{Binding SelectedMachineTitle}" VerticalAlignment="Center" />
                     </StackPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,0,0,4" IsVisible="{Binding IsMachineSelected}">
-                        <Button Content="Start" Command="{Binding StartCommand}" Background="#202A34" />
-                        <Button Content="Pause" Command="{Binding PauseCommand}" Background="#202A34" />
-                        <Button Content="Reset" Command="{Binding ResetCommand}" Background="#202A34" />
-                        <Button Content="Step" Command="{Binding StepCommand}" Background="#202A34" />
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8" IsVisible="{Binding IsMachineSelected}">
+                        <Button Content="Start" Command="{Binding StartCommand}" />
+                        <Button Content="Pause" Command="{Binding PauseCommand}" />
+                        <Button Content="Reset" Command="{Binding ResetCommand}" />
+                        <Button Content="Step" Command="{Binding StepCommand}" />
                     </StackPanel>
                     <ScrollViewer>
                         <Grid>
                             <ContentControl Content="{Binding ActivePanelViewModel}" />
-                            <TextBlock Text="Select a machine from the list to begin."
-                                       IsVisible="{Binding HasNoMachineSelected}"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Foreground="#8A99A8"
-                                       FontSize="16" />
+                            <Border IsVisible="{Binding HasNoMachineSelected}" Background="#101418" Opacity="0.92" CornerRadius="6" Padding="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <StackPanel>
+                                    <TextBlock Text="Select a machine" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                    <TextBlock Text="Choose Apple-1 or KIM-1 from the list to initialize a workspace." Classes="muted" TextWrapping="Wrap" HorizontalAlignment="Center" Margin="0,8,0,0" />
+                                </StackPanel>
+                            </Border>
                         </Grid>
                     </ScrollViewer>
                 </DockPanel>
@@ -81,7 +104,7 @@
 
             <Border Grid.Column="2" Margin="4" Background="#182028" BorderBrush="#31404F" BorderThickness="1" Padding="8">
                 <ScrollViewer>
-                    <StackPanel Spacing="8">
+                    <StackPanel Spacing="10">
                         <vm:CpuInspectorView DataContext="{Binding CpuInspector}" />
                     </StackPanel>
                 </ScrollViewer>

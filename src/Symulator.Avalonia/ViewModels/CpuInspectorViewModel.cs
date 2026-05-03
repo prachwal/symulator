@@ -16,6 +16,7 @@ public sealed class CpuInspectorViewModel : ViewModelBase
     private string _machineState = "No machine selected";
     private string _bootMode = "-";
     private string _lastError = "-";
+    private bool _hasLastError;
 
     public string Pc { get => _pc; set => SetProperty(ref _pc, value); }
     public string Sp { get => _sp; set => SetProperty(ref _sp, value); }
@@ -29,6 +30,7 @@ public sealed class CpuInspectorViewModel : ViewModelBase
     public string MachineState { get => _machineState; set => SetProperty(ref _machineState, value); }
     public string BootMode { get => _bootMode; set => SetProperty(ref _bootMode, value); }
     public string LastError { get => _lastError; set => SetProperty(ref _lastError, value); }
+    public bool HasLastError { get => _hasLastError; set => SetProperty(ref _hasLastError, value); }
 
     public void UpdateFromSnapshot(CpuStateSnapshot? cpu)
     {
@@ -60,6 +62,7 @@ public sealed class CpuInspectorViewModel : ViewModelBase
     public void SetLastError(string error)
     {
         LastError = error;
+        HasLastError = !string.IsNullOrEmpty(error) && error != "-";
     }
 
     public void SetUnavailable()
@@ -70,5 +73,6 @@ public sealed class CpuInspectorViewModel : ViewModelBase
         MachineState = "No machine selected";
         BootMode = "-";
         LastError = "-";
+        HasLastError = false;
     }
 }

@@ -5,7 +5,7 @@
         <TextBlock FontWeight="Bold" FontSize="14">Inspector</TextBlock>
 
         <TextBlock FontWeight="SemiBold" Margin="0,8,0,0">Machine</TextBlock>
-        <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
+        <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0" RowDefinitions="Auto,Auto,Auto,Auto">
             <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" Foreground="#8A99A8" Margin="0,0,8,1" />
             <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding MachineName}" Margin="0,0,0,1" />
             <TextBlock Grid.Row="1" Grid.Column="0" Text="State:" Foreground="#8A99A8" Margin="0,0,8,1" />
@@ -16,8 +16,10 @@
             <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Status}" />
         </Grid>
 
-        <TextBlock FontWeight="SemiBold" Margin="0,8,0,0">CPU</TextBlock>
-        <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
+        <Separator Margin="0,4" />
+
+        <TextBlock FontWeight="SemiBold" Margin="0,4,0,0">CPU</TextBlock>
+        <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
             <TextBlock Grid.Row="0" Grid.Column="0" Text="PC:" Foreground="#8A99A8" Margin="0,0,8,1" />
             <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Pc}" FontFamily="Courier New" Margin="0,0,0,1" />
             <TextBlock Grid.Row="1" Grid.Column="0" Text="SP:" Foreground="#8A99A8" Margin="0,0,8,1" />
@@ -34,26 +36,10 @@
             <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Cycles}" FontFamily="Courier New" />
         </Grid>
 
-        <TextBlock FontWeight="SemiBold" Margin="0,8,0,0">CPU</TextBlock>
-        <TextBlock Text="{Binding Status}" FontStyle="Italic" Foreground="Gray" />
-        <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="PC:" Foreground="#8A99A8" Margin="0,0,8,1" />
-            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Pc}" FontFamily="Courier New" Margin="0,0,0,1" />
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="SP:" Foreground="#8A99A8" Margin="0,0,8,1" />
-            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Sp}" FontFamily="Courier New" Margin="0,0,0,1" />
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="A:" Foreground="#8A99A8" Margin="0,0,8,1" />
-            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding A}" FontFamily="Courier New" Margin="0,0,0,1" />
-            <TextBlock Grid.Row="3" Grid.Column="0" Text="X:" Foreground="#8A99A8" Margin="0,0,8,1" />
-            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding X}" FontFamily="Courier New" Margin="0,0,0,1" />
-            <TextBlock Grid.Row="4" Grid.Column="0" Text="Y:" Foreground="#8A99A8" Margin="0,0,8,1" />
-            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Y}" FontFamily="Courier New" Margin="0,0,0,1" />
-            <TextBlock Grid.Row="5" Grid.Column="0" Text="Flags:" Foreground="#8A99A8" Margin="0,0,8,0" />
-            <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Flags}" FontFamily="Courier New" />
-            <TextBlock Grid.Row="6" Grid.Column="0" Text="Cycles:" Foreground="#8A99A8" Margin="0,0,8,0" />
-            <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Cycles}" FontFamily="Courier New" />
-        </Grid>
+        <Separator Margin="0,4" />
 
         <TextBlock FontWeight="SemiBold" Margin="0,8,0,0">Last Error</TextBlock>
-        <TextBlock Text="{Binding LastError}" TextWrapping="Wrap" Foreground="#FF5C5C" FontSize="11" />
+        <TextBlock Text="{Binding LastError}" TextWrapping="Wrap" Foreground="#FF5C5C" FontSize="11"
+                   IsVisible="{Binding HasLastError}" />
     </StackPanel>
 </UserControl>

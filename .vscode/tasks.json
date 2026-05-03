@@ -10,143 +10,85 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "test all",
-            "command": "dotnet",
-            "type": "process",
-            "args": ["test"],
-            "group": "test",
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "build WPF GUI",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "build",
-                "src/CmosCpu.WpfApp/CmosCpu.WpfApp.csproj",
-                "-p:EnableWindowsTargeting=true"
-            ],
-            "group": "build",
-            "problemMatcher": "$msCompile",
-            "detail": "Build WPF GUI (requires Windows SDK or EnableWindowsTargeting on Linux)"
-        },
-        {
-            "label": "run WPF GUI",
+            "label": "run Avalonia",
             "command": "dotnet",
             "type": "process",
             "args": [
                 "run",
                 "--project",
-                "src/CmosCpu.WpfApp/CmosCpu.WpfApp.csproj"
+                "src/Symulator.Avalonia/Symulator.Avalonia.csproj"
             ],
             "group": {
                 "kind": "test",
                 "isDefault": true
             },
             "problemMatcher": "$msCompile",
-            "detail": "Run WPF GUI (Windows only — requires Microsoft.WindowsDesktop.App)",
-            "dependsOn": ["build WPF GUI"]
+            "detail": "Run Avalonia desktop GUI (Apple-1 / KIM-1)",
+            "dependsOn": ["build all"]
         },
         {
-            "label": "build ConsoleApp",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "build",
-                "src/CmosCpu.ConsoleApp/CmosCpu.ConsoleApp.csproj"
-            ],
-            "group": "build",
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "run ConsoleApp (blink, 10000 cycles)",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "run",
-                "--project",
-                "src/CmosCpu.ConsoleApp/CmosCpu.ConsoleApp.csproj",
-                "--",
-                "--cycles",
-                "10000"
-            ],
-            "group": {
-                "kind": "test",
-                "isDefault": true
-            },
-            "problemMatcher": "$msCompile",
-            "dependsOn": ["build ConsoleApp"]
-        },
-        {
-            "label": "run ConsoleApp (with trace)",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "run",
-                "--project",
-                "src/CmosCpu.ConsoleApp/CmosCpu.ConsoleApp.csproj",
-                "--",
-                "--program",
-                "examples/blink.asm",
-                "--cycles",
-                "5000",
-                "--trace"
-            ],
-            "group": "test",
-            "problemMatcher": "$msCompile",
-            "dependsOn": ["build ConsoleApp"]
-        },
-        {
-            "label": "test WPF ViewModels",
+            "label": "test Application",
             "command": "dotnet",
             "type": "process",
             "args": [
                 "test",
-                "tests/CmosCpu.WpfApp.Tests/CmosCpu.WpfApp.Tests.csproj"
+                "tests/Symulator.Application.Tests",
+                "--no-build"
             ],
             "group": "test",
-            "problemMatcher": "$msCompile",
-            "detail": "Run WPF ViewModel/service tests (Windows only)"
-        },
-        {
-            "label": "build BlazorApp",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "build",
-                "src/CmosCpu.BlazorApp/CmosCpu.BlazorApp.csproj"
-            ],
-            "group": "build",
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "run BlazorApp",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "run",
-                "--project",
-                "src/CmosCpu.BlazorApp/CmosCpu.BlazorApp.csproj"
-            ],
-            "group": {
-                "kind": "test",
-                "isDefault": true
-            },
-            "problemMatcher": "$msCompile",
-            "detail": "Run Blazor web app — open https://localhost:5001/simulator",
-            "dependsOn": ["build BlazorApp"]
-        },
-        {
-            "label": "test BlazorApp",
+            "label": "test Apple-1",
             "command": "dotnet",
             "type": "process",
             "args": [
                 "test",
-                "tests/CmosCpu.BlazorApp.Tests/CmosCpu.BlazorApp.Tests.csproj"
+                "tests/Symulator.Machines.Apple1.Tests",
+                "--no-build"
             ],
             "group": "test",
-            "problemMatcher": "$msCompile",
-            "detail": "Run Blazor service/model unit tests"
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "test KIM-1",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "test",
+                "tests/Symulator.Machines.Kim1.Tests",
+                "--no-build"
+            ],
+            "group": "test",
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "test CPU (non-reference)",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "test",
+                "tests/CmosCpu.Cpu.Tests",
+                "--no-build",
+                "--filter",
+                "FullyQualifiedName!~Reference"
+            ],
+            "group": "test",
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "test Computer (safe)",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "test",
+                "tests/CmosCpu.Computer.Tests",
+                "--no-build",
+                "--filter",
+                "FullyQualifiedName!~RunController"
+            ],
+            "group": "test",
+            "problemMatcher": "$msCompile"
         },
         {
             "label": "clean",
