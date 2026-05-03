@@ -55,6 +55,7 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     private bool _showUartModule;
     private bool _showI2cModule;
     private bool _isSolutionLoading;
+    private int _solutionLoadVersion;
 
     private static readonly IBrush OnBrush = new SolidColorBrush(Color.Parse("#4DFF88"));
     private static readonly IBrush OffBrush = new SolidColorBrush(Color.Parse("#1a3a2a"));
@@ -78,6 +79,9 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         get => _isSolutionLoading;
         private set
         {
+            if (_isSolutionLoading == value)
+                return;
+
             _isSolutionLoading = value;
             OnPropertyChanged();
             RaiseCommandsCanExecuteChanged();
@@ -264,6 +268,8 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
 
             if (value is null)
             {
+                System.Threading.Interlocked.Increment(ref _solutionLoadVersion);
+                IsSolutionLoading = false;
                 AsmSourceText = string.Empty;
                 ProgramStatus = "No ASM program selected";
                 SelectedSolutionSummary = "No solution selected";
@@ -278,15 +284,21 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
             ListingLines = null;
             CurrentListingLineIndex = null;
             IsSolutionLoading = true;
-            _ = LoadSelectedSolutionAsync(value);
+
+            var loadVersion = System.Threading.Interlocked.Increment(ref _solutionLoadVersion);
+            _ = LoadSelectedSolutionAsync(value, loadVersion);
         }
     }
 
-    private async Task LoadSelectedSolutionAsync(AssemblySourceProgram program)
+    private async Task LoadSelectedSolutionAsync(AssemblySourceProgram program, int loadVersion)
     {
         try
         {
-            _selectedSolution = await _solutionLoader.LoadForSourceAsync(program.FilePath);
+            var solution = await _solutionLoader.LoadForSourceAsync(program.FilePath);
+            if (loadVersion != _solutionLoadVersion)
+                return;
+
+            _selectedSolution = solution;
             SelectedSolutionSummary = $"Solution: {_selectedSolution.Name}";
             ApplySolutionToVisibleModules(_selectedSolution);
 
@@ -295,6 +307,9 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
+            if (loadVersion != _solutionLoadVersion)
+                return;
+
             _selectedSolution = SolutionDefinition.CreateFallback(program.Id, Path.GetFileName(program.FilePath));
             SelectedSolutionSummary = $"Solution fallback: {program.Id}";
             ApplySolutionToVisibleModules(_selectedSolution);
@@ -306,7 +321,8 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         }
         finally
         {
-            IsSolutionLoading = false;
+            if (loadVersion == _solutionLoadVersion)
+                IsSolutionLoading = false;
         }
     }
 
@@ -491,9 +507,11 @@ internal sealed class AsyncRelayCommand : ICommand
         if (_canExecute is not null && !_canExecute()) return false;
         return true;
     }
+
     public async void Execute(object? parameter)
     {
-        if (_isExecuting) return;
+        if (!CanExecute(parameter)) return;
+
         _isExecuting = true;
         RaiseCanExecuteChanged();
         try
