@@ -2,93 +2,151 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="clr-namespace:Symulator.Machines.MinimalBlink.Views"
              x:Class="Symulator.Machines.MinimalBlink.Views.MinimalBlinkWorkspaceView">
-    <DockPanel>
-        <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="8">
-            <TextBlock FontWeight="Bold" FontSize="16">Minimal Blink Computer</TextBlock>
-            <TextBlock Text="{Binding StatusText}" FontStyle="Italic" />
+  <ScrollViewer>
+    <StackPanel Spacing="6" Margin="8">
+      <TextBlock FontWeight="Bold" FontSize="16">Minimal Blink Computer</TextBlock>
+      <TextBlock Text="{Binding StatusText}" FontStyle="Italic" />
 
-            <Border BorderBrush="#31404F" BorderThickness="1" Padding="6" Background="#182028" HorizontalAlignment="Left">
-                <views:MinimalBlinkLcdControl Pixels="{Binding LcdPixels}" />
-            </Border>
+      <!-- LCD -->
+      <Border BorderBrush="#31404F" BorderThickness="1" Padding="6" Background="#182028" HorizontalAlignment="Left">
+        <views:MinimalBlinkLcdControl Pixels="{Binding LcdPixels}" />
+      </Border>
 
-            <Border BorderBrush="#31404F" BorderThickness="1" Background="#0D1117" Padding="6">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="UART Terminal" FontWeight="Bold" Foreground="#7CFF7C" Margin="0,0,0,4" />
-                    <TextBox DockPanel.Dock="Bottom"
-                             Text="{Binding TerminalInputText, Mode=TwoWay}"
-                             Watermark="Type and press Enter"
-                             KeyDown="OnTerminalKeyDown"
-                             Foreground="#7CFF7C" Background="#0D1117" BorderBrush="#31404F"
-                             Margin="0,4,0,0" />
-                    <ScrollViewer Height="120" Foreground="#B0BCC8" Background="#0D1117">
-                        <ItemsControl ItemsSource="{Binding TerminalLines}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="12" Foreground="#B0BCC8" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </DockPanel>
-            </Border>
+      <!-- UART Terminal -->
+      <Border BorderBrush="#31404F" BorderThickness="1" Background="#0D1117" Padding="6">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Text="UART Terminal" FontWeight="Bold" Foreground="#7CFF7C" Margin="0,0,0,4" />
+          <TextBox DockPanel.Dock="Bottom"
+                   Text="{Binding TerminalInputText, Mode=TwoWay}"
+                   Watermark="Type and press Enter"
+                   KeyDown="OnTerminalKeyDown"
+                   Foreground="#7CFF7C" Background="#0D1117" BorderBrush="#31404F"
+                   Margin="0,4,0,0" />
+          <ScrollViewer Height="120" Foreground="#B0BCC8" Background="#0D1117">
+            <ItemsControl ItemsSource="{Binding TerminalLines}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="12" Foreground="#B0BCC8" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
 
-            <StackPanel Spacing="4" Margin="0,6,0,0">
-                <ComboBox ItemsSource="{Binding PredefinedPrograms}"
-                          SelectedItem="{Binding SelectedProgram}"
-                          MinWidth="250">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding Name}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <Button Content="Load program" Command="{Binding LoadProgramCommand}" />
-                    <Button Content="Reset" Command="{Binding ResetCommand}" />
-                </StackPanel>
-            </StackPanel>
+      <!-- ASM Program Panel -->
+      <Border BorderBrush="#31404F" BorderThickness="1" Padding="6">
+        <StackPanel>
+          <TextBlock Text="ASM Program" FontWeight="Bold" Margin="0,0,0,4" />
+          <TextBlock Text="{Binding ProgramStatus}" FontStyle="Italic" Foreground="#7CFF7C" Margin="0,0,0,4" />
 
-            <Border BorderBrush="#31404F" BorderThickness="1" Padding="8" Margin="0,6,0,0">
-                <StackPanel>
-                    <TextBlock Text="LED" FontWeight="Bold" Foreground="#4DFF88" />
-                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-                        <Ellipse Width="24" Height="24"
-                                 Fill="{Binding LedColor}"
-                                 Stroke="#4DFF88" StrokeThickness="1" />
-                        <StackPanel>
-                            <TextBlock Text="{Binding LedOn, StringFormat='State: {0}'}" />
-                            <TextBlock Text="{Binding LedToggleCount, StringFormat='Toggles: {0}'}" />
-                            <TextBlock Text="{Binding LedLastValue, StringFormat='Last value: 0x{0:X2}'}" />
-                        </StackPanel>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
+          <ComboBox ItemsSource="{Binding AsmPrograms}"
+                    SelectedItem="{Binding SelectedAsmProgram}"
+                    MinWidth="250" Margin="0,0,0,4">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
 
-            <Border BorderBrush="#31404F" BorderThickness="1" Padding="8" Margin="0,4,0,0">
-                <StackPanel>
-                    <TextBlock Text="CPU" FontWeight="Bold" />
-                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,4,0,0">
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="PC:" Margin="0,0,8,1" Foreground="#B0BCC8" />
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Pc}" FontFamily="Courier New" />
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="A:" Margin="0,0,8,1" Foreground="#B0BCC8" />
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding A}" FontFamily="Courier New" />
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Z:" Margin="0,0,8,1" Foreground="#B0BCC8" />
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Z}" />
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Cycles:" Margin="0,0,8,1" Foreground="#B0BCC8" />
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Cycles}" FontFamily="Courier New" />
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Halted:" Margin="0,0,8,0" Foreground="#B0BCC8" />
-                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Halted}" />
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,4,0,0">
-                <Button Content="Step" Command="{Binding StepCommand}" />
-                <Button Content="Run" Command="{Binding RunCommand}" />
-                <Button Content="Pause" Command="{Binding PauseCommand}" />
-            </StackPanel>
-
-            <TextBlock Text="{Binding LastError}" TextWrapping="Wrap" Foreground="#FF5C5C" FontSize="11" />
+          <ScrollViewer Height="100" Foreground="#B0BCC8" Background="#0D1117">
+            <TextBox Text="{Binding AsmSourceText, Mode=OneWay}"
+                     FontFamily="Consolas" FontSize="11"
+                     Foreground="#B0BCC8" Background="#0D1117"
+                     IsReadOnly="True"
+                     TextWrapping="NoWrap"
+                     AcceptsReturn="True" />
+          </ScrollViewer>
+          <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,4,0,0">
+            <Button Content="Compile" Command="{Binding CompileCommand}" />
+            <Button Content="Load &amp; Reset" Command="{Binding LoadAndResetCommand}" />
+          </StackPanel>
         </StackPanel>
-    </DockPanel>
+      </Border>
+
+      <!-- Listing -->
+      <Border BorderBrush="#31404F" BorderThickness="1" Padding="6" Background="#0D1117">
+        <StackPanel>
+          <TextBlock Text="Assembly Listing" FontWeight="Bold" Foreground="#7CFF7C" Margin="0,0,0,4" />
+          <ScrollViewer Height="160">
+            <ItemsControl ItemsSource="{Binding ListingLines}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="{Binding Address, StringFormat='${0:X4}'}"
+                               FontFamily="Consolas" FontSize="11"
+                               Foreground="#569CD6" MinWidth="50" />
+                    <TextBlock Text="{Binding SourceText}"
+                               FontFamily="Consolas" FontSize="11"
+                               Foreground="#B0BCC8" />
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </StackPanel>
+      </Border>
+
+      <!-- Hardcoded Programs -->
+      <StackPanel Spacing="4" Margin="0,6,0,0">
+        <ComboBox ItemsSource="{Binding PredefinedPrograms}"
+                  SelectedItem="{Binding SelectedProgram}"
+                  MinWidth="250">
+          <ComboBox.ItemTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <Button Content="Load program" Command="{Binding LoadProgramCommand}" />
+          <Button Content="Reset" Command="{Binding ResetCommand}" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- LED -->
+      <Border BorderBrush="#31404F" BorderThickness="1" Padding="8">
+        <StackPanel>
+          <TextBlock Text="LED" FontWeight="Bold" Foreground="#4DFF88" />
+          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+            <Ellipse Width="24" Height="24" Fill="{Binding LedColor}" Stroke="#4DFF88" StrokeThickness="1" />
+            <StackPanel>
+              <TextBlock Text="{Binding LedOn, StringFormat='State: {0}'}" />
+              <TextBlock Text="{Binding LedToggleCount, StringFormat='Toggles: {0}'}" />
+              <TextBlock Text="{Binding LedLastValue, StringFormat='Last value: 0x{0:X2}'}" />
+            </StackPanel>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- CPU State -->
+      <Border BorderBrush="#31404F" BorderThickness="1" Padding="8">
+        <StackPanel>
+          <TextBlock Text="CPU" FontWeight="Bold" />
+          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,4,0,0">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="PC:" Margin="0,0,8,1" Foreground="#B0BCC8" />
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Pc}" FontFamily="Courier New" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="A:" Margin="0,0,8,1" Foreground="#B0BCC8" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding A}" FontFamily="Courier New" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Z:" Margin="0,0,8,1" Foreground="#B0BCC8" />
+            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Z}" />
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Cycles:" Margin="0,0,8,1" Foreground="#B0BCC8" />
+            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Cycles}" FontFamily="Courier New" />
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Halted:" Margin="0,0,8,0" Foreground="#B0BCC8" />
+            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Halted}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Execution Controls -->
+      <StackPanel Orientation="Horizontal" Spacing="4">
+        <Button Content="Step" Command="{Binding StepCommand}" />
+        <Button Content="Run" Command="{Binding RunCommand}" />
+        <Button Content="Pause" Command="{Binding PauseCommand}" />
+      </StackPanel>
+
+      <TextBlock Text="{Binding LastError}" TextWrapping="Wrap" Foreground="#FF5C5C" FontSize="11" />
+    </StackPanel>
+  </ScrollViewer>
 </UserControl>

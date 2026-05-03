@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Avalonia.Media;
 using Symulator.Application.Abstractions;
+using Symulator.Application.Assembly;
 using Symulator.Machines.MinimalBlink.Models;
 using Symulator.Machines.MinimalBlink.Programs;
 
@@ -11,6 +12,20 @@ namespace Symulator.Machines.MinimalBlink.Module;
 public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
 {
     private readonly IMachineSession _session;
+    private readonly AssemblyProgramCatalog _catalog = new();
+
+    private static string? FindAsmDirectory()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var candidate = Path.Combine(dir.FullName, "programs", "asm");
+            if (Directory.Exists(candidate))
+                return candidate;
+            dir = dir.Parent;
+        }
+        return null;
+    }
     private string _statusText = "Ready";
     private string _pc = "$0000";
     private string _a = "$00";
@@ -27,6 +42,12 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     private bool[,]? _lcdPixels;
     private List<string>? _terminalLines;
     private string _terminalInputText = string.Empty;
+    private string _asmSourceText = string.Empty;
+    private string _programStatus = "Not compiled";
+    private List<AssemblyListingLine>? _listingLines;
+    private int? _currentListingLineIndex;
+    private AssemblySourceProgram? _selectedAsmProgram;
+    private List<AssemblySourceProgram> _asmPrograms = new();
 
     private static readonly IBrush OnBrush = new SolidColorBrush(Color.Parse("#4DFF88"));
     private static readonly IBrush OffBrush = new SolidColorBrush(Color.Parse("#1a3a2a"));
@@ -42,6 +63,42 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         StepCommand = new AsyncRelayCommand(StepAsync);
         RunCommand = new AsyncRelayCommand(RunAsync);
         PauseCommand = new AsyncRelayCommand(PauseAsync);
+        CompileCommand = new AsyncRelayCommand(CompileAsync);
+        LoadAndResetCommand = new AsyncRelayCommand(LoadAndResetAsync);
+
+        // Load ASM programs from directory
+        _ = InitializeAsmProgramsAsync();
+    }
+
+    private async Task InitializeAsmProgramsAsync()
+    {
+        var asmDir = FindAsmDirectory();
+        if (asmDir is null)
+        {
+            AsmPrograms = new List<AssemblySourceProgram>();
+            return;
+        }
+
+        try
+        {
+            var programs = await _catalog.LoadProgramsAsync(asmDir);
+            AsmPrograms = programs.ToList();
+            if (programs.Count > 0)
+            {
+                SelectedAsmProgram = programs[0];
+                AsmSourceText = programs[0].SourceText;
+                // Signal the session to auto-compile and load
+                if (_session is MinimalBlinkMachineSession mbSession)
+                {
+                    mbSession.NotifyAsmProgramsLoaded(programs);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to load ASM programs: {ex.Message}");
+            AsmPrograms = new List<AssemblySourceProgram>();
+        }
     }
 
     public IReadOnlyList<MinimalBlinkPredefinedProgram> PredefinedPrograms { get; }
@@ -62,6 +119,44 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     {
         get => _terminalInputText;
         set { _terminalInputText = value; OnPropertyChanged(); }
+    }
+
+    // ── ASM Assembler / Program Lifecycle ──────────────────────────
+
+    public string AsmSourceText
+    {
+        get => _asmSourceText;
+        set { _asmSourceText = value; OnPropertyChanged(); }
+    }
+
+    public string ProgramStatus
+    {
+        get => _programStatus;
+        set { _programStatus = value; OnPropertyChanged(); }
+    }
+
+    public List<AssemblyListingLine>? ListingLines
+    {
+        get => _listingLines;
+        set { _listingLines = value; OnPropertyChanged(); }
+    }
+
+    public int? CurrentListingLineIndex
+    {
+        get => _currentListingLineIndex;
+        set { _currentListingLineIndex = value; OnPropertyChanged(); }
+    }
+
+    public List<AssemblySourceProgram> AsmPrograms
+    {
+        get => _asmPrograms;
+        set { _asmPrograms = value; OnPropertyChanged(); }
+    }
+
+    public AssemblySourceProgram? SelectedAsmProgram
+    {
+        get => _selectedAsmProgram;
+        set { _selectedAsmProgram = value; OnPropertyChanged(); }
     }
 
     public async Task SendTerminalInputAsync()
@@ -131,6 +226,8 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     public ICommand StepCommand { get; }
     public ICommand RunCommand { get; }
     public ICommand PauseCommand { get; }
+    public ICommand CompileCommand { get; }
+    public ICommand LoadAndResetCommand { get; }
 
     private async Task<MachineCommandResult> LoadProgramAsync()
     {
@@ -161,6 +258,35 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     private async Task<MachineCommandResult> PauseAsync()
     {
         await _session.PauseAsync();
+        return MachineCommandResult.Success();
+    }
+
+    private async Task<MachineCommandResult> CompileAsync()
+    {
+        var asmSession = _session as MinimalBlinkMachineSession;
+        if (asmSession is null || SelectedAsmProgram is null)
+            return MachineCommandResult.Failure("No ASM program selected");
+
+        var result = asmSession.CompileFromSource(SelectedAsmProgram.Id, SelectedAsmProgram.SourceText);
+        if (!result.Success)
+        {
+            ProgramStatus = "Compile failed";
+            return MachineCommandResult.Failure(string.Join("; ", result.Diagnostics.Where(d => d.Severity == "Error").Select(d => d.Message)));
+        }
+
+        ProgramStatus = $"Compiled: {result.Image!.Bytes.Length} bytes at ${result.Image.LoadAddress:X4}";
+        ListingLines = result.Image.Listing.ToList();
+        return MachineCommandResult.Success();
+    }
+
+    private async Task<MachineCommandResult> LoadAndResetAsync()
+    {
+        var asmSession = _session as MinimalBlinkMachineSession;
+        if (asmSession is null)
+            return MachineCommandResult.Failure("Not a MinimalBlink session");
+
+        asmSession.LoadAndResetCompiled();
+        ProgramStatus = $"Loaded";
         return MachineCommandResult.Success();
     }
 
