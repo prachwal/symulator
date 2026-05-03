@@ -17,11 +17,13 @@ public sealed class MinimalBlinkMemory
     public const ushort LcdDataPort = 0xFE01;
 
     public MinimalBlinkLedState LedState { get; } = new();
+    public Hd44780DirectBusAdapter? LcdBus { get; private set; }
     public Hd44780Lcd? LcdDevice { get; private set; }
 
-    public void AttachLcd(Hd44780Lcd lcd)
+    public void AttachLcd(Hd44780Lcd lcd, Hd44780DirectBusAdapter bus)
     {
         LcdDevice = lcd;
+        LcdBus = bus;
     }
 
     public byte ReadByte(ushort address)
@@ -30,8 +32,8 @@ public sealed class MinimalBlinkMemory
             return _ram[address];
         if (address >= RomStart && address <= RomEnd)
             return _rom[address - RomStart];
-        if (LcdDevice is not null && (address == LcdCommandPort || address == LcdDataPort))
-            return LcdDevice.Read(address);
+        if (LcdBus is not null && (address == LcdCommandPort || address == LcdDataPort))
+            return LcdBus.Read(address);
         return 0;
     }
 
@@ -43,8 +45,8 @@ public sealed class MinimalBlinkMemory
             _rom[address - RomStart] = value;
         else if (address == LedPort)
             LedState.Write(value);
-        else if (LcdDevice is not null && (address == LcdCommandPort || address == LcdDataPort))
-            LcdDevice.Write(address, value);
+        else if (LcdBus is not null && (address == LcdCommandPort || address == LcdDataPort))
+            LcdBus.Write(address, value);
     }
 
     public void Load(ushort start, byte[] data)

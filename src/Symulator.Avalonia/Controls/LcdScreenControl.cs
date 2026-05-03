@@ -53,7 +53,7 @@ public class LcdScreenControl : Control
     private const double Gap = 1.0;          // między pikselami w znaku
     private const double CharGap = 2.0;       // między znakami
     private const double RowGap = 3.0;         // między liniami 16×2
-    private const double Margin = 6.0;         // margines wewnątrz ramki
+    private new const double Margin = 6.0;     // margines wewnątrz ramki
     private const double FrameWidth = 3.0;     // grubość ramki
 
     private IBrush GetDotOnBrush()

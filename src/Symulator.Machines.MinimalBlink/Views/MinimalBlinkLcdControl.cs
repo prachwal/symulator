@@ -33,6 +33,13 @@ public class MinimalBlinkLcdControl : Control
         AffectsRender<MinimalBlinkLcdControl>(PixelsProperty);
     }
 
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == PixelsProperty)
+            InvalidateVisual();
+    }
+
     protected override Size MeasureOverride(Size available)
     {
         double step = Dot + Gap;

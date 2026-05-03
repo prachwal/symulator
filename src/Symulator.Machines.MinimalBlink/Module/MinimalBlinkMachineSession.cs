@@ -22,6 +22,7 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
     private string _status = "Ready";
     private readonly IUiDispatcher? _uiDispatcher;
     private Hd44780Lcd? _lcd;
+    private Hd44780DirectBusAdapter? _lcdBus;
     private MinimalBlinkLcdBuffer? _lcdBuffer;
 
     private const int _instructionsPerBatch = 100;
@@ -78,8 +79,9 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
             return;
 
         _memory = new MinimalBlinkMemory();
-        _lcd = new Hd44780Lcd(MinimalBlinkMemory.LcdCommandPort);
-        _memory.AttachLcd(_lcd);
+        _lcd = new Hd44780Lcd();
+        _lcdBus = new Hd44780DirectBusAdapter(_lcd, MinimalBlinkMemory.LcdCommandPort);
+        _memory.AttachLcd(_lcd, _lcdBus);
         _lcdBuffer = new MinimalBlinkLcdBuffer();
         _cpu = new MinimalBlinkCpu(_memory);
         _isInitialized = true;
@@ -129,6 +131,7 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
             AutoLoadDefault();
 
         _cpu.Step();
+        _lcd?.Tick(_cpu.CycleCount);
         _status = _cpu.Halted ? "Halted" : "Stepped";
         PublishSnapshot();
         return Task.CompletedTask;
@@ -160,6 +163,7 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
                         if (_runCts.IsCancellationRequested || _cpu.Halted)
                             break;
                         _cpu.Step();
+                        _lcd?.Tick(_cpu.CycleCount);
                     }
 
                     PublishSnapshot();
@@ -305,7 +309,18 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
             if (_lcdBuffer is not null && _lcd is not null)
             {
                 _lcdBuffer.RenderFrom(_lcd);
-                _workspaceVm.LcdPixels = _lcdBuffer.Pixels;
+
+                var src = _lcdBuffer.Pixels;
+                int w = src.GetLength(0), h = src.GetLength(1);
+                var dst = new bool[w, h];
+                for (int x = 0; x < w; x++)
+                    for (int y = 0; y < h; y++)
+                        dst[x, y] = src[x, y];
+                _workspaceVm.LcdPixels = dst;
+
+                Logger.Debug("Minimal Blink LCD snapshot: PC=0x{PC:X4}, first16={Bytes}",
+                    _cpu?.PC ?? 0,
+                    string.Join(" ", _lcd.Ddram.Take(16).Select(b => b == 0 ? ".." : $"{(char)b}")));
             }
         };
 
