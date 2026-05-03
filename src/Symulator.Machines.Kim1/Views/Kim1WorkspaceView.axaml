@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:Symulator.Machines.Kim1.Views"
              x:Class="Symulator.Machines.Kim1.Views.Kim1WorkspaceView">
     <DockPanel>
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,0,0,4">
@@ -12,20 +13,28 @@
             </StackPanel>
             <TextBlock FontStyle="Italic" Text="{Binding LastKey, StringFormat='Last key: {0}'}" />
             <TextBlock Text="{Binding StatusText}" FontStyle="Italic" />
+
+            <StackPanel Spacing="6" Margin="0,8,0,0">
+                <TextBlock Text="Predefined program" FontWeight="SemiBold" />
+                <ComboBox
+                    ItemsSource="{Binding PredefinedPrograms}"
+                    SelectedItem="{Binding SelectedPredefinedProgram}"
+                    MinWidth="220">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <TextBlock Text="{Binding Name}" />
+                                <TextBlock Text="{Binding Description}" FontSize="11" Foreground="#8A99A8" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Content="Load program" Command="{Binding LoadPredefinedProgramCommand}" />
+            </StackPanel>
         </StackPanel>
         <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,*">
             <StackPanel Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Spacing="8">
-                <Border BorderBrush="#31404F" BorderThickness="1" Padding="8" Background="#1a1a1a">
-                    <StackPanel>
-                        <TextBlock Text="6-Digit LED Display" FontWeight="Bold" Foreground="#4DFF88" />
-                        <TextBlock Text="{Binding DisplayText}"
-                                   FontFamily="Courier New"
-                                   FontSize="28"
-                                   Foreground="#4DFF88"
-                                   LetterSpacing="4"
-                                   HorizontalAlignment="Center" />
-                    </StackPanel>
-                </Border>
+                <views:Kim1LedDisplayView DataContext="{Binding}" />
                 <UniformGrid Columns="4" Rows="4" Margin="4">
                     <Button Content="D7" Command="{Binding KeyPressCommand}" CommandParameter="D7" />
                     <Button Content="D8" Command="{Binding KeyPressCommand}" CommandParameter="D8" />

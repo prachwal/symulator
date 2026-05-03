@@ -2,6 +2,7 @@ using CmosCpu.Computer;
 using NLog;
 using Symulator.Application.Abstractions;
 using Symulator.Machines.Kim1.Factory;
+using Symulator.Machines.Kim1.Models;
 using Symulator.Machines.Kim1.Services;
 
 namespace Symulator.Machines.Kim1.Module;
@@ -240,6 +241,46 @@ public sealed class Kim1MachineSession : IMachineSession
                 }
                 return MachineCommandResult.Failure("release-key requires a string parameter");
 
+            case "kim1.load-predefined-program":
+            {
+                if (parameter is not string programId)
+                    return MachineCommandResult.Failure("Predefined program id is required.");
+
+                if (!EnsureMachineCreated())
+                    return MachineCommandResult.Failure("Cannot create KIM-1 machine.");
+
+                var program = Kim1PredefinedPrograms.FindById(programId);
+                if (program is null)
+                    return MachineCommandResult.Failure($"Unknown KIM-1 predefined program: {programId}");
+
+                _machine!.Reset();
+
+                // Clear program area in RAM to remove stale data from previous programs
+                for (int addr = 0x0200; addr < 0x0300; addr++)
+                    _machine.Memory.WriteByte((ushort)addr, 0);
+
+                for (var i = 0; i < program.Bytes.Length; i++)
+                {
+                    var address = (ushort)(program.LoadAddress + i);
+                    _machine.Memory.WriteByte(address, program.Bytes[i]);
+                }
+
+                _machine.Cpu.SetProgramCounter(program.StartAddress);
+                Logger.Debug("KIM-1 verification: byte at $0200=0x{Byte:X2}, PC=0x{PC:X4}",
+                    _machine.Memory.ReadByte(0x0200), _machine.Cpu.PC);
+
+                PublishSnapshot();
+                UpdateWorkspaceFromRiot();
+
+                var message = $"Loaded predefined program: {program.Name} at ${program.StartAddress:X4}";
+                StatusChanged?.Invoke(this, message);
+                Logger.Info("KIM-1 predefined program loaded: id={ProgramId}, load=0x{Load:X4}, start=0x{Start:X4}, bytes={ByteCount}",
+                    program.Id, program.LoadAddress, program.StartAddress, program.Bytes.Length);
+                Logger.Debug("KIM-1 program bytes: {Bytes}", string.Join(" ", program.Bytes.Select(b => $"${b:X2}")));
+
+                return MachineCommandResult.Success();
+            }
+
             default:
                 Logger.Warn("Unknown KIM-1 command: {CommandId}", commandId);
                 _notificationSink?.Warning($"Unknown KIM-1 command: {commandId}");
@@ -289,5 +330,12 @@ public sealed class Kim1MachineSession : IMachineSession
         await PauseAsync();
         _machine = null;
         Logger.Info("KIM-1 session disposed");
+    }
+
+    internal byte ReadMemoryForDiagnostics(ushort address)
+    {
+        if (_machine is null)
+            throw new InvalidOperationException("KIM-1 machine is not initialized.");
+        return _machine.Memory.ReadByte(address);
     }
 }

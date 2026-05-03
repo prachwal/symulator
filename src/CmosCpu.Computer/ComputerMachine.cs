@@ -120,6 +120,9 @@ public sealed class ComputerMachine
         if (Profile.Devices is not null)
             foreach (var dev in Profile.Devices)
                 MapDevice(dev);
+
+        if (Kim1LedDisplay is not null && Kim1Riot is not null)
+            Kim1Riot.LedDisplay = Kim1LedDisplay;
     }
 
     private void MapDevice(ComputerProfileDevice dev)

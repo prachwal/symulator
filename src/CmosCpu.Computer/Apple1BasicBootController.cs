@@ -1,5 +1,4 @@
 using System.Text;
-using CmosCpu.Computer;
 
 namespace CmosCpu.Computer;
 

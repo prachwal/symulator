@@ -190,32 +190,77 @@ public sealed class Apple1MachineSession : IMachineSession
         Logger.Info("Apple-1 paused");
     }
 
-    public Task SendInputAsync(string text, CancellationToken cancellationToken = default)
+    public async Task SendInputAsync(string text, CancellationToken cancellationToken = default)
     {
-        if (_machine is null)
+        Logger.Debug("Apple-1 SendInputAsync delegating to send-line: '{Text}'", text.Replace("\r", "\\r").Replace("\n", "\\n"));
+        await ExecuteMachineCommandAsync("apple1.send-line", text, cancellationToken);
+    }
+
+    private async Task SendLineAsync(string text, CancellationToken cancellationToken)
+    {
+        var inputText = text.TrimEnd('\r', '\n').ToUpperInvariant();
+        Logger.Debug("Apple-1 send-line: interactive processing; bootState={BootState}; input='{Input}'", _bootState, inputText);
+
+        var term = _machine!.Apple1Terminal;
+        if (term is null)
         {
-            _notificationSink?.Warning("Cannot send input before Apple-1 is initialized");
-            return Task.CompletedTask;
+            Logger.Warn("Apple-1 send-line: no terminal available");
+            return;
         }
 
-        Logger.Debug("Apple-1 SendInputAsync called with text='{Text}'", text.Replace("\r", "\\r").Replace("\n", "\\n"));
+        foreach (char c in inputText)
+        {
+            var versionBefore = term.Version;
+            term.QueueKey(c);
+            Logger.Trace("Apple-1 input char: '{Char}' raw=0x{Raw:X2}", c == '\r' ? "CR" : c.ToString(), (byte)c);
 
-        if (_machine.Keyboard is not null)
-        {
-            var normalized = text.TrimEnd('\r', '\n');
-            foreach (char c in normalized) _machine.Keyboard.EnqueueKey(char.ToUpperInvariant(c));
-            _machine.Keyboard.EnqueueKey('\r');
+            await RunUntil(
+                () => term.Version > versionBefore && term.PendingKeyCount == 0,
+                10000,
+                $"Input char '{c}'",
+                cancellationToken);
         }
-        else if (_machine.Apple1Terminal is not null)
-        {
-            var normalized = text.TrimEnd('\r', '\n');
-            foreach (char c in normalized) _machine.Apple1Terminal.QueueKey(char.ToUpperInvariant(c));
-            _machine.Apple1Terminal.QueueKey('\r');
-        }
+
+        var versionBeforeCr = term.Version;
+        term.QueueKey('\r');
+        Logger.Trace("Apple-1 input char: 'CR' raw=0x0D");
+
+        var processed = await RunUntil(
+            () =>
+            {
+                if (term.Version <= versionBeforeCr)
+                    return false;
+
+                if (term.PendingKeyCount > 0)
+                    return false;
+
+                return _bootState switch
+                {
+                    Apple1BootState.BasicReady => Apple1PromptDetector.LooksLikeBasicPrompt(term.Text),
+                    Apple1BootState.BootingBasic => Apple1PromptDetector.LooksLikeBasicPrompt(term.Text),
+                    Apple1BootState.MonitorReady => Apple1PromptDetector.LooksLikeWozPrompt(term.Text),
+                    _ => true
+                };
+            },
+            50000,
+            "Input line terminator",
+            cancellationToken);
 
         PublishSnapshot();
-        StatusChanged?.Invoke(this, "Input sent");
-        return Task.CompletedTask;
+        Logger.Debug("Apple-1 send-line processed={Processed}; pendingKeys={PendingKeys}; pc=0x{Pc:X4}; cycles={Cycles}; terminal={Terminal}",
+            processed,
+            term.PendingKeyCount,
+            _machine.Cpu.PC,
+            _machine.Cpu.CycleCount,
+            term.Text.Replace("\n", "\\n"));
+
+        if (!processed)
+        {
+            Logger.Warn("Apple-1 send-line did not reach stable prompt state; input='{Input}'; pendingKeys={PendingKeys}; pc=0x{Pc:X4}",
+                inputText,
+                term.PendingKeyCount,
+                _machine.Cpu.PC);
+        }
     }
 
     public async Task<MachineCommandResult> ExecuteMachineCommandAsync(string commandId, object? parameter = null, CancellationToken cancellationToken = default)
@@ -228,11 +273,9 @@ public sealed class Apple1MachineSession : IMachineSession
 
                 _machine!.Reset();
                 var terminalVersionBeforeMonitor = _machine.Apple1Terminal?.Version ?? 0;
-                var terminalLengthBeforeMonitor = _machine.Apple1Terminal?.OutputLength ?? 0;
                 _bootState = Apple1BootState.BootingMonitor;
                 _notificationSink?.Info("Booting Apple-1 Woz Monitor...");
-                Logger.Debug("Apple-1 boot.monitor started; terminalVersion={Version}, outputLength={Length}",
-                    terminalVersionBeforeMonitor, terminalLengthBeforeMonitor);
+                Logger.Debug("Apple-1 boot.monitor started; terminalVersion={Version}", terminalVersionBeforeMonitor);
 
                 var monitorResult = await RunUntil(
                     () =>
@@ -240,7 +283,7 @@ public sealed class Apple1MachineSession : IMachineSession
                         var term = _machine.Apple1Terminal;
                         if (term is null) return false;
                         return term.Version > terminalVersionBeforeMonitor
-                            && term.Text.Contains('\\');
+                            && Apple1PromptDetector.LooksLikeWozPrompt(term.Text);
                     },
                     50000,
                     "Waiting for monitor prompt",
@@ -249,7 +292,7 @@ public sealed class Apple1MachineSession : IMachineSession
                 PublishSnapshot();
                 string terminal = _machine.Apple1Terminal?.Text ?? string.Empty;
 
-                if (monitorResult && terminal.Contains('\\'))
+                if (monitorResult && Apple1PromptDetector.LooksLikeWozPrompt(terminal))
                 {
                     _bootState = Apple1BootState.MonitorReady;
                     if (_workspaceVm is not null) _workspaceVm.ModeText = "MonitorReady";
@@ -268,64 +311,19 @@ public sealed class Apple1MachineSession : IMachineSession
                     return MachineCommandResult.Failure("Cannot create Apple-1 machine");
 
                 _machine!.Reset();
-                var terminalVersionBeforeBasic = _machine.Apple1Terminal?.Version ?? 0;
-                Logger.Debug("Apple-1 boot.basic: reset + wait for monitor; terminalVersion={Version}", terminalVersionBeforeBasic);
-
-                var monForBasicResult = await RunUntil(
-                    () =>
-                    {
-                        var term = _machine.Apple1Terminal;
-                        if (term is null) return false;
-                        return term.Version > terminalVersionBeforeBasic
-                            && term.Text.Contains('\\');
-                    },
-                    50000,
-                    "Waiting for monitor prompt",
-                    cancellationToken);
-
-                if (!monForBasicResult)
-                {
-                    _bootState = Apple1BootState.Error;
-                    if (_workspaceVm is not null) _workspaceVm.ModeText = "Error";
-                    Logger.Warn("Apple-1 boot.basic: monitor did not start after reset");
-                    return MachineCommandResult.Failure("Monitor did not start after reset, cannot boot BASIC");
-                }
-
                 _bootState = Apple1BootState.BootingBasic;
                 _notificationSink?.Info("Booting Apple-1 BASIC...");
-                Logger.Debug("Apple-1 boot.basic started after monitor success");
+                Logger.Debug("Apple-1 boot.basic started");
 
-                const string basicCommand = "E000R\r";
-                Logger.Debug("Apple-1 BASIC input: sending command '{Command}'", basicCommand.Replace("\r", "\\r"));
-                foreach (char c in basicCommand)
-                {
-                    Logger.Debug("Apple-1 BASIC input char: display='{Display}', raw=0x{Raw:X2}", c == '\r' ? "CR" : c.ToString(), (byte)c);
-                    if (_machine.Keyboard is not null)
-                        _machine.Keyboard.EnqueueKey(c);
-                    else if (_machine.Apple1Terminal is not null)
-                        _machine.Apple1Terminal.QueueKey(c);
-                }
+                await SendLineAsync("E000R", cancellationToken);
 
-                var basicResult = await RunUntil(
-                    () =>
-                    {
-                        var text = _machine.Apple1Terminal?.Text ?? string.Empty;
-                        return text.Contains("\n>") || text.EndsWith(">");
-                    },
-                    120000,
-                    "Waiting for BASIC prompt",
-                    cancellationToken);
-
-                PublishSnapshot();
                 string basicTerminal = _machine.Apple1Terminal?.Text ?? string.Empty;
                 string basicSuffix = basicTerminal.Length >= 40 ? basicTerminal[^40..] : basicTerminal;
-                ushort finalPc = _machine.Cpu.PC;
-                ulong finalCycles = _machine.Cpu.CycleCount;
 
-                if (basicResult)
+                if (Apple1PromptDetector.LooksLikeBasicPrompt(basicTerminal))
                 {
-                    Logger.Debug("Apple-1 BASIC boot condition met: pc=0x{Pc:X4}, cycles={Cycles}, terminal={Terminal}",
-                        finalPc, finalCycles, basicSuffix.Replace("\n", "\\n"));
+                    Logger.Debug("Apple-1 BASIC boot condition met: pc=0x{Pc:X4}; terminal={Terminal}",
+                        _machine.Cpu.PC, basicSuffix.Replace("\n", "\\n"));
                     _bootState = Apple1BootState.BasicReady;
                     if (_workspaceVm is not null) _workspaceVm.ModeText = "BasicReady";
                     StatusChanged?.Invoke(this, "BASIC ready");
@@ -344,12 +342,12 @@ public sealed class Apple1MachineSession : IMachineSession
                 bool basicRomVisible = basicLo != 0 || basicHi != 0;
 
                 var failureDetail = "";
-                if (basicTerminal.Contains("E000:") || basicTerminal.Contains("E000:"))
+                if (basicTerminal.Contains("E000:"))
                     failureDetail = "monitor displayed memory at E000 (E000R did not run, only examined)";
-                else if (basicSuffix.Contains("\\") || basicSuffix.EndsWith("\\"))
+                else if (basicTerminal.Contains("\\"))
                     failureDetail = "monitor prompt visible but command was not processed";
 
-                var failureMsg = $"BASIC did not boot. PC=0x{finalPc:X4}, cycles={finalCycles}, " +
+                var failureMsg = $"BASIC did not boot. PC=0x{_machine.Cpu.PC:X4}, cycles={_machine.Cpu.CycleCount}, " +
                     $"resetVector=0x{resetVector:X4}, basicRomVisible={basicRomVisible} (bytes 0x{basicLo:X2}:0x{basicHi:X2}), " +
                     $"terminal: {basicSuffix.Replace("\n", "\\n")}";
                 if (!string.IsNullOrEmpty(failureDetail))
@@ -367,68 +365,10 @@ public sealed class Apple1MachineSession : IMachineSession
             case "apple1.send-line":
                 if (parameter is string line)
                 {
-                    var inputText = line.TrimEnd('\r', '\n').ToUpperInvariant();
-
                     if (_machine is not null && !_isRunning && _machine.Apple1Terminal is not null)
-                    {
-                        Logger.Debug("Apple-1 send-line: interactive processing; bootState={BootState}; input='{Input}'", _bootState, inputText);
-
-                        foreach (char c in inputText)
-                        {
-                            var versionBeforeChar = _machine.Apple1Terminal.Version;
-                            _machine.Apple1Terminal.QueueKey(c);
-
-                            await RunUntil(
-                                () => _machine.Apple1Terminal.Version > versionBeforeChar && _machine.Apple1Terminal.PendingKeyCount == 0,
-                                10000,
-                                $"Processing Apple-1 input char '{c}'",
-                                cancellationToken);
-                        }
-
-                        var versionBeforeCr = _machine.Apple1Terminal.Version;
-                        _machine.Apple1Terminal.QueueKey('\r');
-
-                        var processed = await RunUntil(
-                            () =>
-                            {
-                                var term = _machine.Apple1Terminal;
-                                if (term.Version <= versionBeforeCr)
-                                    return false;
-
-                                if (term.PendingKeyCount > 0)
-                                    return false;
-
-                                return _bootState switch
-                                {
-                                    Apple1BootState.BasicReady => Apple1PromptDetector.LooksLikeBasicPrompt(term.Text),
-                                    Apple1BootState.MonitorReady => Apple1PromptDetector.LooksLikeWozPrompt(term.Text),
-                                    _ => true
-                                };
-                            },
-                            50000,
-                            "Processing Apple-1 input line terminator",
-                            cancellationToken);
-
-                        PublishSnapshot();
-                        Logger.Debug("Apple-1 send-line processed={Processed}; pendingKeys={PendingKeys}; pc=0x{Pc:X4}; cycles={Cycles}; terminal={Terminal}",
-                            processed,
-                            _machine.Apple1Terminal?.PendingKeyCount ?? 0,
-                            _machine.Cpu.PC,
-                            _machine.Cpu.CycleCount,
-                            (_machine.Apple1Terminal?.Text ?? string.Empty).Replace("\n", "\\n"));
-
-                        if (!processed)
-                        {
-                            Logger.Warn("Apple-1 send-line did not reach stable prompt state; input='{Input}'; pendingKeys={PendingKeys}; pc=0x{Pc:X4}",
-                                inputText,
-                                _machine.Apple1Terminal?.PendingKeyCount ?? 0,
-                                _machine.Cpu.PC);
-                        }
-                    }
+                        await SendLineAsync(line, cancellationToken);
                     else
-                    {
-                        await SendInputAsync(line, cancellationToken);
-                    }
+                        Logger.Debug("Apple-1 send-line: skipped (not stopped or no terminal)");
 
                     return MachineCommandResult.Success();
                 }

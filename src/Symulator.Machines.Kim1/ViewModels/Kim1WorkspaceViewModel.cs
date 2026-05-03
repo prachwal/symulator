@@ -2,6 +2,8 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Symulator.Application.Abstractions;
+using Symulator.Machines.Kim1.Models;
+using Symulator.Machines.Kim1.Services;
 
 namespace Symulator.Machines.Kim1.Module;
 
@@ -16,6 +18,7 @@ public sealed class Kim1WorkspaceViewModel : INotifyPropertyChanged
     private string _portB = "00";
     private string _ddra = "00";
     private string _ddrb = "00";
+    private Kim1PredefinedProgram? _selectedPredefinedProgram;
 
     public Kim1WorkspaceViewModel(IMachineSession session, IMachineNotificationSink? sink = null)
     {
@@ -23,6 +26,9 @@ public sealed class Kim1WorkspaceViewModel : INotifyPropertyChanged
         _sink = sink;
         ResetCommand = new AsyncResultCommand(() => _session.ExecuteMachineCommandAsync("kim1.reset"), HandleResult, _sink, "Reset");
         KeyPressCommand = new AsyncResultCommand<string>(PressAndReleaseAsync, HandleResult, _sink, "Key press");
+        PredefinedPrograms = Kim1PredefinedPrograms.All;
+        SelectedPredefinedProgram = PredefinedPrograms.FirstOrDefault();
+        LoadPredefinedProgramCommand = new AsyncResultCommand(LoadPredefinedProgramAsync, HandleResult, _sink, "Load program");
     }
 
     public string DisplayText
@@ -50,6 +56,32 @@ public sealed class Kim1WorkspaceViewModel : INotifyPropertyChanged
 
     public ICommand ResetCommand { get; }
     public ICommand KeyPressCommand { get; }
+    public ICommand LoadPredefinedProgramCommand { get; }
+
+    public IReadOnlyList<Kim1PredefinedProgram> PredefinedPrograms { get; }
+
+    public Kim1PredefinedProgram? SelectedPredefinedProgram
+    {
+        get => _selectedPredefinedProgram;
+        set
+        {
+            if (_selectedPredefinedProgram == value)
+                return;
+
+            _selectedPredefinedProgram = value;
+            OnPropertyChanged();
+        }
+    }
+
+    private async Task<MachineCommandResult> LoadPredefinedProgramAsync()
+    {
+        if (SelectedPredefinedProgram is null)
+            return MachineCommandResult.Failure("No predefined KIM-1 program selected.");
+
+        return await _session.ExecuteMachineCommandAsync(
+            "kim1.load-predefined-program",
+            SelectedPredefinedProgram.Id);
+    }
 
     private async Task<MachineCommandResult> PressAndReleaseAsync(string? key)
     {

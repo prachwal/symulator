@@ -1,15 +1,16 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Symulator.Machines.Kim1.Views"
              x:Class="Symulator.Machines.Kim1.Views.Kim1LedDisplayView">
-    <Border BorderBrush="Gray" BorderThickness="1" Padding="8" Background="#1a1a1a">
+    <Border BorderBrush="#31404F" BorderThickness="1" Padding="8" Background="#1a1a1a">
         <StackPanel>
-            <TextBlock Text="LED Display" FontWeight="Bold" Foreground="LimeGreen" />
-            <TextBlock Text="{Binding DisplayText}"
-                       FontFamily="Courier New"
-                       FontSize="24"
-                       Foreground="LimeGreen"
-                       LetterSpacing="4"
-                       HorizontalAlignment="Center" />
+            <TextBlock Text="6-Digit LED Display" FontWeight="Bold" Foreground="#4DFF88" FontSize="13" />
+            <local:SevenSegmentDisplay
+                Digits="{Binding DisplayText}"
+                Width="260"
+                Height="56"
+                Margin="0,4,0,0"
+                HorizontalAlignment="Center" />
         </StackPanel>
     </Border>
 </UserControl>

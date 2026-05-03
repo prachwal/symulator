@@ -235,11 +235,10 @@ public sealed class Apple1InputEncodingTests
     }
 
     [TestMethod]
-    public void BasicPromptDetector_MemoryDump_ShouldNotBeTreatedAsSuccess()
+    public void MemoryDump_E000_ShouldNotBeTreatedAsBasicPrompt()
     {
         var terminal = "\u007F\nE000R\n\nE000: 4C";
-        bool hasPrompt = terminal.Contains("\n>") || terminal.EndsWith(">");
-        hasPrompt.Should().BeFalse("memory dump output should not match BASIC prompt");
+        Apple1PromptDetector.LooksLikeBasicPrompt(terminal).Should().BeFalse("memory dump output should not match BASIC prompt");
     }
 
     [TestMethod]
@@ -283,25 +282,17 @@ public sealed class Apple1RealRomBootTests
     }
 
     [TestMethod]
-    public void MonitorCommand_ShouldEnterBasicPrompt_WithRealRomSequence()
+    public async Task BootBasic_ShouldEnterBasicPrompt()
     {
-        var machine = Apple1MachineFactory.Create(FindSolutionRoot());
-        machine.Apple1Terminal.Should().NotBeNull();
-        var terminal = machine.Apple1Terminal!;
+        var session = new Apple1MachineSession();
 
-        machine.Reset();
-        for (int i = 0; i < 1000 && !terminal.Text.Contains("\\"); i++)
-            machine.Step();
+        var boot = await session.ExecuteMachineCommandAsync("apple1.boot.basic");
+        boot.IsSuccess.Should().BeTrue();
 
-        foreach (char c in "E000R\r")
-            terminal.QueueKey(c);
-
-        for (int i = 0; i < 200000 && !terminal.Text.Contains("\n>"); i++)
-            machine.Step();
-
-        terminal.Text.Should().Contain("E000R");
-        terminal.Text.Should().Contain("E000: 4C");
-        terminal.Text.Should().Contain("\n>");
+        var terminal = session.Current.TerminalText ?? string.Empty;
+        terminal.Should().Contain("E000R");
+        terminal.Should().Contain("E000: 4C");
+        Apple1PromptDetector.LooksLikeBasicPrompt(terminal).Should().BeTrue();
     }
 
     [TestMethod]
@@ -319,5 +310,30 @@ public sealed class Apple1RealRomBootTests
         terminal.Should().Contain("PRINT 1");
         Apple1PromptDetector.LooksLikeBasicPrompt(terminal).Should().BeTrue();
         terminal.Should().NotEndWith("P");
+    }
+
+    [TestMethod]
+    public async Task RunProgram_ShouldExecuteAndReturnToPrompt()
+    {
+        var session = new Apple1MachineSession();
+
+        var boot = await session.ExecuteMachineCommandAsync("apple1.boot.basic");
+        boot.IsSuccess.Should().BeTrue();
+
+        var line1 = await session.ExecuteMachineCommandAsync("apple1.send-line", "10 PRINT 1");
+        line1.IsSuccess.Should().BeTrue();
+        Apple1PromptDetector.LooksLikeBasicPrompt(session.Current.TerminalText ?? "").Should().BeTrue();
+
+        var line2 = await session.ExecuteMachineCommandAsync("apple1.send-line", "20 PRINT 2");
+        line2.IsSuccess.Should().BeTrue();
+        Apple1PromptDetector.LooksLikeBasicPrompt(session.Current.TerminalText ?? "").Should().BeTrue();
+
+        var run = await session.ExecuteMachineCommandAsync("apple1.send-line", "RUN");
+        run.IsSuccess.Should().BeTrue();
+
+        var terminal = session.Current.TerminalText ?? string.Empty;
+        terminal.Should().Contain("1");
+        terminal.Should().Contain("2");
+        Apple1PromptDetector.LooksLikeBasicPrompt(terminal).Should().BeTrue();
     }
 }
