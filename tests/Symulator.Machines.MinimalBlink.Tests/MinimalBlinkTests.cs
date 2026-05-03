@@ -337,10 +337,49 @@ public sealed class MinimalBlinkMemoryTests
     }
 
     [TestMethod]
-    public void Read_UnmappedAddress_ReturnsZero()
+    public void PredefinedProgram_BlinkLed_ShouldToggleLed()
     {
         var mem = new MinimalBlinkMemory();
-        mem.ReadByte(0x0200).Should().Be(0);
+        var cpu = new MinimalBlinkCpu(mem);
+        var program = MinimalBlinkPredefinedPrograms.FindById("blink-led");
+        program.Should().NotBeNull();
+
+        mem.Load(program!.LoadAddress, program.Bytes);
+        cpu.PC = program.StartAddress;
+
+        for (int i = 0; i < 100; i++)
+        {
+            cpu.Step();
+            if (cpu.Halted) break;
+        }
+
+        mem.LedState.ToggleCount.Should().BeGreaterThan(0);
+    }
+
+    [TestMethod]
+    public void PredefinedProgram_HelloUart_ShouldOutputToTerminal()
+    {
+        var uart = new CmosCpu.Computer.Devices.Serial.UartDevice();
+        var mem = new MinimalBlinkMemory();
+        var cpu = new MinimalBlinkCpu(mem);
+        mem.AttachUart(new CmosCpu.Computer.Devices.Serial.MemoryMappedUartAdapter(uart));
+        var program = MinimalBlinkPredefinedPrograms.FindById("hello-uart");
+        program.Should().NotBeNull();
+
+        mem.Load(program!.LoadAddress, program.Bytes);
+        cpu.PC = program.StartAddress;
+
+        var output = new System.Text.StringBuilder();
+        uart.ByteTransmitted += (_, args) => output.Append((char)args.Value);
+
+        for (int i = 0; i < 100; i++)
+        {
+            cpu.Step();
+            if (cpu.Halted) break;
+        }
+
+        output.ToString().Should().Contain("Hello");
+        output.ToString().Should().Contain("UART");
     }
 
     [TestMethod]

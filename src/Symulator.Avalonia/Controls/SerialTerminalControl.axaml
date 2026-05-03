@@ -1,0 +1,36 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Symulator.Avalonia.Controls.SerialTerminalControl">
+  <Border BorderBrush="#31404F" BorderThickness="1" Background="#0D1117">
+    <DockPanel Margin="4">
+      <TextBlock DockPanel.Dock="Top"
+                 Text="UART Terminal"
+                 FontWeight="Bold"
+                 Foreground="#7CFF7C"
+                 Margin="0,0,0,4" />
+      <TextBox DockPanel.Dock="Bottom"
+               Watermark="Type and press Enter to send"
+               Text="{Binding InputText}"
+               KeyDown="OnInputKeyDown"
+               Foreground="#7CFF7C"
+               Background="#0D1117"
+               BorderBrush="#31404F"
+               Margin="0,4,0,0" />
+      <ScrollViewer Foreground="#B0BCC8"
+                    Background="#0D1117"
+                    Height="140">
+        <ItemsControl ItemsSource="{Binding Lines}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding}"
+                         FontFamily="Consolas"
+                         FontSize="13"
+                         Foreground="#B0BCC8"
+                         TextWrapping="NoWrap" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </DockPanel>
+  </Border>
+</UserControl>

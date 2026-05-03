@@ -11,6 +11,27 @@
                 <views:MinimalBlinkLcdControl Pixels="{Binding LcdPixels}" />
             </Border>
 
+            <Border BorderBrush="#31404F" BorderThickness="1" Background="#0D1117" Padding="6">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="UART Terminal" FontWeight="Bold" Foreground="#7CFF7C" Margin="0,0,0,4" />
+                    <TextBox DockPanel.Dock="Bottom"
+                             Text="{Binding TerminalInputText, Mode=TwoWay}"
+                             Watermark="Type and press Enter"
+                             KeyDown="OnTerminalKeyDown"
+                             Foreground="#7CFF7C" Background="#0D1117" BorderBrush="#31404F"
+                             Margin="0,4,0,0" />
+                    <ScrollViewer Height="120" Foreground="#B0BCC8" Background="#0D1117">
+                        <ItemsControl ItemsSource="{Binding TerminalLines}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="12" Foreground="#B0BCC8" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
             <StackPanel Spacing="4" Margin="0,6,0,0">
                 <ComboBox ItemsSource="{Binding PredefinedPrograms}"
                           SelectedItem="{Binding SelectedProgram}"

@@ -1,7 +1,9 @@
 using CmosCpu.Computer.Devices;
 using CmosCpu.Computer.Devices.I2c;
+using CmosCpu.Computer.Devices.Serial;
 using NLog;
 using Symulator.Application.Abstractions;
+using Symulator.Application.Terminal;
 using Symulator.Machines.MinimalBlink.Cpu;
 using Symulator.Machines.MinimalBlink.Memory;
 using Symulator.Machines.MinimalBlink.Programs;
@@ -28,6 +30,9 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
     private Pcf8574Hd44780Backpack? _lcdBackpack;
     private I2cBus? _i2cBus;
     private MemoryMappedI2cController? _i2cController;
+    private UartDevice? _uart;
+    private MemoryMappedUartAdapter? _uartAdapter;
+    private TerminalBuffer? _terminal;
     private MinimalBlinkLcdBuffer? _lcdBuffer;
     private string? _selectedProgramId;
     private string? _loadedProgramId;
@@ -97,6 +102,12 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         _i2cBus.Attach(_lcdBackpack);
         _i2cController = new MemoryMappedI2cController(_i2cBus);
         _memory.AttachI2c(_i2cController);
+
+        _uart = new UartDevice();
+        _uartAdapter = new MemoryMappedUartAdapter(_uart);
+        _terminal = new TerminalBuffer();
+        _uart.ByteTransmitted += (_, args) => _terminal.WriteByte(args.Value);
+        _memory.AttachUart(_uartAdapter);
 
         _lcdBuffer = new MinimalBlinkLcdBuffer();
         _cpu = new MinimalBlinkCpu(_memory);
@@ -232,6 +243,18 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
 
     public Task SendInputAsync(string text, CancellationToken cancellationToken = default)
     {
+        if (_uart is null)
+            return Task.CompletedTask;
+
+        foreach (char ch in text)
+        {
+            switch (ch)
+            {
+                case '\r': _uart.ReceiveFromTerminal(0x0D); break;
+                case '\n': _uart.ReceiveFromTerminal(0x0A); break;
+                default:   _uart.ReceiveFromTerminal((byte)ch); break;
+            }
+        }
         return Task.CompletedTask;
     }
 
@@ -347,6 +370,12 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
             }
 
             _workspaceVm.UpdateLoadedProgram(_loadedProgramId, _selectedProgramId);
+
+            if (_terminal is not null)
+            {
+                var snap = _terminal.GetSnapshot();
+                _workspaceVm.TerminalLines = new List<string>(snap.Lines);
+            }
         };
 
         if (_uiDispatcher is not null)

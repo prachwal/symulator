@@ -70,7 +70,7 @@ public sealed class Hd44780Lcd
     {
         if (IsBusy)
         {
-            Logger.Trace("HD44780 ignored instruction while busy: 0x{Value:X2}", cmd);
+            Logger.Debug("HD44780 ignored instruction while busy: 0x{Value:X2}", cmd);
             return;
         }
 
@@ -153,7 +153,7 @@ public sealed class Hd44780Lcd
     {
         if (IsBusy)
         {
-            Logger.Trace("HD44780 ignored data write while busy: 0x{Value:X2}", value);
+            Logger.Debug("HD44780 ignored data write while busy: 0x{Value:X2}", value);
             return;
         }
         if (_cgramMode)
@@ -161,7 +161,7 @@ public sealed class Hd44780Lcd
         else
             _ddram[_addressCounter & 0x7F] = value;
 
-        Logger.Trace("HD44780 DataWrite 0x{Value:X2} '{Char}' addr=0x{Addr:X2} target={Target}",
+        Logger.Debug("HD44780 DataWrite 0x{Value:X2} '{Char}' addr=0x{Addr:X2} target={Target}",
             value, value >= 0x20 && value < 0x7F ? (char)value : '?',
             _addressCounter, _cgramMode ? "CGRAM" : "DDRAM");
 
@@ -174,7 +174,7 @@ public sealed class Hd44780Lcd
     {
         byte bf = IsBusy ? (byte)0x80 : (byte)0;
         byte status = (byte)(bf | (_addressCounter & 0x7F));
-        Logger.Trace("HD44780 StatusRead busy={0} ac=0x{Addr:X2} status=0x{Status:X2}", IsBusy, _addressCounter, status);
+        Logger.Debug("HD44780 StatusRead busy={0} ac=0x{Addr:X2} status=0x{Status:X2}", IsBusy, _addressCounter, status);
         return status;
     }
 

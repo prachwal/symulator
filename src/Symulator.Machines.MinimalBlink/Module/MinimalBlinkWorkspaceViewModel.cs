@@ -23,7 +23,10 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     private string? _lastError;
     private MinimalBlinkPredefinedProgram? _selectedProgram;
     private IBrush _ledColor = OffBrush;
+    private bool _isApplyingSnapshot;
     private bool[,]? _lcdPixels;
+    private List<string>? _terminalLines;
+    private string _terminalInputText = string.Empty;
 
     private static readonly IBrush OnBrush = new SolidColorBrush(Color.Parse("#4DFF88"));
     private static readonly IBrush OffBrush = new SolidColorBrush(Color.Parse("#1a3a2a"));
@@ -47,6 +50,33 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     {
         get => _lcdPixels;
         set { _lcdPixels = value; OnPropertyChanged(); }
+    }
+
+    public List<string>? TerminalLines
+    {
+        get => _terminalLines;
+        set { _terminalLines = value; OnPropertyChanged(); }
+    }
+
+    public string TerminalInputText
+    {
+        get => _terminalInputText;
+        set { _terminalInputText = value; OnPropertyChanged(); }
+    }
+
+    public async Task SendTerminalInputAsync()
+    {
+        var text = TerminalInputText;
+        TerminalInputText = string.Empty;
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        // Echo locally so UI shows what was typed (before CPU echoes)
+        var currentLines = _terminalLines ?? new List<string>();
+        _terminalLines = new List<string>(currentLines) { $"> {text}" };
+        OnPropertyChanged(nameof(TerminalLines));
+
+        await _session.SendInputAsync(text + "\n");
     }
 
     public void UpdateLoadedProgram(string? loadedId, string? selectedId)

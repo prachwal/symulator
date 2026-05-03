@@ -1,5 +1,6 @@
 using CmosCpu.Computer.Devices;
 using CmosCpu.Computer.Devices.I2c;
+using CmosCpu.Computer.Devices.Serial;
 using Symulator.Machines.MinimalBlink.Models;
 
 namespace Symulator.Machines.MinimalBlink.Memory;
@@ -18,11 +19,14 @@ public sealed class MinimalBlinkMemory
     public const ushort LcdDataPort = 0xFE01;
     public const ushort I2cBase = 0xFE30;
     public const ushort I2cEnd = 0xFE33;
+    public const ushort UartBase = 0xFE40;
+    public const ushort UartEnd = 0xFE42;
 
     public MinimalBlinkLedState LedState { get; } = new();
     public Hd44780DirectBusAdapter? LcdBus { get; private set; }
     public Hd44780Lcd? LcdDevice { get; private set; }
     public MemoryMappedI2cController? I2cController { get; private set; }
+    public MemoryMappedUartAdapter? UartAdapter { get; private set; }
 
     public void AttachLcd(Hd44780Lcd lcd, Hd44780DirectBusAdapter bus)
     {
@@ -35,6 +39,11 @@ public sealed class MinimalBlinkMemory
         I2cController = controller;
     }
 
+    public void AttachUart(MemoryMappedUartAdapter adapter)
+    {
+        UartAdapter = adapter;
+    }
+
     public byte ReadByte(ushort address)
     {
         if (address <= RamEnd)
@@ -45,6 +54,8 @@ public sealed class MinimalBlinkMemory
             return LcdBus.Read(address);
         if (I2cController is not null && address >= I2cBase && address <= I2cEnd)
             return I2cController.Read((ushort)(address - I2cBase));
+        if (UartAdapter is not null && address >= UartBase && address <= UartEnd)
+            return UartAdapter.Read((ushort)(address - UartBase));
         return 0;
     }
 
@@ -60,6 +71,8 @@ public sealed class MinimalBlinkMemory
             LcdBus.Write(address, value);
         else if (I2cController is not null && address >= I2cBase && address <= I2cEnd)
             I2cController.Write((ushort)(address - I2cBase), value);
+        else if (UartAdapter is not null && address >= UartBase && address <= UartEnd)
+            UartAdapter.Write((ushort)(address - UartBase), value);
     }
 
     public void Load(ushort start, byte[] data)
