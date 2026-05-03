@@ -40,6 +40,12 @@ public sealed class SolutionDefinition
             }
         };
     }
+
+    public bool HasDevice(string type) =>
+        Devices.Any(d => string.Equals(d.Type, type, StringComparison.OrdinalIgnoreCase));
+
+    public DeviceDefinition? GetDevice(string type) =>
+        Devices.FirstOrDefault(d => string.Equals(d.Type, type, StringComparison.OrdinalIgnoreCase));
 }
 
 public sealed class CpuDefinition
@@ -76,6 +82,8 @@ public sealed class DeviceDefinition
     public Dictionary<string, string> Registers { get; set; } = [];
     public Dictionary<string, string> Options { get; set; } = [];
     public bool Visible { get; set; } = true;
+
+    public string EffectiveAddress => Address ?? BaseAddress ?? string.Empty;
 }
 
 public sealed class UiDefinition
