@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Symulator.Machines.Apple1.Devices;
 using Symulator.Machines.Apple1.Factory;
 using Symulator.Machines.Apple1.Module;
 using Symulator.Machines.Apple1.Models;
@@ -168,7 +169,8 @@ public sealed class Apple1MachineFactoryTests
     public void Create_ShouldMapBasicRomAtE000()
     {
         var solutionRoot = FindSolutionRoot();
-        var machine = Apple1MachineFactory.Create(solutionRoot);
+        var runtime = Apple1MachineFactory.Create(solutionRoot);
+        var machine = runtime.Machine;
 
         byte lo = machine.Memory.ReadByte(0xE000);
         byte hi = machine.Memory.ReadByte(0xE001);
@@ -194,7 +196,7 @@ public sealed class Apple1InputEncodingTests
     [TestMethod]
     public void QueueKey_ShouldSetBit7()
     {
-        var terminal = new CmosCpu.Computer.Apple1PiaTerminalDevice();
+        var terminal = new Apple1PiaTerminalDevice();
         terminal.QueueKey('A');
 
         byte keyData = terminal.Read(0xD010);
@@ -205,7 +207,7 @@ public sealed class Apple1InputEncodingTests
     [TestMethod]
     public void QueueKey_ShouldSetKeyReady()
     {
-        var terminal = new CmosCpu.Computer.Apple1PiaTerminalDevice();
+        var terminal = new Apple1PiaTerminalDevice();
         terminal.QueueKey('R');
 
         terminal.Read(0xD011).Should().Be(0x80);
@@ -214,7 +216,7 @@ public sealed class Apple1InputEncodingTests
     [TestMethod]
     public void QueueMultipleKeys_ShouldPreserveOrder()
     {
-        var terminal = new CmosCpu.Computer.Apple1PiaTerminalDevice();
+        var terminal = new Apple1PiaTerminalDevice();
 
         terminal.QueueKey('E');
         terminal.QueueKey('0');
@@ -269,16 +271,17 @@ public sealed class Apple1RealRomBootTests
     [TestMethod]
     public void Reset_ShouldShowMonitorPromptWithoutClearingScreen()
     {
-        var machine = Apple1MachineFactory.Create(FindSolutionRoot());
+        var runtime = Apple1MachineFactory.Create(FindSolutionRoot());
+        var machine = runtime.Machine;
 
         machine.Reset();
 
-        for (int i = 0; i < 1000 && !(machine.Apple1Terminal?.Text.Contains("\\") == true); i++)
+        for (int i = 0; i < 1000 && !(runtime.Terminal?.Text.Contains("\\") == true); i++)
             machine.Step();
 
-        machine.Apple1Terminal.Should().NotBeNull();
-        machine.Apple1Terminal!.Text.Should().Contain("\\");
-        machine.Apple1Terminal.Text.Should().NotBeEmpty();
+        runtime.Terminal.Should().NotBeNull();
+        runtime.Terminal!.Text.Should().Contain("\\");
+        runtime.Terminal.Text.Should().NotBeEmpty();
     }
 
     [TestMethod]
