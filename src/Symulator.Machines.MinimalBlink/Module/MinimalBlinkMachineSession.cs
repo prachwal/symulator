@@ -2,7 +2,6 @@ using NLog;
 using Symulator.Application.Abstractions;
 using Symulator.Machines.MinimalBlink.Cpu;
 using Symulator.Machines.MinimalBlink.Memory;
-using Symulator.Machines.MinimalBlink.Models;
 using Symulator.Machines.MinimalBlink.Programs;
 
 namespace Symulator.Machines.MinimalBlink.Module;
@@ -19,9 +18,15 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
     private bool _isRunning;
     private bool _isInitialized;
     private string _status = "Ready";
+    private readonly IUiDispatcher? _uiDispatcher;
 
     private const int _instructionsPerBatch = 100;
     private const int _uiRefreshDelayMs = 16;
+
+    public MinimalBlinkMachineSession(IUiDispatcher? uiDispatcher = null)
+    {
+        _uiDispatcher = uiDispatcher;
+    }
 
     public string MachineId => "minimal-blink";
     public string DisplayName => "Minimal Blink Computer";
@@ -50,8 +55,15 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         };
 
         var cpuSnap = new CpuStateSnapshot(
-            $"${_cpu.PC:X4}", $"${_cpu.A:X2}", "--", "--",
-            "--", _cpu.Halted ? "HLT" : "RUN", _cpu.CycleCount, _cpu.Halted, registers);
+            $"${_cpu.PC:X4}",  // PC
+            $"${_cpu.A:X2}",   // A → pole A
+            "--",              // X (unused)
+            "--",              // Y (unused)
+            "--",              // Flags (unused)
+            _cpu.Halted ? "HLT" : "RUN",
+            _cpu.CycleCount,
+            _cpu.Halted,
+            registers);
 
         return new EmulatorStateSnapshot("minimal-blink", _isRunning, _cpu.Halted, cpuSnap, string.Empty, (long)_cpu.CycleCount);
     }
@@ -65,6 +77,24 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         _cpu = new MinimalBlinkCpu(_memory);
         _isInitialized = true;
         Logger.Info("Minimal Blink Computer created");
+    }
+
+    private void AutoLoadDefault()
+    {
+        if (_cpu!.PC != 0)
+            return;
+
+        var program = MinimalBlinkPredefinedPrograms.FindById("blink-led");
+        if (program is null)
+            return;
+
+        Logger.Debug("Minimal Blink auto-loading default program: {Name}", program.Name);
+        _memory!.ClearAll();
+        _memory.Load(program.LoadAddress, program.Bytes);
+        _cpu.PC = program.StartAddress;
+        _status = $"Loaded: {program.Name}";
+        Logger.Info("Minimal Blink loaded program: {Name} at ${Start:X4} ({ByteCount} bytes)",
+            program.Name, program.StartAddress, program.Bytes.Length);
     }
 
     public Task ResetAsync(CancellationToken cancellationToken = default)
@@ -84,10 +114,15 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         if (_cpu is null || _memory is null)
         {
             Initialize();
+            AutoLoadDefault();
             return Task.CompletedTask;
         }
 
+        if (_cpu.PC == 0 && !_isRunning)
+            AutoLoadDefault();
+
         _cpu.Step();
+        _status = _cpu.Halted ? "Halted" : "Stepped";
         PublishSnapshot();
         return Task.CompletedTask;
     }
@@ -99,21 +134,7 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         if (_runTask is { IsCompleted: false })
             return;
 
-        // Auto-load selected program if nothing is loaded (PC still at 0)
-        if (_cpu!.PC == 0)
-        {
-            var defaultProgram = Programs.MinimalBlinkPredefinedPrograms.FindById("blink-led");
-            if (defaultProgram is not null)
-            {
-                Logger.Debug("Minimal Blink auto-loading default program: {Name}", defaultProgram.Name);
-                _memory!.ClearAll();
-                _memory.Load(defaultProgram.LoadAddress, defaultProgram.Bytes);
-                _cpu.PC = defaultProgram.StartAddress;
-                _status = $"Loaded: {defaultProgram.Name}";
-                Logger.Info("Minimal Blink loaded program: {Name} at ${Start:X4} ({ByteCount} bytes)",
-                    defaultProgram.Name, defaultProgram.StartAddress, defaultProgram.Bytes.Length);
-            }
-        }
+        AutoLoadDefault();
 
         _isRunning = true;
         _status = "Running";
@@ -198,8 +219,18 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
                     if (program is null)
                         return MachineCommandResult.Failure($"Unknown program: {programId}");
 
+                    var loadAddress = program.LoadAddress;
+                    var romEnd = MinimalBlinkMemory.RomEnd;
+                    var lastByteAddr = (ushort)(loadAddress + program.Bytes.Length - 1);
+                    if (lastByteAddr > romEnd || loadAddress < MinimalBlinkMemory.RomStart)
+                    {
+                        var msg = $"Program '{program.Name}' load range ${loadAddress:X4}-${lastByteAddr:X4} exceeds ROM (${MinimalBlinkMemory.RomStart:X4}-${romEnd:X4})";
+                        Logger.Warn(msg);
+                        return MachineCommandResult.Failure(msg);
+                    }
+
                     _memory!.ClearAll();
-                    _memory.Load(program.LoadAddress, program.Bytes);
+                    _memory.Load(loadAddress, program.Bytes);
                     _cpu!.PC = program.StartAddress;
                     _status = $"Loaded: {program.Name}";
                     Logger.Info("Minimal Blink loaded program: {Name} at ${Start:X4} ({ByteCount} bytes)",
@@ -234,7 +265,10 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         var snapshot = BuildSnapshot();
         StateChanged?.Invoke(this, snapshot);
 
-        if (_workspaceVm is not null)
+        if (_workspaceVm is null)
+            return;
+
+        Action update = () =>
         {
             _workspaceVm.StatusText = _status;
             _workspaceVm.Pc = $"${_cpu?.PC:X4}" ?? "$0000";
@@ -260,7 +294,12 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
                         _memory.LedState.ToggleCount);
                 }
             }
-        }
+        };
+
+        if (_uiDispatcher is not null)
+            _uiDispatcher.Post(update);
+        else
+            update();
     }
 
     public async ValueTask DisposeAsync()

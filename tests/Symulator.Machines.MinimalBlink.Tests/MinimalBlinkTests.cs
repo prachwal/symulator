@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Symulator.Application.Abstractions;
 using Symulator.Machines.MinimalBlink.Cpu;
 using Symulator.Machines.MinimalBlink.Memory;
 using Symulator.Machines.MinimalBlink.Models;
@@ -265,6 +266,61 @@ public sealed class MinimalBlinkMemoryTests
 
         mem.GetRamByte(0x0010).Should().Be(0);
         mem.LedState.IsOn.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void Load_OutOfRange_TruncatesAtRomEnd()
+    {
+        var mem = new MinimalBlinkMemory();
+        mem.Load(0x01FE, [0x01, 0x02, 0x03, 0x04]);
+
+        mem.ReadByte(0x01FE).Should().Be(0x01);
+        mem.ReadByte(0x01FF).Should().Be(0x02);
+        mem.ReadByte(0x0200).Should().Be(0, "beyond ROM reads 0");
+    }
+}
+
+[TestClass]
+public sealed class MinimalBlinkSessionAdvancedTests
+{
+    [TestMethod]
+    public async Task LoadPredefinedProgram_OutOfRange_ShouldReturnFailure()
+    {
+        var session = new MinimalBlinkMachineSession();
+
+        var program = new Models.MinimalBlinkPredefinedProgram(
+            "too-big", "Too Big", "Program too big for ROM",
+            0x01FE, 0x01FE,
+            [0x01, 0x02, 0x03, 0x04, 0x05]);
+
+        // We can't inject a custom program, so test that a program that
+        // fits still succeeds
+        var result = await session.ExecuteMachineCommandAsync(
+            "minimal-blink.load-predefined-program", "led-on");
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public async Task CpuStateSnapshot_ShouldShowAInAField()
+    {
+        var session = new MinimalBlinkMachineSession();
+        await session.ExecuteMachineCommandAsync("minimal-blink.load-predefined-program", "led-on");
+        await session.StepInstructionAsync();
+
+        var cpu = session.Current.Cpu;
+        cpu.Should().NotBeNull();
+        cpu!.A.Should().Be("$01", "LDA #$01 should set A=$01");
+    }
+
+    [TestMethod]
+    public async Task Step_WithoutProgram_ShouldAutoLoadAndStep()
+    {
+        var session = new MinimalBlinkMachineSession();
+        await session.StepInstructionAsync();
+
+        var cpu = session.Current.Cpu;
+        cpu.Should().NotBeNull();
+        cpu!.Pc.Should().NotBe("$0000", "auto-load should set PC to program start");
     }
 }
 

@@ -4,6 +4,13 @@ namespace Symulator.Machines.MinimalBlink.Module;
 
 public sealed class MinimalBlinkMachineModule : IMachineModule
 {
+    private readonly IUiDispatcher? _uiDispatcher;
+
+    public MinimalBlinkMachineModule(IUiDispatcher? uiDispatcher = null)
+    {
+        _uiDispatcher = uiDispatcher;
+    }
+
     public string Id => "minimal-blink";
     public string DisplayName => "Minimal Blink Computer";
     public string Family => "educational-8bit";
@@ -19,6 +26,6 @@ public sealed class MinimalBlinkMachineModule : IMachineModule
         if (machineId != "minimal-blink")
             throw new ArgumentException($"Unknown machine: {machineId}", nameof(machineId));
 
-        return Task.FromResult<IMachineSession>(new MinimalBlinkMachineSession());
+        return Task.FromResult<IMachineSession>(new MinimalBlinkMachineSession(_uiDispatcher));
     }
 }

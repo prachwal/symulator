@@ -9,8 +9,13 @@
             <StackPanel Spacing="4" Margin="0,6,0,0">
                 <ComboBox ItemsSource="{Binding PredefinedPrograms}"
                           SelectedItem="{Binding SelectedProgram}"
-                          MinWidth="250"
-                          DisplayMemberBinding="{Binding Name}" />
+                          MinWidth="250">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <Button Content="Load program" Command="{Binding LoadProgramCommand}" />
                     <Button Content="Reset" Command="{Binding ResetCommand}" />

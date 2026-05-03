@@ -140,8 +140,21 @@ internal sealed class AsyncRelayCommand : ICommand
         if (_isExecuting) return;
         _isExecuting = true;
         RaiseCanExecuteChanged();
-        try { await _execute(); }
-        finally { _isExecuting = false; RaiseCanExecuteChanged(); }
+        try
+        {
+            var result = await _execute();
+            if (!result.IsSuccess)
+                System.Diagnostics.Debug.WriteLine($"Command failed: {result.ErrorMessage}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Command threw: {ex.Message}");
+        }
+        finally
+        {
+            _isExecuting = false;
+            RaiseCanExecuteChanged();
+        }
     }
 
     public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
