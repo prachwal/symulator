@@ -274,7 +274,7 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         if (_runTask is { IsCompleted: false })
             return;
 
-        if (_cpu is null || _memory is null || _loadedAssemblyImage is null)
+        if (_cpu is null || _memory is null || (_loadedAssemblyImage is null && _loadedProgramId is null))
         {
             _status = "No program loaded. Use Compile and Load & Reset.";
             PublishSnapshot();

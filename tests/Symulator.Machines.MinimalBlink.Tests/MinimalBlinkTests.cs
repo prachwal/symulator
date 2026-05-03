@@ -443,23 +443,6 @@ public sealed class MinimalBlinkMemoryTests
 public sealed class MinimalBlinkSessionAdvancedTests
 {
     [TestMethod]
-    public async Task LoadPredefinedProgram_OutOfRange_ShouldReturnFailure()
-    {
-        var session = new MinimalBlinkMachineSession();
-
-        var program = new Models.MinimalBlinkPredefinedProgram(
-            "too-big", "Too Big", "Program too big for ROM",
-            0x01FE, 0x01FE,
-            [0x01, 0x02, 0x03, 0x04, 0x05]);
-
-        // We can't inject a custom program, so test that a program that
-        // fits still succeeds
-        var result = await session.ExecuteMachineCommandAsync(
-            "minimal-blink.load-predefined-program", "led-on");
-        result.IsSuccess.Should().BeTrue();
-    }
-
-    [TestMethod]
     public async Task CpuStateSnapshot_ShouldShowAInAField()
     {
         var session = new MinimalBlinkMachineSession();
@@ -471,18 +454,6 @@ public sealed class MinimalBlinkSessionAdvancedTests
         cpu!.A.Should().Be("$01", "LDA #$01 should set A=$01");
     }
 
-    [TestMethod]
-    public async Task Step_WithoutProgram_ShouldAutoLoadAndStep()
-    {
-        var session = new MinimalBlinkMachineSession();
-        await session.StepInstructionAsync();
-
-        // Step without loaded program should not auto-load
-        var status = session.GetType().GetField("_status",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-            ?.GetValue(session) as string;
-        // No exception — valid behavior
-    }
 }
 
 [TestClass]
@@ -595,6 +566,24 @@ public sealed class MinimalBlinkHardwareSolutionBuilderTests
     }
 
     [TestMethod]
+    public void Build_Pcf8574WithoutI2cController_ShouldThrow()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "pcf-no-i2c",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "lcd0", Type = "hd44780-pcf8574", Name = "LCD", Address = "0x27", Visible = true },
+            ]
+        };
+
+        _builder.Invoking(b => b.Build(solution))
+            .Should().Throw<InvalidOperationException>()
+            .WithMessage("*hd44780-pcf8574*requires*i2c-controller-mmio*");
+    }
+
+    [TestMethod]
     public void Build_UnknownDeviceType_Throws()
     {
         var solution = new SolutionDefinition
@@ -698,5 +687,111 @@ public sealed class MinimalBlinkMachineSessionResetTests
             ?.GetValue(session) as string;
 
         status.Should().Be("No program loaded. Use Compile and Load & Reset.");
+    }
+}
+
+[TestClass]
+public sealed class MinimalBlinkWorkflowTests
+{
+    [TestMethod]
+    public async Task Run_AfterLoadPredefinedProgram_ShouldRun()
+    {
+        await using var session = new MinimalBlinkMachineSession();
+
+        var loadResult = await session.ExecuteMachineCommandAsync(
+            "minimal-blink.load-predefined-program", "led-on");
+        loadResult.IsSuccess.Should().BeTrue();
+
+        await session.RunAsync();
+
+        var snapshot = session.Current;
+        snapshot.IsRunning.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public async Task CompileLoadAndReset_Blink_ShouldBuildRuntimeWithLed()
+    {
+        var blinkSolution = new SolutionDefinition
+        {
+            Id = "blink",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "led0", Type = "led-mmio", Name = "LED", Address = "0xFF00", Visible = true },
+            ]
+        };
+
+        const string blinkAsm = @"
+.org $0100
+LED_PORT = $FF00
+start:
+    LDA #$01
+    STA LED_PORT
+    HLT
+";
+
+        await using var session = new MinimalBlinkMachineSession();
+        session.SetSelectedSolution(blinkSolution);
+
+        var compileResult = session.CompileFromSource("blink", blinkAsm);
+        compileResult.Success.Should().BeTrue();
+
+        session.LoadAndResetCompiled();
+
+        var snapshot = session.Current;
+        snapshot.Cpu.Should().NotBeNull();
+        snapshot.Cpu!.Pc.Should().Be("$0100");
+
+        await session.StepInstructionAsync(); // LDA #$01
+        await session.StepInstructionAsync(); // STA LED_PORT
+        await session.StepInstructionAsync(); // HLT
+
+        snapshot = session.Current;
+        snapshot.Cpu!.IsHalted.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public async Task CompileLoadAndReset_HelloLcdI2c_ShouldBuildI2cRuntime()
+    {
+        var i2cSolution = new SolutionDefinition
+        {
+            Id = "hello-lcd-i2c",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "i2c0", Type = "i2c-controller-mmio", Name = "I2C", BaseAddress = "0xFE30", Visible = true },
+                new DeviceDefinition { Id = "lcd0", Type = "hd44780-pcf8574", Name = "LCD", Address = "0x27", Visible = true },
+            ]
+        };
+
+        const string lcdI2cAsm = @"
+.org $0100
+PCF_ADDR = $27
+I2C_ADDR = $FE31
+I2C_DATA = $FE32
+I2C_CTRL = $FE30
+start:
+    LDA #PCF_ADDR
+    STA I2C_ADDR
+    HLT
+";
+
+        await using var session = new MinimalBlinkMachineSession();
+        session.SetSelectedSolution(i2cSolution);
+
+        var compileResult = session.CompileFromSource("hello-lcd-i2c", lcdI2cAsm);
+        compileResult.Success.Should().BeTrue();
+
+        session.LoadAndResetCompiled();
+
+        var snapshot = session.Current;
+        snapshot.Cpu.Should().NotBeNull();
+        snapshot.Cpu!.Pc.Should().Be("$0100");
+
+        await session.StepInstructionAsync(); // LDA #PCF_ADDR
+        await session.StepInstructionAsync(); // STA I2C_ADDR
+
+        snapshot = session.Current;
+        snapshot.Cpu!.Pc.Should().NotBe("$0100");
     }
 }

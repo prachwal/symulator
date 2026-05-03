@@ -165,7 +165,7 @@
       </Border>
 
       <Border Grid.Column="1"
-              IsVisible="{Binding !ShowUartModule}"
+              IsVisible="{Binding ShowNoCenterModule}"
               BorderBrush="#31404F"
               BorderThickness="1"
               Background="#0D1117"

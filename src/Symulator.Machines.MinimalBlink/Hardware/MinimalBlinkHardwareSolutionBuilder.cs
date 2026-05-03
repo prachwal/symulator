@@ -126,6 +126,13 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
             }
         }
 
+        // Validate device dependencies
+        if (solution.HasDevice("hd44780-pcf8574") && i2cBus is null)
+        {
+            throw new InvalidOperationException(
+                "Device 'hd44780-pcf8574' requires 'i2c-controller-mmio'.");
+        }
+
         var cpu = new MinimalBlinkCpu(memory);
 
         var deviceTypes = solution.Devices

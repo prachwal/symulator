@@ -54,6 +54,7 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     private bool _showLcdModule;
     private bool _showUartModule;
     private bool _showI2cModule;
+    private bool _isSolutionLoading;
 
     private static readonly IBrush OnBrush = new SolidColorBrush(Color.Parse("#4DFF88"));
     private static readonly IBrush OffBrush = new SolidColorBrush(Color.Parse("#1a3a2a"));
@@ -66,10 +67,27 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         StepCommand = new AsyncRelayCommand(StepAsync);
         RunCommand = new AsyncRelayCommand(RunAsync);
         PauseCommand = new AsyncRelayCommand(PauseAsync);
-        CompileCommand = new AsyncRelayCommand(CompileAsync);
-        LoadAndResetCommand = new AsyncRelayCommand(LoadAndResetAsync);
+        CompileCommand = new AsyncRelayCommand(CompileAsync, () => !IsSolutionLoading);
+        LoadAndResetCommand = new AsyncRelayCommand(LoadAndResetAsync, () => !IsSolutionLoading);
 
         _ = InitializeAsmProgramsAsync();
+    }
+
+    public bool IsSolutionLoading
+    {
+        get => _isSolutionLoading;
+        private set
+        {
+            _isSolutionLoading = value;
+            OnPropertyChanged();
+            RaiseCommandsCanExecuteChanged();
+        }
+    }
+
+    private void RaiseCommandsCanExecuteChanged()
+    {
+        if (CompileCommand is AsyncRelayCommand c1) c1.RaiseCanExecuteChanged();
+        if (LoadAndResetCommand is AsyncRelayCommand c2) c2.RaiseCanExecuteChanged();
     }
 
     private async Task InitializeAsmProgramsAsync()
@@ -176,14 +194,26 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     public bool ShowUartModule
     {
         get => _showUartModule;
-        set { _showUartModule = value; OnPropertyChanged(); }
+        set
+        {
+            _showUartModule = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowNoCenterModule));
+        }
     }
 
     public bool ShowI2cModule
     {
         get => _showI2cModule;
-        set { _showI2cModule = value; OnPropertyChanged(); }
+        set
+        {
+            _showI2cModule = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowNoCenterModule));
+        }
     }
+
+    public bool ShowNoCenterModule => !ShowUartModule && !ShowI2cModule;
 
     public void UpdateCurrentInstructionFromPc(ushort pc)
     {
@@ -247,6 +277,7 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
             ProgramStatus = $"Selected, not compiled: {value.Id}";
             ListingLines = null;
             CurrentListingLineIndex = null;
+            IsSolutionLoading = true;
             _ = LoadSelectedSolutionAsync(value);
         }
     }
@@ -272,6 +303,10 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
                 asmSession.SetSelectedSolution(_selectedSolution);
 
             System.Diagnostics.Debug.WriteLine($"Failed to load solution manifest: {ex.Message}");
+        }
+        finally
+        {
+            IsSolutionLoading = false;
         }
     }
 
@@ -380,6 +415,9 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
 
     private async Task<MachineCommandResult> CompileAsync()
     {
+        if (IsSolutionLoading)
+            return MachineCommandResult.Failure("Solution is still loading, please wait.");
+
         var asmSession = _session as MinimalBlinkMachineSession;
         if (asmSession is null || SelectedAsmProgram is null)
             return MachineCommandResult.Failure("No ASM program selected");
@@ -405,6 +443,9 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
 
     private async Task<MachineCommandResult> LoadAndResetAsync()
     {
+        if (IsSolutionLoading)
+            return MachineCommandResult.Failure("Solution is still loading, please wait.");
+
         var asmSession = _session as MinimalBlinkMachineSession;
         if (asmSession is null)
             return MachineCommandResult.Failure("Not a MinimalBlink session");
@@ -433,16 +474,23 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
 internal sealed class AsyncRelayCommand : ICommand
 {
     private readonly Func<Task<MachineCommandResult>> _execute;
+    private readonly Func<bool>? _canExecute;
     private bool _isExecuting;
 
-    public AsyncRelayCommand(Func<Task<MachineCommandResult>> execute)
+    public AsyncRelayCommand(Func<Task<MachineCommandResult>> execute, Func<bool>? canExecute = null)
     {
         _execute = execute;
+        _canExecute = canExecute;
     }
 
     public event EventHandler? CanExecuteChanged;
 
-    public bool CanExecute(object? parameter) => !_isExecuting;
+    public bool CanExecute(object? parameter)
+    {
+        if (_isExecuting) return false;
+        if (_canExecute is not null && !_canExecute()) return false;
+        return true;
+    }
     public async void Execute(object? parameter)
     {
         if (_isExecuting) return;
