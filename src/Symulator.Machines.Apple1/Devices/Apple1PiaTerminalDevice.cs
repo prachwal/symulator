@@ -49,6 +49,16 @@ public sealed class Apple1PiaTerminalDevice
     {
         Columns = columns;
         Rows = rows;
+        _displayControl = 0x80;
+    }
+
+    public Apple1PiaTerminalDevice(ushort startAddress, ushort endAddress, int columns = 40, int rows = 24)
+    {
+        StartAddress = startAddress;
+        EndAddress = endAddress;
+        Columns = columns;
+        Rows = rows;
+        _displayControl = 0x80;
     }
 
     public bool Handles(ushort address) => address >= StartAddress && address <= EndAddress;

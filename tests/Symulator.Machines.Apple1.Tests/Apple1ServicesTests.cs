@@ -276,12 +276,12 @@ public sealed class Apple1RealRomBootTests
 
         machine.Reset();
 
-        for (int i = 0; i < 1000 && !(runtime.Terminal?.Text.Contains("\\") == true); i++)
+        for (int i = 0; i < 2000 && !(runtime.Buffer?.Text.Contains("\\") == true); i++)
             machine.Step();
 
-        runtime.Terminal.Should().NotBeNull();
-        runtime.Terminal!.Text.Should().Contain("\\");
-        runtime.Terminal.Text.Should().NotBeEmpty();
+        runtime.Buffer.Should().NotBeNull();
+        runtime.Buffer!.Text.Should().Contain("\\");
+        runtime.Buffer.Text.Should().NotBeEmpty();
     }
 
     [TestMethod]

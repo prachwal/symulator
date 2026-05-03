@@ -39,18 +39,21 @@ public static class Apple1MachineFactory
             Logger.Warn("Could not determine solution root; ROM files will not be loaded");
         }
 
-        // Create and register the Apple-1 PIA terminal
+        // Create and register the PIA6821 stack at $D010-$D013 (Apple-1 real address)
         var appleTerminalDev = profile.Profile.Devices?.FirstOrDefault(d => d.Type == "apple1-pia-terminal");
         int columns = appleTerminalDev?.Columns > 0 ? appleTerminalDev.Columns : 40;
         int rows = appleTerminalDev?.Rows > 0 ? appleTerminalDev.Rows : 24;
-        var terminal = new Devices.Apple1PiaTerminalDevice(columns, rows);
-        machine.MapDevice((ushort)terminal.StartAddress, (ushort)(terminal.EndAddress - terminal.StartAddress + 1),
-            terminal.Read, terminal.Write);
+        var pia = new CmosCpu.Computer.Devices.Pia6821(0xD010, 0xD013);
+        var buffer = new Devices.Apple1TerminalBuffer(columns, rows);
+        var wiring = new Devices.Apple1PiaWiring(pia, buffer);
+
+        machine.MapDevice(pia.StartAddress, (ushort)(pia.EndAddress - pia.StartAddress + 1),
+            pia.Read, pia.Write);
 
         LogDiagnostics(machine);
 
         Logger.Debug("Apple-1 ComputerMachine created successfully");
-        return new Apple1MachineRuntime(machine, terminal);
+        return new Apple1MachineRuntime(machine, pia, wiring, buffer);
     }
 
     private static void LoadRomFiles(ComputerMachine machine, string baseDir)

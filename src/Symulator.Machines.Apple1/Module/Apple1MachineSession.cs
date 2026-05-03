@@ -16,7 +16,8 @@ public sealed class Apple1MachineSession : IMachineSession
     private readonly IUiDispatcher? _uiDispatcher;
     private Apple1MachineRuntime? _runtime;
     private ComputerMachine? _machine => _runtime?.Machine;
-    private Apple1PiaTerminalDevice? _terminal => _runtime?.Terminal;
+    private Apple1TerminalBuffer? _buffer => _runtime?.Buffer;
+    private Apple1PiaWiring? _wiring => _runtime?.Wiring;
     private CancellationTokenSource? _runCts;
     private Task? _runTask;
     private Apple1WorkspaceViewModel? _workspaceVm;
@@ -53,10 +54,13 @@ public sealed class Apple1MachineSession : IMachineSession
             return new EmulatorStateSnapshot("apple1", false, false, null, string.Empty, 0);
 
         var cpuSnapshot = Apple1MachineFactory.BuildCpuSnapshot(_machine.Cpu);
-        string terminalText = _terminal?.Text ?? string.Empty;
+        string terminalText = _buffer?.Text ?? string.Empty;
 
         return new EmulatorStateSnapshot("apple1", _isRunning, _machine.Cpu.IsHalted, cpuSnapshot, terminalText, (long)_machine.Cpu.CycleCount);
     }
+
+    private string TerminalText => _buffer?.Text ?? string.Empty;
+    private long TerminalVersion => _buffer?.Version ?? 0L;
 
     private bool EnsureMachineCreated()
     {
@@ -204,44 +208,44 @@ public sealed class Apple1MachineSession : IMachineSession
         var inputText = text.TrimEnd('\r', '\n').ToUpperInvariant();
         Logger.Debug("Apple-1 send-line: interactive processing; bootState={BootState}; input='{Input}'", _bootState, inputText);
 
-        var term = _terminal;
-        if (term is null)
+        // Pause any active run loop to avoid concurrent machine stepping
+        if (_isRunning)
+            await PauseAsync(cancellationToken);
+
+        if (_wiring is null || _machine is null)
         {
-            Logger.Warn("Apple-1 send-line: no terminal available");
+            Logger.Warn("Apple-1 send-line: no wiring available");
             return;
         }
 
         foreach (char c in inputText)
         {
-            var versionBefore = term.Version;
-            term.QueueKey(c);
+            var versionBefore = TerminalVersion;
+            _wiring.QueueKey(c);
             Logger.Trace("Apple-1 input char: '{Char}' raw=0x{Raw:X2}", c == '\r' ? "CR" : c.ToString(), (byte)c);
 
             await RunUntil(
-                () => term.Version > versionBefore && term.PendingKeyCount == 0,
+                () => TerminalVersion > versionBefore && !_wiring.HasPendingKey,
                 10000,
                 $"Input char '{c}'",
                 cancellationToken);
         }
 
-        var versionBeforeCr = term.Version;
-        term.QueueKey('\r');
+        var versionBeforeCr = TerminalVersion;
+        _wiring.QueueKey('\r');
         Logger.Trace("Apple-1 input char: 'CR' raw=0x0D");
 
         var processed = await RunUntil(
             () =>
             {
-                if (term.Version <= versionBeforeCr)
-                    return false;
-
-                if (term.PendingKeyCount > 0)
+                if (TerminalVersion <= versionBeforeCr)
                     return false;
 
                 return _bootState switch
                 {
-                    Apple1BootState.BasicReady => Apple1PromptDetector.LooksLikeBasicPrompt(term.Text),
-                    Apple1BootState.BootingBasic => Apple1PromptDetector.LooksLikeBasicPrompt(term.Text),
-                    Apple1BootState.MonitorReady => Apple1PromptDetector.LooksLikeWozPrompt(term.Text),
+                    Apple1BootState.BasicReady => Apple1PromptDetector.LooksLikeBasicPrompt(TerminalText),
+                    Apple1BootState.BootingBasic => Apple1PromptDetector.LooksLikeBasicPrompt(TerminalText),
+                    Apple1BootState.MonitorReady => Apple1PromptDetector.LooksLikeWozPrompt(TerminalText),
                     _ => true
                 };
             },
@@ -250,18 +254,16 @@ public sealed class Apple1MachineSession : IMachineSession
             cancellationToken);
 
         PublishSnapshot();
-        Logger.Debug("Apple-1 send-line processed={Processed}; pendingKeys={PendingKeys}; pc=0x{Pc:X4}; cycles={Cycles}; terminal={Terminal}",
+        Logger.Debug("Apple-1 send-line processed={Processed}; pc=0x{Pc:X4}; cycles={Cycles}; terminal={Terminal}",
             processed,
-            term.PendingKeyCount,
             _machine.Cpu.PC,
             _machine.Cpu.CycleCount,
-            term.Text.Replace("\n", "\\n"));
+            TerminalText.Replace("\n", "\\n"));
 
         if (!processed)
         {
-            Logger.Warn("Apple-1 send-line did not reach stable prompt state; input='{Input}'; pendingKeys={PendingKeys}; pc=0x{Pc:X4}",
+            Logger.Warn("Apple-1 send-line did not reach stable prompt state; input='{Input}'; pc=0x{Pc:X4}",
                 inputText,
-                term.PendingKeyCount,
                 _machine.Cpu.PC);
         }
     }
@@ -275,7 +277,7 @@ public sealed class Apple1MachineSession : IMachineSession
                     return MachineCommandResult.Failure("Cannot create Apple-1 machine");
 
                 _machine!.Reset();
-                var terminalVersionBeforeMonitor = _terminal?.Version ?? 0;
+                var terminalVersionBeforeMonitor = TerminalVersion;
                 _bootState = Apple1BootState.BootingMonitor;
                 _notificationSink?.Info("Booting Apple-1 Woz Monitor...");
                 Logger.Debug("Apple-1 boot.monitor started; terminalVersion={Version}", terminalVersionBeforeMonitor);
@@ -283,17 +285,15 @@ public sealed class Apple1MachineSession : IMachineSession
                 var monitorResult = await RunUntil(
                     () =>
                     {
-                        var term = _terminal;
-                        if (term is null) return false;
-                        return term.Version > terminalVersionBeforeMonitor
-                            && Apple1PromptDetector.LooksLikeWozPrompt(term.Text);
+                        return TerminalVersion > terminalVersionBeforeMonitor
+                            && Apple1PromptDetector.LooksLikeWozPrompt(TerminalText);
                     },
                     50000,
                     "Waiting for monitor prompt",
                     cancellationToken);
 
                 PublishSnapshot();
-                string terminal = _terminal?.Text ?? string.Empty;
+                string terminal = TerminalText ?? string.Empty;
 
                 if (monitorResult && Apple1PromptDetector.LooksLikeWozPrompt(terminal))
                 {
@@ -320,7 +320,7 @@ public sealed class Apple1MachineSession : IMachineSession
 
                 await SendLineAsync("E000R", cancellationToken);
 
-                string basicTerminal = _terminal?.Text ?? string.Empty;
+                string basicTerminal = TerminalText ?? string.Empty;
                 string basicSuffix = basicTerminal.Length >= 40 ? basicTerminal[^40..] : basicTerminal;
 
                 if (Apple1PromptDetector.LooksLikeBasicPrompt(basicTerminal))
@@ -368,10 +368,10 @@ public sealed class Apple1MachineSession : IMachineSession
             case "apple1.send-line":
                 if (parameter is string line)
                 {
-                    if (_machine is not null && !_isRunning && _terminal is not null)
+                    if (_machine is not null && !_isRunning && _wiring is not null)
                         await SendLineAsync(line, cancellationToken);
                     else
-                        Logger.Debug("Apple-1 send-line: skipped (not stopped or no terminal)");
+                        Logger.Debug("Apple-1 send-line: skipped (not stopped or no wiring)");
 
                     return MachineCommandResult.Success();
                 }
