@@ -40,7 +40,6 @@
       </Grid>
     </Border>
 
-    <!-- Main area: program controls, terminal, and stacked hardware modules. -->
     <Grid Grid.Row="1"
           ColumnDefinitions="320,*,340"
           MinHeight="270">
@@ -64,6 +63,10 @@
             <TextBlock Text="{Binding ProgramStatus}"
                        Foreground="#7CFF7C"
                        FontSize="12"
+                       TextWrapping="Wrap" />
+            <TextBlock Text="{Binding SelectedSolutionSummary}"
+                       Foreground="#9DA7B3"
+                       FontSize="11"
                        TextWrapping="Wrap" />
           </StackPanel>
 
@@ -121,8 +124,9 @@
         </StackPanel>
       </Border>
 
-      <!-- UART terminal gets the large live-output area. -->
+      <!-- UART terminal is visible only when the selected solution declares an UART module. -->
       <Border Grid.Column="1"
+              IsVisible="{Binding ShowUartModule}"
               BorderBrush="#31404F"
               BorderThickness="1"
               Background="#0D1117"
@@ -162,12 +166,51 @@
         </DockPanel>
       </Border>
 
-      <!-- Hardware stack: cards share the LCD module footprint and read as swappable hardware blocks. -->
+      <Border Grid.Column="1"
+              IsVisible="{Binding ShowI2cModule}"
+              BorderBrush="#31404F"
+              BorderThickness="1"
+              Background="#111820"
+              Padding="10"
+              Margin="0,0,8,0">
+        <StackPanel Spacing="6">
+          <TextBlock Text="I2C Controller"
+                     FontWeight="Bold"
+                     FontSize="15"
+                     Foreground="#B0BCC8" />
+          <TextBlock Text="MMIO: $FE30-$FE33"
+                     FontFamily="Consolas"
+                     Foreground="#E6EDF3" />
+          <TextBlock Text="Device module is declared by solution JSON. Runtime builder will be implemented in the next hardware-builder phase."
+                     Foreground="#9DA7B3"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Column="1"
+              IsVisible="{Binding !ShowUartModule}"
+              BorderBrush="#31404F"
+              BorderThickness="1"
+              Background="#0D1117"
+              Padding="10"
+              Margin="0,0,8,0">
+        <StackPanel Spacing="6">
+          <TextBlock Text="No center module"
+                     FontWeight="Bold"
+                     FontSize="15"
+                     Foreground="#9DA7B3" />
+          <TextBlock Text="The selected solution does not declare UART or another center panel."
+                     Foreground="#9DA7B3"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <!-- Hardware stack: visible modules are controlled by selected .solution.json. -->
       <StackPanel Grid.Column="2" Spacing="8">
 
-        <!-- LCD module card: baseline visual size for hardware cards. -->
         <Border Width="340"
                 Height="118"
+                IsVisible="{Binding ShowLcdModule}"
                 BorderBrush="#31404F"
                 BorderThickness="1"
                 Background="#111820"
@@ -187,9 +230,9 @@
           </StackPanel>
         </Border>
 
-        <!-- CPU card: same external footprint as LCD card. -->
         <Border Width="340"
                 Height="118"
+                IsVisible="{Binding ShowCpuModule}"
                 BorderBrush="#31404F"
                 BorderThickness="1"
                 Background="#111820"
@@ -220,9 +263,9 @@
           </Grid>
         </Border>
 
-        <!-- LED card: same external footprint as LCD card. -->
         <Border Width="340"
                 Height="118"
+                IsVisible="{Binding ShowLedModule}"
                 BorderBrush="#31404F"
                 BorderThickness="1"
                 Background="#111820"
@@ -254,7 +297,6 @@
       </StackPanel>
     </Grid>
 
-    <!-- Bottom-aligned compact tabs: source and executable compiled listing share one area. -->
     <Border Grid.Row="2"
             BorderBrush="#31404F"
             BorderThickness="1"
