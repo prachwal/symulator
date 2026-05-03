@@ -4,30 +4,30 @@ namespace Symulator.Machines.MinimalBlink.Programs;
 
 public static class MinimalBlinkPredefinedPrograms
 {
-    private static readonly MinimalBlinkPredefinedProgram[] Programs =
-    [
+    private static readonly List<MinimalBlinkPredefinedProgram> Programs = new()
+    {
         new MinimalBlinkPredefinedProgram(
             Id: "blink-led",
             Name: "Blink LED",
             Description: "Toggles LED port forever using a small software delay loop.",
             LoadAddress: 0x0100,
             StartAddress: 0x0100,
-            Bytes:
-            [
-                0x01, 0x01,          // LDA_IMM #$01
-                0x02, 0x00, 0xFF,    // STA_ABS $FF00   LED ON
-                0x01, 0x20,          // LDA_IMM #$20
-                0x09, 0x00,          // STA_ZP $00
-                0x05, 0x00, 0x00,    // DEC_MEM $0000
-                0x06, 0x09, 0x01,    // JNZ_ABS $0109
-                0x01, 0x00,          // LDA_IMM #$00
-                0x02, 0x00, 0xFF,    // STA_ABS $FF00   LED OFF
-                0x01, 0x20,          // LDA_IMM #$20
-                0x09, 0x00,          // STA_ZP $00
-                0x05, 0x00, 0x00,    // DEC_MEM $0000
-                0x06, 0x18, 0x01,    // JNZ_ABS $0118
-                0x03, 0x00, 0x01,    // JMP_ABS $0100
-            ]),
+            Bytes: new byte[]
+            {
+                0x01, 0x01,
+                0x02, 0x00, 0xFF,
+                0x01, 0x20,
+                0x09, 0x00,
+                0x05, 0x00, 0x00,
+                0x06, 0x09, 0x01,
+                0x01, 0x00,
+                0x02, 0x00, 0xFF,
+                0x01, 0x20,
+                0x09, 0x00,
+                0x05, 0x00, 0x00,
+                0x06, 0x18, 0x01,
+                0x03, 0x00, 0x01,
+            }),
 
         new MinimalBlinkPredefinedProgram(
             Id: "led-on",
@@ -35,8 +35,40 @@ public static class MinimalBlinkPredefinedPrograms
             Description: "Turns LED on and halts.",
             LoadAddress: 0x0100,
             StartAddress: 0x0100,
-            Bytes: [0x01, 0x01, 0x02, 0x00, 0xFF, 0x07]),
-    ];
+            Bytes: new byte[] { 0x01, 0x01, 0x02, 0x00, 0xFF, 0x07 }),
+
+        new MinimalBlinkPredefinedProgram(
+            Id: "hello-lcd",
+            Name: "Hello World (LCD)",
+            Description: "Initializes 16x2 LCD and displays Hello World! then halts.",
+            LoadAddress: 0x0100,
+            StartAddress: 0x0100,
+            Bytes: GetHelloWorldBytes()),
+    };
+
+    private static byte[] GetHelloWorldBytes()
+    {
+        return new byte[]
+        {
+            0x01, 0x38, 0x02, 0x00, 0xFE,
+            0x01, 0x0C, 0x02, 0x00, 0xFE,
+            0x01, 0x06, 0x02, 0x00, 0xFE,
+            0x01, 0x01, 0x02, 0x00, 0xFE,
+            0x01, 0x48, 0x02, 0x01, 0xFE,
+            0x01, 0x65, 0x02, 0x01, 0xFE,
+            0x01, 0x6C, 0x02, 0x01, 0xFE,
+            0x01, 0x6C, 0x02, 0x01, 0xFE,
+            0x01, 0x6F, 0x02, 0x01, 0xFE,
+            0x01, 0x20, 0x02, 0x01, 0xFE,
+            0x01, 0x57, 0x02, 0x01, 0xFE,
+            0x01, 0x6F, 0x02, 0x01, 0xFE,
+            0x01, 0x72, 0x02, 0x01, 0xFE,
+            0x01, 0x6C, 0x02, 0x01, 0xFE,
+            0x01, 0x64, 0x02, 0x01, 0xFE,
+            0x01, 0x21, 0x02, 0x01, 0xFE,
+            0x07,
+        };
+    }
 
     public static IReadOnlyList<MinimalBlinkPredefinedProgram> All => Programs;
 

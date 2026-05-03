@@ -24,6 +24,8 @@
     <ProjectReference Include="..\Symulator.Machines.Apple1\Symulator.Machines.Apple1.csproj" />
     <ProjectReference Include="..\Symulator.Machines.Kim1\Symulator.Machines.Kim1.csproj" />
     <ProjectReference Include="..\Symulator.Machines.MinimalBlink\Symulator.Machines.MinimalBlink.csproj" />
+    <ProjectReference Include="..\CmosCpu.Computer\CmosCpu.Computer.csproj" />
+    <ProjectReference Include="..\CmosCpu.Core\CmosCpu.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

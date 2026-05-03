@@ -1,8 +1,10 @@
+using CmosCpu.Computer.Devices;
 using NLog;
 using Symulator.Application.Abstractions;
 using Symulator.Machines.MinimalBlink.Cpu;
 using Symulator.Machines.MinimalBlink.Memory;
 using Symulator.Machines.MinimalBlink.Programs;
+using Symulator.Machines.MinimalBlink.Models;
 
 namespace Symulator.Machines.MinimalBlink.Module;
 
@@ -19,6 +21,8 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
     private bool _isInitialized;
     private string _status = "Ready";
     private readonly IUiDispatcher? _uiDispatcher;
+    private Hd44780Lcd? _lcd;
+    private MinimalBlinkLcdBuffer? _lcdBuffer;
 
     private const int _instructionsPerBatch = 100;
     private const int _uiRefreshDelayMs = 16;
@@ -74,9 +78,12 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
             return;
 
         _memory = new MinimalBlinkMemory();
+        _lcd = new Hd44780Lcd(MinimalBlinkMemory.LcdCommandPort);
+        _memory.AttachLcd(_lcd);
+        _lcdBuffer = new MinimalBlinkLcdBuffer();
         _cpu = new MinimalBlinkCpu(_memory);
         _isInitialized = true;
-        Logger.Info("Minimal Blink Computer created");
+        Logger.Info("Minimal Blink Computer created with LCD");
     }
 
     private void AutoLoadDefault()
@@ -293,6 +300,12 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
                         _memory.LedState.LastValue,
                         _memory.LedState.ToggleCount);
                 }
+            }
+
+            if (_lcdBuffer is not null && _lcd is not null)
+            {
+                _lcdBuffer.RenderFrom(_lcd);
+                _workspaceVm.LcdPixels = _lcdBuffer.Pixels;
             }
         };
 

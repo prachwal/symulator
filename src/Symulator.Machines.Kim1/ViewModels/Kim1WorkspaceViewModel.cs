@@ -19,6 +19,7 @@ public sealed class Kim1WorkspaceViewModel : INotifyPropertyChanged
     private string _ddra = "00";
     private string _ddrb = "00";
     private Kim1PredefinedProgram? _selectedPredefinedProgram;
+    private bool[,]? _lcdPixels;
 
     public Kim1WorkspaceViewModel(IMachineSession session, IMachineNotificationSink? sink = null)
     {
@@ -59,6 +60,12 @@ public sealed class Kim1WorkspaceViewModel : INotifyPropertyChanged
     public ICommand LoadPredefinedProgramCommand { get; }
 
     public IReadOnlyList<Kim1PredefinedProgram> PredefinedPrograms { get; }
+
+    public bool[,]? LcdPixels
+    {
+        get => _lcdPixels;
+        set { _lcdPixels = value; OnPropertyChanged(); }
+    }
 
     public Kim1PredefinedProgram? SelectedPredefinedProgram
     {

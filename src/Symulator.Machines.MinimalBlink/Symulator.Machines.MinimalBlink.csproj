@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Symulator.Application\Symulator.Application.csproj" />
+    <ProjectReference Include="..\CmosCpu.Computer\CmosCpu.Computer.csproj" />
   </ItemGroup>
 
 </Project>

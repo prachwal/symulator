@@ -1,10 +1,15 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:Symulator.Machines.MinimalBlink.Views"
              x:Class="Symulator.Machines.MinimalBlink.Views.MinimalBlinkWorkspaceView">
     <DockPanel>
         <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="8">
             <TextBlock FontWeight="Bold" FontSize="16">Minimal Blink Computer</TextBlock>
             <TextBlock Text="{Binding StatusText}" FontStyle="Italic" />
+
+            <Border BorderBrush="#31404F" BorderThickness="1" Padding="6" Background="#182028" HorizontalAlignment="Left">
+                <views:MinimalBlinkLcdControl Pixels="{Binding LcdPixels}" />
+            </Border>
 
             <StackPanel Spacing="4" Margin="0,6,0,0">
                 <ComboBox ItemsSource="{Binding PredefinedPrograms}"

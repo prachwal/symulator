@@ -23,6 +23,7 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     private string? _lastError;
     private MinimalBlinkPredefinedProgram? _selectedProgram;
     private IBrush _ledColor = OffBrush;
+    private bool[,]? _lcdPixels;
 
     private static readonly IBrush OnBrush = new SolidColorBrush(Color.Parse("#4DFF88"));
     private static readonly IBrush OffBrush = new SolidColorBrush(Color.Parse("#1a3a2a"));
@@ -41,6 +42,12 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     }
 
     public IReadOnlyList<MinimalBlinkPredefinedProgram> PredefinedPrograms { get; }
+
+    public bool[,]? LcdPixels
+    {
+        get => _lcdPixels;
+        set { _lcdPixels = value; OnPropertyChanged(); }
+    }
 
     public MinimalBlinkPredefinedProgram? SelectedProgram
     {
