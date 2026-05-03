@@ -8,7 +8,10 @@ public sealed class MinimalBlinkCpu
 
     public ushort PC { get; set; }
     public byte A { get; set; }
+    public byte X { get; set; }
+    public byte SP { get; set; } = 0xFF;
     public bool Z { get; set; }
+    public bool N { get; set; }
     public bool Halted { get; set; }
     public ulong CycleCount { get; set; }
     public string? LastError { get; set; }
@@ -21,7 +24,10 @@ public sealed class MinimalBlinkCpu
     public void Reset()
     {
         A = 0;
+        X = 0;
+        SP = 0xFF;
         Z = false;
+        N = false;
         Halted = false;
         CycleCount = 0;
         PC = 0;
@@ -48,6 +54,7 @@ public sealed class MinimalBlinkCpu
                 PC++;
                 A = val;
                 Z = val == 0;
+                N = (val & 0x80) != 0;
                 CycleCount += 2;
                 return 2;
             }
@@ -78,6 +85,7 @@ public sealed class MinimalBlinkCpu
                 PC++;
                 A ^= val;
                 Z = A == 0;
+                N = (A & 0x80) != 0;
                 CycleCount += 2;
                 return 2;
             }
@@ -92,6 +100,7 @@ public sealed class MinimalBlinkCpu
                 byte dec = (byte)(cur - 1);
                 _memory.WriteByte(addr, dec);
                 Z = dec == 0;
+                N = (dec & 0x80) != 0;
                 CycleCount += 4;
                 return 4;
             }
@@ -120,6 +129,7 @@ public sealed class MinimalBlinkCpu
                 ushort addr = (ushort)((hi << 8) | lo);
                 A = _memory.ReadByte(addr);
                 Z = A == 0;
+                N = (A & 0x80) != 0;
                 CycleCount += 3;
                 return 3;
             }
@@ -139,8 +149,59 @@ public sealed class MinimalBlinkCpu
                 PC++;
                 A = _memory.ReadByte(addr);
                 Z = A == 0;
+                N = (A & 0x80) != 0;
                 CycleCount += 2;
                 return 2;
+            }
+
+            // ── New instructions for LCD busy-poll ──────────────────────
+
+            case 0x0B: // AND #imm
+            {
+                byte val = _memory.ReadByte((ushort)(PC));
+                PC++;
+                A &= val;
+                Z = A == 0;
+                N = (A & 0x80) != 0;
+                CycleCount += 2;
+                return 2;
+            }
+
+            case 0x0C: // BNE rel
+            {
+                sbyte offset = unchecked((sbyte)_memory.ReadByte((ushort)(PC)));
+                PC++;
+                if (!Z)
+                {
+                    ushort oldPc = PC;
+                    PC = (ushort)(PC + offset);
+                    CycleCount += 3;
+                    return 3;
+                }
+                CycleCount += 2;
+                return 2;
+            }
+
+            case 0x0D: // JSR abs lo hi
+            {
+                byte lo = _memory.ReadByte((ushort)(PC));
+                byte hi = _memory.ReadByte((ushort)(PC + 1));
+                PC += 2;
+                ushort returnAddr = (ushort)(PC - 1);
+                PushByte((byte)(returnAddr >> 8));
+                PushByte((byte)(returnAddr & 0xFF));
+                PC = (ushort)((hi << 8) | lo);
+                CycleCount += 6;
+                return 6;
+            }
+
+            case 0x0E: // RTS
+            {
+                byte low = PullByte();
+                byte high = PullByte();
+                PC = (ushort)((high << 8) | low + 1);
+                CycleCount += 6;
+                return 6;
             }
 
             default:
@@ -149,5 +210,17 @@ public sealed class MinimalBlinkCpu
                 CycleCount += 1;
                 return 0;
         }
+    }
+
+    private void PushByte(byte value)
+    {
+        _memory.WriteByte((ushort)(0x0100 + SP), value);
+        SP--;
+    }
+
+    private byte PullByte()
+    {
+        SP++;
+        return _memory.ReadByte((ushort)(0x0100 + SP));
     }
 }

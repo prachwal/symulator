@@ -24,6 +24,8 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
     private Hd44780Lcd? _lcd;
     private Hd44780DirectBusAdapter? _lcdBus;
     private MinimalBlinkLcdBuffer? _lcdBuffer;
+    private string? _selectedProgramId;
+    private string? _loadedProgramId;
 
     private const int _instructionsPerBatch = 100;
     private const int _uiRefreshDelayMs = 16;
@@ -93,14 +95,19 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         if (_cpu!.PC != 0)
             return;
 
-        var program = MinimalBlinkPredefinedPrograms.FindById("blink-led");
+        var program = _selectedProgramId is not null
+            ? MinimalBlinkPredefinedPrograms.FindById(_selectedProgramId)
+            : MinimalBlinkPredefinedPrograms.FindById("blink-led");
+
         if (program is null)
             return;
 
-        Logger.Debug("Minimal Blink auto-loading default program: {Name}", program.Name);
+        Logger.Debug("Minimal Blink auto-loading program: {Name}", program.Name);
         _memory!.ClearAll();
         _memory.Load(program.LoadAddress, program.Bytes);
         _cpu.PC = program.StartAddress;
+        _loadedProgramId = program.Id;
+        _selectedProgramId ??= program.Id;
         _status = $"Loaded: {program.Name}";
         Logger.Info("Minimal Blink loaded program: {Name} at ${Start:X4} ({ByteCount} bytes)",
             program.Name, program.StartAddress, program.Bytes.Length);
@@ -243,9 +250,11 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
                     _memory!.ClearAll();
                     _memory.Load(loadAddress, program.Bytes);
                     _cpu!.PC = program.StartAddress;
+                    _loadedProgramId = program.Id;
+                    _selectedProgramId = program.Id;
                     _status = $"Loaded: {program.Name}";
-                    Logger.Info("Minimal Blink loaded program: {Name} at ${Start:X4} ({ByteCount} bytes)",
-                        program.Name, program.StartAddress, program.Bytes.Length);
+                    Logger.Info("Minimal Blink loaded program: {Name} id={Id} at ${Start:X4} ({ByteCount} bytes)",
+                        program.Name, program.Id, program.StartAddress, program.Bytes.Length);
                     PublishSnapshot();
                     return MachineCommandResult.Success();
                 }
@@ -322,6 +331,8 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
                     _cpu?.PC ?? 0,
                     string.Join(" ", _lcd.Ddram.Take(16).Select(b => b == 0 ? ".." : $"{(char)b}")));
             }
+
+            _workspaceVm.UpdateLoadedProgram(_loadedProgramId, _selectedProgramId);
         };
 
         if (_uiDispatcher is not null)

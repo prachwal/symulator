@@ -49,6 +49,19 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         set { _lcdPixels = value; OnPropertyChanged(); }
     }
 
+    public void UpdateLoadedProgram(string? loadedId, string? selectedId)
+    {
+        var target = selectedId ?? loadedId;
+        if (target is null) return;
+
+        var program = PredefinedPrograms.FirstOrDefault(p => p.Id == target);
+        if (program is not null && program != _selectedProgram)
+        {
+            _selectedProgram = program;
+            OnPropertyChanged(nameof(SelectedProgram));
+        }
+    }
+
     public MinimalBlinkPredefinedProgram? SelectedProgram
     {
         get => _selectedProgram;
