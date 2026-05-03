@@ -37,6 +37,7 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
     private MinimalBlinkLcdBuffer? _lcdBuffer;
     private string? _selectedProgramId;
     private string? _loadedProgramId;
+    private AssemblyProgramImage? _loadedAssemblyImage;
     private string? _compiledProgramId;
     private AssemblyProgramImage? _compiledImage;
     private string? _asmSourceText;
@@ -151,19 +152,10 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
 
     public void NotifyAsmProgramsLoaded(IReadOnlyList<AssemblySourceProgram> programs)
     {
-        // Auto-compile and load the first ASM program if nothing is loaded yet
-        if (_loadedProgramId is not null || _selectedProgramId is not null || programs.Count == 0)
-            return;
-
-        var first = programs[0];
-        Logger.Info("Minimal Blink auto-compiling first ASM program: {Id}", first.Id);
-        var result = CompileFromSource(first.Id, first.SourceText);
-        if (result.Success && _compiledImage is not null)
-        {
-            LoadAndResetCompiled();
-            _selectedProgramId = first.Id;
-        }
+        // No-op: selection is handled by the ViewModel.
     }
+
+    public AssemblyProgramImage? GetCompiledImage() => _compiledImage;
 
     public AssemblyResult CompileFromSource(string programId, string sourceText)
     {
@@ -202,6 +194,18 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         _memory.Load(_compiledImage.LoadAddress, _compiledImage.Bytes);
         _cpu!.Reset();
         _cpu.PC = _compiledImage.StartAddress;
+
+        // Deep copy the image for Reset
+        _loadedAssemblyImage = new AssemblyProgramImage
+        {
+            ProgramId = _compiledImage.ProgramId,
+            LoadAddress = _compiledImage.LoadAddress,
+            StartAddress = _compiledImage.StartAddress,
+            Bytes = _compiledImage.Bytes.ToArray(),
+            HexDump = _compiledImage.HexDump,
+            Listing = _compiledImage.Listing.ToArray()
+        };
+
         _loadedProgramId = _compiledImage.ProgramId;
         _selectedProgramId ??= _compiledImage.ProgramId;
         _isRunning = false;
@@ -218,8 +222,13 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         _cpu!.Reset();
         _isRunning = false;
 
-        // Reload loaded program if available (NOT the first program)
-        if (_loadedProgramId is not null)
+        if (_loadedAssemblyImage is not null)
+        {
+            _memory.Load(_loadedAssemblyImage.LoadAddress, _loadedAssemblyImage.Bytes);
+            _cpu.PC = _loadedAssemblyImage.StartAddress;
+            _status = $"Reset: {_loadedAssemblyImage.ProgramId}";
+        }
+        else if (_loadedProgramId is not null)
         {
             var program = MinimalBlinkPredefinedPrograms.FindById(_loadedProgramId);
             if (program is not null)
@@ -230,7 +239,7 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
             }
             else
             {
-                _status = "Reset (loaded program not found)";
+                _status = "Reset";
             }
         }
         else
@@ -382,6 +391,7 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
                     _cpu!.PC = program.StartAddress;
                     _loadedProgramId = program.Id;
                     _selectedProgramId = program.Id;
+                    _loadedAssemblyImage = null;
                     _status = $"Loaded: {program.Name}";
                     Logger.Info("Minimal Blink loaded program: {Name} id={Id} at ${Start:X4} ({ByteCount} bytes)",
                         program.Name, program.Id, program.StartAddress, program.Bytes.Length);
@@ -425,6 +435,7 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         {
             _workspaceVm.StatusText = _status;
             _workspaceVm.Pc = $"${_cpu?.PC:X4}" ?? "$0000";
+            _workspaceVm.UpdateCurrentInstructionFromPc(_cpu?.PC ?? 0);
             _workspaceVm.A = $"${_cpu?.A:X2}" ?? "$00";
             _workspaceVm.Z = _cpu?.Z ?? false;
             _workspaceVm.Cycles = _cpu?.CycleCount ?? 0;

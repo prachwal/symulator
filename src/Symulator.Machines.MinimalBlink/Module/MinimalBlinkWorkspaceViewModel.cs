@@ -86,12 +86,6 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
             if (programs.Count > 0)
             {
                 SelectedAsmProgram = programs[0];
-                AsmSourceText = programs[0].SourceText;
-                // Signal the session to auto-compile and load
-                if (_session is MinimalBlinkMachineSession mbSession)
-                {
-                    mbSession.NotifyAsmProgramsLoaded(programs);
-                }
             }
         }
         catch (Exception ex)
@@ -138,13 +132,52 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     public List<AssemblyListingLine>? ListingLines
     {
         get => _listingLines;
-        set { _listingLines = value; OnPropertyChanged(); }
+        set { _listingLines = value; OnPropertyChanged(); UpdateExecutableListing(); }
     }
+
+    private void UpdateExecutableListing()
+    {
+        ExecutableListingLines = _listingLines?
+            .Where(x => x.Bytes is { Length: > 0 })
+            .ToList();
+        OnPropertyChanged(nameof(ExecutableListingLines));
+    }
+
+    public List<AssemblyListingLine>? ExecutableListingLines { get; private set; }
 
     public int? CurrentListingLineIndex
     {
         get => _currentListingLineIndex;
         set { _currentListingLineIndex = value; OnPropertyChanged(); }
+    }
+
+    public void UpdateCurrentInstructionFromPc(ushort pc)
+    {
+        var lines = ExecutableListingLines;
+        if (lines is null || lines.Count == 0)
+        {
+            CurrentListingLineIndex = null;
+            return;
+        }
+
+        // Clear all markers first
+        foreach (var line in lines)
+            line.CurrentLineMarker = string.Empty;
+
+        var index = lines.FindIndex(x =>
+            x.Address.HasValue &&
+            x.Address.Value == pc &&
+            x.Bytes is { Length: > 0 });
+
+        if (index >= 0)
+        {
+            lines[index].CurrentLineMarker = "▶";
+            CurrentListingLineIndex = index;
+        }
+        else
+        {
+            CurrentListingLineIndex = null;
+        }
     }
 
     public List<AssemblySourceProgram> AsmPrograms
@@ -156,7 +189,28 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     public AssemblySourceProgram? SelectedAsmProgram
     {
         get => _selectedAsmProgram;
-        set { _selectedAsmProgram = value; OnPropertyChanged(); }
+        set
+        {
+            if (ReferenceEquals(_selectedAsmProgram, value))
+                return;
+
+            _selectedAsmProgram = value;
+            OnPropertyChanged();
+
+            if (value is null)
+            {
+                AsmSourceText = string.Empty;
+                ProgramStatus = "No ASM program selected";
+                ListingLines = null;
+                CurrentListingLineIndex = null;
+                return;
+            }
+
+            AsmSourceText = value.SourceText;
+            ProgramStatus = $"Selected, not compiled: {value.Id}";
+            ListingLines = null;
+            CurrentListingLineIndex = null;
+        }
     }
 
     public async Task SendTerminalInputAsync()
@@ -267,15 +321,21 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         if (asmSession is null || SelectedAsmProgram is null)
             return MachineCommandResult.Failure("No ASM program selected");
 
-        var result = asmSession.CompileFromSource(SelectedAsmProgram.Id, SelectedAsmProgram.SourceText);
+        var result = asmSession.CompileFromSource(SelectedAsmProgram.Id, AsmSourceText);
+
         if (!result.Success)
         {
-            ProgramStatus = "Compile failed";
-            return MachineCommandResult.Failure(string.Join("; ", result.Diagnostics.Where(d => d.Severity == "Error").Select(d => d.Message)));
+            var errors = string.Join("; ",
+                result.Diagnostics.Where(d => d.Severity == "Error").Select(d => d.Message));
+            ProgramStatus = $"Compile failed: {errors}"[..Math.Min(120, $"Compile failed: {errors}".Length)];
+            ListingLines = null;
+            CurrentListingLineIndex = null;
+            return MachineCommandResult.Failure(errors);
         }
 
-        ProgramStatus = $"Compiled: {result.Image!.Bytes.Length} bytes at ${result.Image.LoadAddress:X4}";
+        ProgramStatus = $"Compiled: {SelectedAsmProgram.Id}, {result.Image!.Bytes.Length} bytes at ${result.Image.LoadAddress:X4}";
         ListingLines = result.Image.Listing.ToList();
+        CurrentListingLineIndex = null;
         return MachineCommandResult.Success();
     }
 
@@ -286,7 +346,15 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
             return MachineCommandResult.Failure("Not a MinimalBlink session");
 
         asmSession.LoadAndResetCompiled();
-        ProgramStatus = $"Loaded";
+
+        if (asmSession.GetCompiledImage() is { } img)
+        {
+            ProgramStatus = $"Loaded: {img.ProgramId}, PC=${img.StartAddress:X4}";
+        }
+        else
+        {
+            ProgramStatus = "Loaded";
+        }
         return MachineCommandResult.Success();
     }
 

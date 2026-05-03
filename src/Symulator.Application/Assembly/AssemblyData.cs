@@ -17,6 +17,26 @@ public sealed class AssemblyListingLine
     public string? Label { get; set; }
     public string? Mnemonic { get; set; }
     public string? Operand { get; set; }
+
+    public string BytesText =>
+        Bytes is null || Bytes.Length == 0
+            ? string.Empty
+            : string.Join(" ", Bytes.Select(x => x.ToString("X2")));
+
+    public string InstructionText
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Mnemonic))
+                return string.Empty;
+            return string.IsNullOrWhiteSpace(Operand)
+                ? Mnemonic
+                : $"{Mnemonic} {Operand}";
+        }
+    }
+
+    // Set externally by the ViewModel when this line matches PC
+    public string CurrentLineMarker { get; set; } = string.Empty;
 }
 
 public sealed class AssemblyProgramImage

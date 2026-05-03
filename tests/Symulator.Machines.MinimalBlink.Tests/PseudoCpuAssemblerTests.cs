@@ -168,4 +168,32 @@ start:
             result.Image!.Bytes.Length.Should().BeGreaterThan(0);
         }
     }
+
+    [TestMethod]
+    public void AssemblyListingLine_BytesText_FormatsHex()
+    {
+        var line = new AssemblyListingLine { Bytes = new byte[] { 0x01, 0x48 } };
+        line.BytesText.Should().Be("01 48");
+    }
+
+    [TestMethod]
+    public void AssemblyListingLine_BytesText_Empty_WhenNull()
+    {
+        var line = new AssemblyListingLine { Bytes = null };
+        line.BytesText.Should().BeEmpty();
+    }
+
+    [TestMethod]
+    public void AssemblyListingLine_InstructionText_WithOperand()
+    {
+        var line = new AssemblyListingLine { Mnemonic = "LDA", Operand = "#$20" };
+        line.InstructionText.Should().Be("LDA #$20");
+    }
+
+    [TestMethod]
+    public void AssemblyListingLine_InstructionText_WithoutOperand()
+    {
+        var line = new AssemblyListingLine { Mnemonic = "HLT" };
+        line.InstructionText.Should().Be("HLT");
+    }
 }
