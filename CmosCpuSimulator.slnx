@@ -12,6 +12,7 @@
     <Project Path="src/Symulator.Machines.Apple1/Symulator.Machines.Apple1.csproj" />
     <Project Path="src/Symulator.Machines.Kim1/Symulator.Machines.Kim1.csproj" />
     <Project Path="src/Symulator.Machines.MinimalBlink/Symulator.Machines.MinimalBlink.csproj" />
+    <Project Path="src/Symulator.Machines.Retro70/Symulator.Machines.Retro70.csproj" />
     <Project Path="src/Symulator.Avalonia/Symulator.Avalonia.csproj" />
   </Folder>
   <Folder Name="/tests/">

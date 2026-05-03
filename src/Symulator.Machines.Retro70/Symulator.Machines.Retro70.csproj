@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Symulator.Machines.Retro70</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CmosCpu.Core\CmosCpu.Core.csproj" />
+    <ProjectReference Include="..\CmosCpu.Cpu\CmosCpu.Cpu.csproj" />
+    <ProjectReference Include="..\CmosCpu.Computer\CmosCpu.Computer.csproj" />
+  </ItemGroup>
+
+</Project>

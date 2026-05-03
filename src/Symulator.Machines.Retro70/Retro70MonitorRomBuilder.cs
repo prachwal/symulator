@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace CmosCpu.Computer;
+namespace Symulator.Machines.Retro70;
 
 public static class Retro70MonitorRomBuilder
 {

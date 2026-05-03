@@ -1,3 +1,4 @@
+using CmosCpu.Computer.Abstractions;
 using CmosCpu.Core;
 using CmosCpu.Cpu;
 
@@ -5,21 +6,22 @@ namespace CmosCpu.Computer;
 
 public sealed class ComputerMachine
 {
+    private readonly List<IClockedDevice> _clockedDevices = [];
+    private readonly List<IInterruptSource> _interruptSources = [];
+    private readonly List<IMachineStepHook> _stepHooks = [];
+    private readonly bool _mapDevicesFromProfile;
+
     public ComputerProfile Profile { get; }
     public Mos6502Cpu Cpu { get; }
     public ComputerMemoryBus Memory { get; }
     public TextDisplayRegion? TextDisplay { get; private set; }
     public KeyboardRegion? Keyboard { get; private set; }
-    public Kim1Riot6530IoDevice? Kim1Riot { get; private set; }
-    public Kim1Riot6530IoDevice? Kim1Riot003 { get; private set; }
-    public Kim1LedDisplayState? Kim1LedDisplay { get; private set; }
-    public Kim1KeypadState? Kim1Keypad { get; private set; }
-    public Apple1PiaTerminalDevice? Apple1Terminal { get; private set; }
     public bool IsRunning { get; private set; }
 
-    public ComputerMachine(ComputerProfile profile)
+    public ComputerMachine(ComputerProfile profile, bool mapDevicesFromProfile = true)
     {
         Profile = profile;
+        _mapDevicesFromProfile = mapDevicesFromProfile;
         Memory = new ComputerMemoryBus();
         BuildMemoryMap();
         Cpu = new Mos6502Cpu(Memory);
@@ -33,34 +35,22 @@ public sealed class ComputerMachine
 
     public int Step()
     {
-        bool irqPending = (Kim1Riot is not null && Kim1Riot.IrqPending)
-                       || (Kim1Riot003 is not null && Kim1Riot003.IrqPending);
+        bool irqPending = _interruptSources.Any(s => s.IrqPending);
         Cpu.SetIrqLine(irqPending);
 
         int cycles = Cpu.Step();
 
         if (cycles > 0)
         {
-            Kim1Riot?.Tick(cycles);
-            Kim1Riot003?.Tick(cycles);
-            UpdateKim1KeypadMatrix();
+            ulong uCycles = (ulong)cycles;
+            foreach (var device in _clockedDevices)
+                device.Tick(uCycles);
+
+            foreach (var hook in _stepHooks)
+                hook.AfterStep(cycles);
         }
 
         return cycles;
-    }
-
-    private void UpdateKim1KeypadMatrix()
-    {
-        if (Kim1Riot is null || Kim1Riot003 is null || Kim1Keypad is null)
-            return;
-
-        byte columnOutput = Kim1Riot.PortAData;
-        byte columnDdr = Kim1Riot.PortADdr;
-        byte rowInput = Kim1Keypad.GetRowState(columnOutput, columnDdr);
-
-        byte existingInput = Kim1Riot003.PortAInputValue;
-        byte mergedInput = (byte)((existingInput & 0xC0) | (rowInput & 0x3F));
-        Kim1Riot003.SetPortAInput(mergedInput);
     }
 
     public void RunSteps(int maxSteps)
@@ -72,7 +62,7 @@ public sealed class ComputerMachine
             {
                 if (Cpu.IsHalted)
                     break;
-                Cpu.Step();
+                Step();
             }
         }
         finally
@@ -84,6 +74,46 @@ public sealed class ComputerMachine
     public void Stop()
     {
         IsRunning = false;
+    }
+
+    public void MapDevice(IMemoryMappedDevice device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+
+        var size = checked((ushort)(device.EndAddress - device.StartAddress + 1));
+        Memory.MapDevice(device.StartAddress, size, device.Read, device.Write);
+
+        if (device is IClockedDevice clocked)
+            AddClockedDevice(clocked);
+
+        if (device is IInterruptSource interruptSource)
+            AddInterruptSource(interruptSource);
+    }
+
+    public void MapDevice(ushort start, ushort size, Func<ushort, byte> read, Action<ushort, byte> write)
+    {
+        Memory.MapDevice(start, size, read, write);
+    }
+
+    public void AddClockedDevice(IClockedDevice device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+        if (!_clockedDevices.Contains(device))
+            _clockedDevices.Add(device);
+    }
+
+    public void AddInterruptSource(IInterruptSource source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (!_interruptSources.Contains(source))
+            _interruptSources.Add(source);
+    }
+
+    public void AddStepHook(IMachineStepHook hook)
+    {
+        ArgumentNullException.ThrowIfNull(hook);
+        if (!_stepHooks.Contains(hook))
+            _stepHooks.Add(hook);
     }
 
     private void BuildMemoryMap()
@@ -117,15 +147,12 @@ public sealed class ComputerMachine
                     }
             }
 
-        if (Profile.Devices is not null)
+        if (_mapDevicesFromProfile && Profile.Devices is not null)
             foreach (var dev in Profile.Devices)
-                MapDevice(dev);
-
-        if (Kim1LedDisplay is not null && Kim1Riot is not null)
-            Kim1Riot.LedDisplay = Kim1LedDisplay;
+                MapDeviceFromProfile(dev);
     }
 
-    private void MapDevice(ComputerProfileDevice dev)
+    private void MapDeviceFromProfile(ComputerProfileDevice dev)
     {
         switch (dev.Type)
         {
@@ -159,55 +186,11 @@ public sealed class ComputerMachine
                 }, (addr, val) => { });
                 break;
             }
-            case "kim1-6530-io":
-            {
-                var start = ComputerProfileLoader.ParseHex(dev.Start!);
-                var size = string.IsNullOrEmpty(dev.Size) ? (ushort)0x0100 : ComputerProfileLoader.ParseHex(dev.Size!);
-                var riot = new Kim1Riot6530IoDevice(start, (ushort)(start + size - 1));
-                Kim1Riot = riot;
-                if (Kim1Keypad is not null)
-                    riot.Keypad = Kim1Keypad;
-                Memory.MapDevice(start, size, riot.Read, riot.Write);
-                break;
-            }
-            case "kim1-6530-003-io":
-            {
-                var start = ComputerProfileLoader.ParseHex(dev.Start!);
-                var size = string.IsNullOrEmpty(dev.Size) ? (ushort)0x0100 : ComputerProfileLoader.ParseHex(dev.Size!);
-                var riot = new Kim1Riot6530IoDevice(start, (ushort)(start + size - 1));
-                Kim1Riot003 = riot;
-                if (Kim1Keypad is not null)
-                    riot.Keypad = Kim1Keypad;
-                Memory.MapDevice(start, size, riot.Read, riot.Write);
-                break;
-            }
-            case "kim1-led-display":
-            {
-                Kim1LedDisplay = new Kim1LedDisplayState();
-                break;
-            }
-            case "kim1-keypad":
-            {
-                Kim1Keypad = new Kim1KeypadState();
-                if (Kim1Riot is not null)
-                    Kim1Riot.Keypad = Kim1Keypad;
-                break;
-            }
-            case "apple1-pia-terminal":
-            {
-                int columns = dev.Columns > 0 ? dev.Columns : 40;
-                int rows = dev.Rows > 0 ? dev.Rows : 24;
-                var terminal = new Apple1PiaTerminalDevice(columns, rows);
-                Apple1Terminal = terminal;
-                Memory.MapDevice(terminal.StartAddress, (ushort)(terminal.EndAddress - terminal.StartAddress + 1),
-                    terminal.Read, terminal.Write);
-                break;
-            }
             case "character-rom":
             case "text-terminal":
                 break;
             default:
-                throw new InvalidOperationException($"Unknown device type: '{dev.Type}'");
+                break;
         }
     }
 }

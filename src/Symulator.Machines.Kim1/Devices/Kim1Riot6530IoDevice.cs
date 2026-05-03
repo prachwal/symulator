@@ -1,8 +1,10 @@
+using CmosCpu.Computer.Abstractions;
+using CmosCpu.Core;
 using NLog;
 
-namespace CmosCpu.Computer;
+namespace Symulator.Machines.Kim1.Devices;
 
-public sealed class Kim1Riot6530IoDevice
+public sealed class Kim1Riot6530IoDevice : IMemoryMappedDevice, IClockedDevice, IInterruptSource
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
@@ -47,9 +49,12 @@ public sealed class Kim1Riot6530IoDevice
     private readonly char[] _displayDigits = ['-', '-', '-', '-', '-', '-'];
 
     public ushort StartAddress => _startAddress;
+    ushort IMemoryMappedDevice.StartAddress => _startAddress;
+    ushort IMemoryMappedDevice.EndAddress => _endAddress;
     public ushort EndAddress => _endAddress;
     public long Version => _version;
 
+    bool IInterruptSource.IrqPending => IrqPending;
     public bool IrqPending => (_timerIrqPending && _timerIrqEnabled) || _pa7IrqPending;
     public int TimerValue => _timerCounter;
     public int TimerPrescalerDivider => _timerPrescalerDivider;
@@ -182,6 +187,11 @@ public sealed class Kim1Riot6530IoDevice
         }
     }
 
+    void IClockedDevice.Tick(ulong cycle)
+    {
+        Tick((int)cycle);
+    }
+
     public void Tick(int cpuCycles)
     {
         if (_timerCounter == 0 && _timerUnderflow)
@@ -212,7 +222,6 @@ public sealed class Kim1Riot6530IoDevice
         byte newPa7 = (byte)((value >> 7) & 1);
         byte oldPa7 = (byte)((_portAInput >> 7) & 1);
 
-        // Functional 6530 PA7 edge detection model, not full datasheet-complete mapping yet
         if (_pa7IrqEnabled)
         {
             if (_pa7DetectFallingEdge && oldPa7 == 1 && newPa7 == 0)
@@ -227,28 +236,6 @@ public sealed class Kim1Riot6530IoDevice
     public void SetPortBInput(byte value)
     {
         _portBInput = value;
-    }
-
-    private void UpdateDisplay()
-    {
-        if (LedDisplay is null)
-            return;
-
-        int digitIndex = (_portAData & 0x07);
-        if (digitIndex >= 6)
-            return;
-
-        byte segments = (byte)(_portBData & 0x7F);
-        char oldChar = _displayDigits[digitIndex];
-        _displayDigits[digitIndex] = SegmentToChar.TryGetValue(segments, out var ch) ? ch : '?';
-
-        if (_displayDigits[digitIndex] != oldChar)
-        {
-            var digits = new string(_displayDigits);
-            LedDisplay.Update(digits);
-            Logger.Debug("KIM-1 LED display updated: digit={Digit} segments=0x{Segments:X2} char='{Char}' display='{Display}'",
-                digitIndex, segments, _displayDigits[digitIndex], digits);
-        }
     }
 
     public void ClearIrq()
@@ -290,5 +277,27 @@ public sealed class Kim1Riot6530IoDevice
     {
         _timerUnderflow = false;
         _timerIrqPending = false;
+    }
+
+    private void UpdateDisplay()
+    {
+        if (LedDisplay is null)
+            return;
+
+        int digitIndex = (_portAData & 0x07);
+        if (digitIndex >= 6)
+            return;
+
+        byte segments = (byte)(_portBData & 0x7F);
+        char oldChar = _displayDigits[digitIndex];
+        _displayDigits[digitIndex] = SegmentToChar.TryGetValue(segments, out var ch) ? ch : '?';
+
+        if (_displayDigits[digitIndex] != oldChar)
+        {
+            var digits = new string(_displayDigits);
+            LedDisplay.Update(digits);
+            Logger.Debug("KIM-1 LED display updated: digit={Digit} segments=0x{Segments:X2} char='{Char}' display='{Display}'",
+                digitIndex, segments, _displayDigits[digitIndex], digits);
+        }
     }
 }

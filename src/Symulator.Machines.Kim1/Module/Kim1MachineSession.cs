@@ -1,6 +1,7 @@
 using CmosCpu.Computer;
 using NLog;
 using Symulator.Application.Abstractions;
+using Symulator.Machines.Kim1.Devices;
 using Symulator.Machines.Kim1.Factory;
 using Symulator.Machines.Kim1.Models;
 using Symulator.Machines.Kim1.Services;
@@ -13,7 +14,9 @@ public sealed class Kim1MachineSession : IMachineSession
 
     private readonly IMachineNotificationSink? _notificationSink;
     private readonly IUiDispatcher? _uiDispatcher;
-    private ComputerMachine? _machine;
+    private Kim1MachineRuntime? _runtime;
+    private ComputerMachine? _machine => _runtime?.Machine;
+    private Kim1MachineDevices? _devices => _runtime?.Devices;
     private CancellationTokenSource? _runCts;
     private Task? _runTask;
     private Kim1WorkspaceViewModel? _workspaceVm;
@@ -56,13 +59,13 @@ public sealed class Kim1MachineSession : IMachineSession
 
     private bool EnsureMachineCreated()
     {
-        if (_machine is not null) return true;
+        if (_runtime is not null) return true;
 
         try
         {
             var moduleDir = Path.GetDirectoryName(typeof(Kim1MachineModule).Assembly.Location)!;
             _notificationSink?.Info($"Creating KIM-1 machine from {moduleDir}");
-            _machine = Kim1MachineFactory.Create(moduleDir);
+            _runtime = Kim1MachineFactory.Create(moduleDir);
             Logger.Info("KIM-1 machine created and reset from {ModuleDir}", moduleDir);
             return true;
         }
@@ -207,9 +210,9 @@ public sealed class Kim1MachineSession : IMachineSession
                 if (parameter is string keyName)
                 {
                     var kimKey = Kim1KeyMapper.MapToKim1Key(keyName);
-                    if (kimKey is not null && _machine.Kim1Keypad is not null)
+                    if (kimKey is not null && _devices?.Keypad is not null)
                     {
-                        _machine.Kim1Keypad.PressKey(kimKey);
+                        _devices?.Keypad.PressKey(kimKey);
                         _machine.Step();
                         PublishSnapshot();
                         UpdateWorkspaceFromRiot();
@@ -228,9 +231,9 @@ public sealed class Kim1MachineSession : IMachineSession
                 if (parameter is string relKeyName)
                 {
                     var kimRelKey = Kim1KeyMapper.MapToKim1Key(relKeyName);
-                    if (kimRelKey is not null && _machine.Kim1Keypad is not null)
+                    if (kimRelKey is not null && _devices?.Keypad is not null)
                     {
-                        _machine.Kim1Keypad.ReleaseKey(kimRelKey);
+                        _devices?.Keypad.ReleaseKey(kimRelKey);
                         _machine.Step();
                         PublishSnapshot();
                         UpdateWorkspaceFromRiot();
@@ -308,12 +311,12 @@ public sealed class Kim1MachineSession : IMachineSession
                 return;
             }
 
-            var riot = Kim1MachineFactory.BuildRiotSnapshot(_machine);
+            var riot = Kim1MachineFactory.BuildRiotSnapshot(_runtime!);
             _workspaceVm.PortA = riot.PortA;
             _workspaceVm.PortB = riot.PortB;
             _workspaceVm.DDRA = riot.DDRA;
             _workspaceVm.DDRB = riot.DDRB;
-            _workspaceVm.DisplayText = string.IsNullOrWhiteSpace(_machine.Kim1LedDisplay?.Digits) ? "------" : _machine.Kim1LedDisplay.Digits;
+            _workspaceVm.DisplayText = string.IsNullOrWhiteSpace(_devices?.LedDisplay?.Digits) ? "------" : _devices?.LedDisplay.Digits;
             _workspaceVm.StatusText = _machine.Cpu.IsHalted
                 ? "HALTED"
                 : $"PC=${_machine.Cpu.PC:X4} Cycles={_machine.Cpu.CycleCount}";
@@ -328,14 +331,14 @@ public sealed class Kim1MachineSession : IMachineSession
     public async ValueTask DisposeAsync()
     {
         await PauseAsync();
-        _machine = null;
+        _runtime = null;
         Logger.Info("KIM-1 session disposed");
     }
 
     internal byte ReadMemoryForDiagnostics(ushort address)
     {
-        if (_machine is null)
+        if (_runtime is null)
             throw new InvalidOperationException("KIM-1 machine is not initialized.");
-        return _machine.Memory.ReadByte(address);
+        return _runtime.Machine.Memory.ReadByte(address);
     }
 }

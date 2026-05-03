@@ -1,5 +1,6 @@
 using CmosCpu.Computer;
 using FluentAssertions;
+using Symulator.Machines.Retro70;
 
 namespace CmosCpu.Computer.Tests;
 

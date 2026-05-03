@@ -10,7 +10,7 @@ public static class Apple1MachineFactory
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-    public static ComputerMachine Create(string basePath)
+    public static Apple1MachineRuntime Create(string basePath)
     {
         Logger.Debug("Apple1MachineFactory.Create called with basePath={BasePath}", basePath);
         var profilePath = Path.Combine(basePath, "profiles", "apple-1.json");
@@ -22,7 +22,11 @@ public static class Apple1MachineFactory
 
         Logger.Info("Using Apple-1 profile: {ProfilePath}", profilePath);
 
-        var machine = ComputerMachineFactory.CreateFromFile(profilePath);
+        var profile = ComputerProfileLoader.LoadFromFile(profilePath);
+        if (!profile.IsValid || profile.Profile is null)
+            throw new InvalidOperationException($"Invalid profile: {string.Join("; ", profile.Errors)}");
+
+        var machine = new ComputerMachine(profile.Profile, mapDevicesFromProfile: false);
 
         var solutionRoot = FindSolutionRoot(Path.GetDirectoryName(profilePath)!);
         if (solutionRoot is not null)
@@ -35,10 +39,18 @@ public static class Apple1MachineFactory
             Logger.Warn("Could not determine solution root; ROM files will not be loaded");
         }
 
+        // Create and register the Apple-1 PIA terminal
+        var appleTerminalDev = profile.Profile.Devices?.FirstOrDefault(d => d.Type == "apple1-pia-terminal");
+        int columns = appleTerminalDev?.Columns > 0 ? appleTerminalDev.Columns : 40;
+        int rows = appleTerminalDev?.Rows > 0 ? appleTerminalDev.Rows : 24;
+        var terminal = new Devices.Apple1PiaTerminalDevice(columns, rows);
+        machine.MapDevice((ushort)terminal.StartAddress, (ushort)(terminal.EndAddress - terminal.StartAddress + 1),
+            terminal.Read, terminal.Write);
+
         LogDiagnostics(machine);
 
         Logger.Debug("Apple-1 ComputerMachine created successfully");
-        return machine;
+        return new Apple1MachineRuntime(machine, terminal);
     }
 
     private static void LoadRomFiles(ComputerMachine machine, string baseDir)
@@ -111,18 +123,15 @@ public static class Apple1MachineFactory
 
     public static CpuStateSnapshot BuildCpuSnapshot(Mos6502Cpu cpu)
     {
-        var flags = $"{(cpu.Negative ? 'N' : '-')}{(cpu.Zero ? 'Z' : '-')}{(cpu.Carry ? 'C' : '-')}{(cpu.InterruptDisable ? 'I' : '-')}";
-
         return new CpuStateSnapshot(
             $"${cpu.PC:X4}",
             $"${cpu.A:X2}",
             $"${cpu.X:X2}",
             $"${cpu.Y:X2}",
             $"${cpu.SP:X2}",
-            flags,
+            $"{(cpu.Negative ? 'N' : '-')}{(cpu.Zero ? 'Z' : '-')}{(cpu.Carry ? 'C' : '-')}{(cpu.InterruptDisable ? 'I' : '-')}",
             cpu.CycleCount,
             cpu.IsHalted,
-            Array.Empty<CpuRegisterSnapshot>()
-        );
+            Array.Empty<CpuRegisterSnapshot>());
     }
 }

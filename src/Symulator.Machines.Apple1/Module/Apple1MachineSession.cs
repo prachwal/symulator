@@ -1,6 +1,7 @@
 using CmosCpu.Computer;
 using NLog;
 using Symulator.Application.Abstractions;
+using Symulator.Machines.Apple1.Devices;
 using Symulator.Machines.Apple1.Factory;
 using Symulator.Machines.Apple1.Models;
 using Symulator.Machines.Apple1.Services;
@@ -13,7 +14,9 @@ public sealed class Apple1MachineSession : IMachineSession
 
     private readonly IMachineNotificationSink? _notificationSink;
     private readonly IUiDispatcher? _uiDispatcher;
-    private ComputerMachine? _machine;
+    private Apple1MachineRuntime? _runtime;
+    private ComputerMachine? _machine => _runtime?.Machine;
+    private Apple1PiaTerminalDevice? _terminal => _runtime?.Terminal;
     private CancellationTokenSource? _runCts;
     private Task? _runTask;
     private Apple1WorkspaceViewModel? _workspaceVm;
@@ -50,21 +53,21 @@ public sealed class Apple1MachineSession : IMachineSession
             return new EmulatorStateSnapshot("apple1", false, false, null, string.Empty, 0);
 
         var cpuSnapshot = Apple1MachineFactory.BuildCpuSnapshot(_machine.Cpu);
-        string terminalText = _machine.Apple1Terminal?.Text ?? string.Empty;
+        string terminalText = _terminal?.Text ?? string.Empty;
 
         return new EmulatorStateSnapshot("apple1", _isRunning, _machine.Cpu.IsHalted, cpuSnapshot, terminalText, (long)_machine.Cpu.CycleCount);
     }
 
     private bool EnsureMachineCreated()
     {
-        if (_machine is not null) return true;
+        if (_runtime is not null) return true;
 
         try
         {
             var moduleDir = Path.GetDirectoryName(typeof(Apple1MachineModule).Assembly.Location)!;
             _notificationSink?.Info($"Creating Apple-1 machine from {moduleDir}");
             Logger.Debug("Apple-1 session EnsureMachineCreated using moduleDir={ModuleDir}", moduleDir);
-            _machine = Apple1MachineFactory.Create(moduleDir);
+            _runtime = Apple1MachineFactory.Create(moduleDir);
             _bootState = Apple1BootState.Reset;
             Logger.Info("Apple-1 machine created from {ModuleDir}", moduleDir);
             return true;
@@ -201,7 +204,7 @@ public sealed class Apple1MachineSession : IMachineSession
         var inputText = text.TrimEnd('\r', '\n').ToUpperInvariant();
         Logger.Debug("Apple-1 send-line: interactive processing; bootState={BootState}; input='{Input}'", _bootState, inputText);
 
-        var term = _machine!.Apple1Terminal;
+        var term = _terminal;
         if (term is null)
         {
             Logger.Warn("Apple-1 send-line: no terminal available");
@@ -272,7 +275,7 @@ public sealed class Apple1MachineSession : IMachineSession
                     return MachineCommandResult.Failure("Cannot create Apple-1 machine");
 
                 _machine!.Reset();
-                var terminalVersionBeforeMonitor = _machine.Apple1Terminal?.Version ?? 0;
+                var terminalVersionBeforeMonitor = _terminal?.Version ?? 0;
                 _bootState = Apple1BootState.BootingMonitor;
                 _notificationSink?.Info("Booting Apple-1 Woz Monitor...");
                 Logger.Debug("Apple-1 boot.monitor started; terminalVersion={Version}", terminalVersionBeforeMonitor);
@@ -280,7 +283,7 @@ public sealed class Apple1MachineSession : IMachineSession
                 var monitorResult = await RunUntil(
                     () =>
                     {
-                        var term = _machine.Apple1Terminal;
+                        var term = _terminal;
                         if (term is null) return false;
                         return term.Version > terminalVersionBeforeMonitor
                             && Apple1PromptDetector.LooksLikeWozPrompt(term.Text);
@@ -290,7 +293,7 @@ public sealed class Apple1MachineSession : IMachineSession
                     cancellationToken);
 
                 PublishSnapshot();
-                string terminal = _machine.Apple1Terminal?.Text ?? string.Empty;
+                string terminal = _terminal?.Text ?? string.Empty;
 
                 if (monitorResult && Apple1PromptDetector.LooksLikeWozPrompt(terminal))
                 {
@@ -317,7 +320,7 @@ public sealed class Apple1MachineSession : IMachineSession
 
                 await SendLineAsync("E000R", cancellationToken);
 
-                string basicTerminal = _machine.Apple1Terminal?.Text ?? string.Empty;
+                string basicTerminal = _terminal?.Text ?? string.Empty;
                 string basicSuffix = basicTerminal.Length >= 40 ? basicTerminal[^40..] : basicTerminal;
 
                 if (Apple1PromptDetector.LooksLikeBasicPrompt(basicTerminal))
@@ -365,7 +368,7 @@ public sealed class Apple1MachineSession : IMachineSession
             case "apple1.send-line":
                 if (parameter is string line)
                 {
-                    if (_machine is not null && !_isRunning && _machine.Apple1Terminal is not null)
+                    if (_machine is not null && !_isRunning && _terminal is not null)
                         await SendLineAsync(line, cancellationToken);
                     else
                         Logger.Debug("Apple-1 send-line: skipped (not stopped or no terminal)");
@@ -447,7 +450,7 @@ public sealed class Apple1MachineSession : IMachineSession
     public async ValueTask DisposeAsync()
     {
         await PauseAsync();
-        _machine = null;
+        _runtime = null;
         Logger.Info("Apple-1 session disposed");
     }
 }

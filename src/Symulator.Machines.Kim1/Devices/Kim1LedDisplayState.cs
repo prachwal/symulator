@@ -1,4 +1,4 @@
-namespace CmosCpu.Computer;
+namespace Symulator.Machines.Kim1.Devices;
 
 public sealed class Kim1LedDisplayState
 {

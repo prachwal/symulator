@@ -5,6 +5,7 @@
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Kim1DeviceTests.cs;Apple1PiaTerminalTests.cs</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\CmosCpu.Computer\CmosCpu.Computer.csproj" />
     <ProjectReference Include="..\..\src\CmosCpu.Core\CmosCpu.Core.csproj" />
+    <ProjectReference Include="..\..\src\Symulator.Machines.Retro70\Symulator.Machines.Retro70.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,6 +1,7 @@
 using System.Text;
+using CmosCpu.Computer;
 
-namespace CmosCpu.Computer;
+namespace Symulator.Machines.Apple1.Devices;
 
 public sealed class Apple1BasicBootController
 {
