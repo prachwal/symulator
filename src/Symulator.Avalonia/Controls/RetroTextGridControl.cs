@@ -3,11 +3,14 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using NLog;
 
 namespace Symulator.Avalonia.Controls;
 
 public class RetroTextGridControl : Control
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     public static readonly StyledProperty<char[,]> CellsProperty =
         AvaloniaProperty.Register<RetroTextGridControl, char[,]>(nameof(Cells));
 
@@ -36,8 +39,6 @@ public class RetroTextGridControl : Control
     private double _cellWidth = 10;
     private double _cellHeight = 18;
     private Typeface? _typeface;
-    private IBrush? _fgBrush;
-    private IBrush? _bgBrush;
 
     static RetroTextGridControl()
     {
@@ -51,10 +52,12 @@ public class RetroTextGridControl : Control
         try
         {
             _typeface = new Typeface("avares://Symulator.Avalonia/Assets/Fonts/Apple1/#Apple1");
+            Logger.Info("Apple-1 font typeface requested: {FontUri}", "avares://Symulator.Avalonia/Assets/Fonts/Apple1/#Apple1");
         }
-        catch
+        catch (Exception ex)
         {
             _typeface = new Typeface(FontFamily.Default);
+            Logger.Warn(ex, "Apple-1 font failed to load, falling back to default font");
         }
     }
 
@@ -65,10 +68,10 @@ public class RetroTextGridControl : Control
 
     public override void Render(DrawingContext context)
     {
-        _fgBrush ??= new ImmutableSolidColorBrush(ForegroundColor);
-        _bgBrush ??= new ImmutableSolidColorBrush(BackgroundColor);
+        var fgBrush = new ImmutableSolidColorBrush(ForegroundColor);
+        var bgBrush = new ImmutableSolidColorBrush(BackgroundColor);
 
-        context.FillRectangle(_bgBrush, new Rect(Bounds.Size));
+        context.FillRectangle(bgBrush, new Rect(Bounds.Size));
 
         var cells = Cells;
         if (cells is null) return;
@@ -94,7 +97,7 @@ public class RetroTextGridControl : Control
                         FlowDirection.LeftToRight,
                         tf,
                         fontSize,
-                        _fgBrush);
+                        fgBrush);
                     context.DrawText(ft, pt);
                 }
             }

@@ -86,7 +86,7 @@ public sealed class Pia6821 : IMemoryMappedDevice, IInterruptSource
             OnPortARead?.Invoke();
             return result;
         }
-        OnPortARead?.Invoke();
+
         return _portADdr;
     }
 

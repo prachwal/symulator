@@ -24,6 +24,23 @@ public sealed class Apple1MachineSession : IMachineSession
     private bool _isRunning;
     private Apple1BootState _bootState = Apple1BootState.NotInitialized;
 
+    private void SetBootState(Apple1BootState newState, string reason)
+    {
+        if (_bootState == newState)
+            return;
+
+        Logger.Info(
+            "Apple-1 boot state transition: {OldState} -> {NewState}; reason={Reason}; pc=0x{PC:X4}; cycles={Cycles}; terminalVersion={TerminalVersion}",
+            _bootState,
+            newState,
+            reason,
+            _machine?.Cpu.PC ?? 0,
+            _machine?.Cpu.CycleCount ?? 0,
+            TerminalVersion);
+
+        _bootState = newState;
+    }
+
     private const int _instructionsPerBatch = 100;
     private const int _uiRefreshDelayMs = 16;
 
@@ -91,9 +108,10 @@ public sealed class Apple1MachineSession : IMachineSession
         if (!EnsureMachineCreated())
             return Task.CompletedTask;
 
+        _wiring?.Reset();
         _machine!.Reset();
         Logger.Debug("Apple-1 machine reset complete; bootState={BootState}", _bootState);
-        _bootState = Apple1BootState.Reset;
+        SetBootState(Apple1BootState.Reset, "ResetAsync");
         _isRunning = false;
 
         PublishSnapshot();
@@ -218,27 +236,34 @@ public sealed class Apple1MachineSession : IMachineSession
             return;
         }
 
+        var expectedEcho = new System.Text.StringBuilder();
+
         foreach (char c in inputText)
         {
-            var versionBefore = TerminalVersion;
+            expectedEcho.Append(c);
+
             _wiring.QueueKey(c);
             Logger.Trace("Apple-1 input char: '{Char}' raw=0x{Raw:X2}", c == '\r' ? "CR" : c.ToString(), (byte)c);
 
+            var charSpecific = c.ToString();
+            var echoTarget = expectedEcho.ToString();
+
             await RunUntil(
-                () => TerminalVersion > versionBefore && !_wiring.HasPendingKey,
+                () =>
+                    !_wiring.HasPendingKey &&
+                    TerminalText.Contains(echoTarget, StringComparison.Ordinal),
                 10000,
-                $"Input char '{c}'",
+                $"Input char '{charSpecific}'",
                 cancellationToken);
         }
 
-        var versionBeforeCr = TerminalVersion;
         _wiring.QueueKey('\r');
         Logger.Trace("Apple-1 input char: 'CR' raw=0x0D");
 
         var processed = await RunUntil(
             () =>
             {
-                if (TerminalVersion <= versionBeforeCr)
+                if (_wiring.HasPendingKey)
                     return false;
 
                 return _bootState switch
@@ -262,10 +287,19 @@ public sealed class Apple1MachineSession : IMachineSession
 
         if (!processed)
         {
-            Logger.Warn("Apple-1 send-line did not reach stable prompt state; input='{Input}'; pc=0x{Pc:X4}",
+            Logger.Warn(
+                "Apple-1 send-line did not reach stable prompt state; input='{Input}'; pc=0x{Pc:X4}; cycles={Cycles}; terminalSuffix='{TerminalSuffix}'",
                 inputText,
-                _machine.Cpu.PC);
+                _machine.Cpu.PC,
+                _machine.Cpu.CycleCount,
+                GetTerminalSuffix(120));
         }
+    }
+
+    private string GetTerminalSuffix(int maxLength)
+    {
+        var text = TerminalText.Replace("\r", "\\r").Replace("\n", "\\n");
+        return text.Length <= maxLength ? text : text[^maxLength..];
     }
 
     public async Task<MachineCommandResult> ExecuteMachineCommandAsync(string commandId, object? parameter = null, CancellationToken cancellationToken = default)
@@ -276,9 +310,10 @@ public sealed class Apple1MachineSession : IMachineSession
                 if (!EnsureMachineCreated())
                     return MachineCommandResult.Failure("Cannot create Apple-1 machine");
 
+                _wiring?.Reset();
                 _machine!.Reset();
                 var terminalVersionBeforeMonitor = TerminalVersion;
-                _bootState = Apple1BootState.BootingMonitor;
+                SetBootState(Apple1BootState.BootingMonitor, "boot.monitor requested");
                 _notificationSink?.Info("Booting Apple-1 Woz Monitor...");
                 Logger.Debug("Apple-1 boot.monitor started; terminalVersion={Version}", terminalVersionBeforeMonitor);
 
@@ -297,14 +332,14 @@ public sealed class Apple1MachineSession : IMachineSession
 
                 if (monitorResult && Apple1PromptDetector.LooksLikeWozPrompt(terminal))
                 {
-                    _bootState = Apple1BootState.MonitorReady;
+                    SetBootState(Apple1BootState.MonitorReady, "monitor prompt detected");
                     if (_workspaceVm is not null) _workspaceVm.ModeText = "MonitorReady";
                     StatusChanged?.Invoke(this, "Woz Monitor ready");
                     Logger.Info("Apple-1 Woz Monitor booted successfully");
                     return MachineCommandResult.Success();
                 }
 
-                _bootState = Apple1BootState.Error;
+                SetBootState(Apple1BootState.Error, "monitor prompt not detected");
                 if (_workspaceVm is not null) _workspaceVm.ModeText = "Error";
                 _notificationSink?.Warning("Apple-1 Woz Monitor did not show prompt", terminal);
                 return MachineCommandResult.Failure($"Woz Monitor did not show prompt. Terminal output: {terminal[..Math.Min(terminal.Length, 200)]}");
@@ -313,8 +348,9 @@ public sealed class Apple1MachineSession : IMachineSession
                 if (!EnsureMachineCreated())
                     return MachineCommandResult.Failure("Cannot create Apple-1 machine");
 
+                _wiring?.Reset();
                 _machine!.Reset();
-                _bootState = Apple1BootState.BootingBasic;
+                SetBootState(Apple1BootState.BootingBasic, "boot.basic requested");
                 _notificationSink?.Info("Booting Apple-1 BASIC...");
                 Logger.Debug("Apple-1 boot.basic started");
 
@@ -327,14 +363,14 @@ public sealed class Apple1MachineSession : IMachineSession
                 {
                     Logger.Debug("Apple-1 BASIC boot condition met: pc=0x{Pc:X4}; terminal={Terminal}",
                         _machine.Cpu.PC, basicSuffix.Replace("\n", "\\n"));
-                    _bootState = Apple1BootState.BasicReady;
+                    SetBootState(Apple1BootState.BasicReady, "basic prompt detected");
                     if (_workspaceVm is not null) _workspaceVm.ModeText = "BasicReady";
                     StatusChanged?.Invoke(this, "BASIC ready");
                     Logger.Info("Apple-1 BASIC booted successfully");
                     return MachineCommandResult.Success();
                 }
 
-                _bootState = Apple1BootState.Error;
+                SetBootState(Apple1BootState.Error, "basic prompt not detected");
                 if (_workspaceVm is not null) _workspaceVm.ModeText = "Error";
 
                 byte resetLo = _machine.Memory.ReadByte(0xFFFC);
@@ -406,7 +442,14 @@ public sealed class Apple1MachineSession : IMachineSession
             }
         }
 
-        Logger.Warn("Apple-1 RunUntil exhausted without meeting condition: {ProgressMessage}; maxInstructions={MaxInstructions}", progressMessage, maxInstructions);
+        Logger.Warn(
+            "Apple-1 RunUntil exhausted: {ProgressMessage}; maxInstructions={MaxInstructions}; pc=0x{PC:X4}; cycles={Cycles}; terminalVersion={TerminalVersion}; terminalSuffix='{TerminalSuffix}'",
+            progressMessage,
+            maxInstructions,
+            _machine!.Cpu.PC,
+            _machine.Cpu.CycleCount,
+            TerminalVersion,
+            GetTerminalSuffix(120));
         return false;
     }
 
@@ -439,6 +482,10 @@ public sealed class Apple1MachineSession : IMachineSession
             _workspaceVm.TerminalOutput = terminalText;
             _workspaceVm.ModeText = modeText;
             _workspaceVm.StatusText = statusText;
+
+            // Copy buffer cells for RetroTextGridControl rendering
+            if (_buffer is not null)
+                _workspaceVm.ScreenCells = _buffer.Cells;
         };
 
         if (_uiDispatcher is not null)

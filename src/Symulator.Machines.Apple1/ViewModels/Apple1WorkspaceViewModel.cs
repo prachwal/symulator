@@ -16,6 +16,7 @@ public sealed class Apple1WorkspaceViewModel : INotifyPropertyChanged
     private string _inputText = string.Empty;
     private string _statusText = "Not initialized";
     private string _modeText = "NotInitialized";
+    private char[,]? _screenCells;
 
     public Apple1WorkspaceViewModel(IMachineSession session, IMachineNotificationSink? sink = null)
     {
@@ -49,6 +50,12 @@ public sealed class Apple1WorkspaceViewModel : INotifyPropertyChanged
     {
         get => _modeText;
         set { _modeText = value; OnPropertyChanged(); }
+    }
+
+    public char[,]? ScreenCells
+    {
+        get => _screenCells;
+        set { _screenCells = value; OnPropertyChanged(); }
     }
 
     public ICommand BootMonCommand { get; }

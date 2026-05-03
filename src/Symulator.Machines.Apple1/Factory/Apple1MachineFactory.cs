@@ -46,9 +46,16 @@ public static class Apple1MachineFactory
         var pia = new CmosCpu.Computer.Devices.Pia6821(0xD010, 0xD013);
         var buffer = new Devices.Apple1TerminalBuffer(columns, rows);
         var wiring = new Devices.Apple1PiaWiring(pia, buffer);
+        var piaBusDevice = new Devices.Apple1PiaBusDevice(pia);
 
-        machine.MapDevice(pia.StartAddress, (ushort)(pia.EndAddress - pia.StartAddress + 1),
-            pia.Read, pia.Write);
+        machine.MapDevice(piaBusDevice);
+
+        Logger.Info(
+            "Apple-1 PIA mapped: start=0x{Start:X4}, end=0x{End:X4}, busDevice={BusDevice}, chip={Chip}",
+            piaBusDevice.StartAddress,
+            piaBusDevice.EndAddress,
+            nameof(Devices.Apple1PiaBusDevice),
+            nameof(CmosCpu.Computer.Devices.Pia6821));
 
         LogDiagnostics(machine);
 
