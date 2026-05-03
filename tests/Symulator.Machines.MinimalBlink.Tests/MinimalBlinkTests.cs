@@ -148,6 +148,124 @@ public sealed class MinimalBlinkCpuTests
         cpu.Halted.Should().BeTrue();
         cpu.LastError.Should().Contain("0xFF");
     }
+
+    [TestMethod]
+    public void AndImmediate_ShouldMaskAccumulator()
+    {
+        var mem = new MinimalBlinkMemory();
+        var cpu = new MinimalBlinkCpu(mem);
+        mem.WriteByte(0x0100, 0x0B); // AND #imm
+        mem.WriteByte(0x0101, 0x80);
+        cpu.PC = 0x0100;
+        cpu.A = 0x81;
+
+        cpu.Step();
+
+        cpu.A.Should().Be(0x80);
+        cpu.Z.Should().BeFalse();
+        cpu.N.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void AndImmediate_ZeroResult_ShouldSetZ()
+    {
+        var mem = new MinimalBlinkMemory();
+        var cpu = new MinimalBlinkCpu(mem);
+        mem.WriteByte(0x0100, 0x0B);
+        mem.WriteByte(0x0101, 0x80);
+        cpu.PC = 0x0100;
+        cpu.A = 0x01;
+
+        cpu.Step();
+
+        cpu.A.Should().Be(0x00);
+        cpu.Z.Should().BeTrue();
+        cpu.N.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void Bne_ShouldBranch_WhenZIsFalse()
+    {
+        var mem = new MinimalBlinkMemory();
+        var cpu = new MinimalBlinkCpu(mem);
+        mem.WriteByte(0x0100, 0x0C); // BNE
+        mem.WriteByte(0x0101, 0x02); // +2 → skip 1 NOP, land at $0104
+        mem.WriteByte(0x0102, 0x00); // NOP (skipped)
+        mem.WriteByte(0x0103, 0x00); // NOP (skipped)
+        mem.WriteByte(0x0104, 0x07); // HLT (land here)
+        cpu.PC = 0x0100;
+        cpu.Z = false;
+
+        cpu.Step();
+
+        cpu.PC.Should().Be(0x0104);
+    }
+
+    [TestMethod]
+    public void Bne_ShouldNotBranch_WhenZIsTrue()
+    {
+        var mem = new MinimalBlinkMemory();
+        var cpu = new MinimalBlinkCpu(mem);
+        mem.WriteByte(0x0100, 0x0C); // BNE
+        mem.WriteByte(0x0101, 0x03); // +3
+        cpu.PC = 0x0100;
+        cpu.Z = true;
+
+        cpu.Step();
+
+        cpu.PC.Should().Be(0x0102);
+    }
+
+    [TestMethod]
+    public void Bne_NegativeOffset_ShouldBranchBackward()
+    {
+        var mem = new MinimalBlinkMemory();
+        var cpu = new MinimalBlinkCpu(mem);
+        mem.WriteByte(0x0100, 0x0C); // BNE
+        mem.WriteByte(0x0101, 0xFE); // -2 → loops to $0100
+        cpu.PC = 0x0100;
+        cpu.Z = false;
+
+        cpu.Step();
+
+        cpu.PC.Should().Be(0x0100);
+    }
+
+    [TestMethod]
+    public void JsrRts_ShouldReturnToInstructionAfterJsr()
+    {
+        var mem = new MinimalBlinkMemory();
+        var cpu = new MinimalBlinkCpu(mem);
+
+        // JSR at $01F8 to $01F4 (RTS below stack push range $01FE-$01FF)
+        // JSR pushes $01FA, jumps to $01F4
+        // RTS at $01F4 returns to $01FA+1 = $01FB
+        mem.Load(0x01F0,
+        [
+            0x0E,             // RTS at $01F0
+            0x00,             // NOP at $01F1
+            0x00,             // NOP at $01F2
+            0x00,             // NOP at $01F3
+            0x0E,             // RTS at $01F4
+            0x00,             // NOP at $01F5
+            0x00,             // NOP at $01F6
+            0x00,             // NOP at $01F7
+            0x0D, 0xF4, 0x01, // JSR $01F4 at $01F8
+            0x01, 0x42,       // LDA #$42 at $01FB
+            0x07,             // HLT at $01FD
+        ]);
+
+        cpu.PC = 0x01F8;
+
+        cpu.Step(); // JSR: pushes $01FA, jumps to $01F4
+        cpu.PC.Should().Be(0x01F4, "JSR should jump to RTS at $01F4");
+
+        cpu.Step(); // RTS: pops $01FA, sets PC = $01FA+1 = $01FB
+        cpu.PC.Should().Be(0x01FB, "RTS should return to $01FB after JSR");
+
+        cpu.Step(); // LDA #$42 at $01FB
+        cpu.A.Should().Be(0x42, "after RTS the next instruction should execute");
+    }
 }
 
 [TestClass]

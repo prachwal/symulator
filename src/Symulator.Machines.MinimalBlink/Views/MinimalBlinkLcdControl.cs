@@ -13,9 +13,9 @@ public class MinimalBlinkLcdControl : Control
     public bool[,]? Pixels { get => GetValue(PixelsProperty); set => SetValue(PixelsProperty, value); }
 
     private const double Dot = 3.0;
-    private const double Gap = 1.0;
-    private const double CharGap = 2.0;
-    private const double RowGap = 3.0;
+    private const double Gap = 1.0;          // między kropkami
+    private const double CharGap = 4.0;       // 1 kolumna odstępu (jak HD44780)
+    private const double RowGap = 4.0;        // 1 wiersz odstępu między liniami
     private const double Margin = 4.0;
     private const double FrameW = 2.0;
     private const int CharW = 5;
@@ -83,7 +83,10 @@ public class MinimalBlinkLcdControl : Control
                     {
                         int bx = col * CharW + px;
                         int by = row * CharH + py;
-                        bool isOn = bx < pixels.GetLength(0) && by < pixels.GetLength(1) && pixels[bx, by];
+                        bool isOn = px < CharW
+                            && bx < pixels.GetLength(0)
+                            && by < pixels.GetLength(1)
+                            && pixels[bx, by];
 
                         if (isOn && runStart < 0) runStart = px;
                         if (!isOn && runStart >= 0)

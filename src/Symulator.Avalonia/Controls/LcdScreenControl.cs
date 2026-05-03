@@ -51,8 +51,8 @@ public class LcdScreenControl : Control
     // --- Layout constants ---
 
     private const double Gap = 1.0;          // między pikselami w znaku
-    private const double CharGap = 2.0;       // między znakami
-    private const double RowGap = 3.0;         // między liniami 16×2
+    private const double CharGap = 4.0;       // 1 kolumna odstępu (jak HD44780)
+    private const double RowGap = 4.0;        // 1 wiersz odstępu między liniami
     private new const double Margin = 6.0;     // margines wewnątrz ramki
     private const double FrameWidth = 3.0;     // grubość ramki
 
@@ -162,7 +162,8 @@ public class LcdScreenControl : Control
                         int bx = col * LcdPixelBuffer.CharWidth + px;
                         int by = row * LcdPixelBuffer.CharHeight + py;
 
-                        bool isOn = bx < pixels.GetLength(0) && by < pixels.GetLength(1)
+                        bool isOn = px < LcdPixelBuffer.CharWidth
+                            && bx < pixels.GetLength(0) && by < pixels.GetLength(1)
                             && pixels[bx, by];
 
                         if (isOn && runStart < 0)

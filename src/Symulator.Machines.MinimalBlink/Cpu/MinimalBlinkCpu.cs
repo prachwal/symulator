@@ -199,7 +199,8 @@ public sealed class MinimalBlinkCpu
             {
                 byte low = PullByte();
                 byte high = PullByte();
-                PC = (ushort)((high << 8) | low + 1);
+                ushort returnAddress = (ushort)(low | (high << 8));
+                PC = (ushort)(returnAddress + 1);
                 CycleCount += 6;
                 return 6;
             }
