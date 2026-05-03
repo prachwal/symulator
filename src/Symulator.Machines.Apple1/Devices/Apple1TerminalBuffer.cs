@@ -5,6 +5,7 @@ namespace Symulator.Machines.Apple1.Devices;
 public sealed class Apple1TerminalBuffer
 {
     private readonly char[,] _cells;
+    private readonly StringBuilder _outputStream = new();
     private int _cursorRow;
     private int _cursorCol;
     private long _version;
@@ -16,6 +17,7 @@ public sealed class Apple1TerminalBuffer
     public int CursorColumn => _cursorCol;
     public long Version => _version;
     public string Text => GetText();
+    public string OutputStream => _outputStream.ToString();
 
     public Apple1TerminalBuffer(int columns = 40, int rows = 24)
     {
@@ -32,6 +34,7 @@ public sealed class Apple1TerminalBuffer
                 _cells[r, c] = ' ';
         _cursorRow = 0;
         _cursorCol = 0;
+        _outputStream.Clear();
         _version++;
     }
 
@@ -44,6 +47,7 @@ public sealed class Apple1TerminalBuffer
             _cursorCol = 0;
             if (_cursorRow < Rows - 1)
                 _cursorRow++;
+            _outputStream.Append('\n');
             _version++;
             return;
         }
@@ -53,6 +57,7 @@ public sealed class Apple1TerminalBuffer
 
         _cells[_cursorRow, _cursorCol] = (char)ch;
         _cursorCol++;
+        _outputStream.Append((char)ch);
 
         if (_cursorCol >= Columns)
         {

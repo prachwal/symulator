@@ -77,6 +77,7 @@ public sealed class Apple1MachineSession : IMachineSession
     }
 
     private string TerminalText => _buffer?.Text ?? string.Empty;
+    private string TerminalOutputStream => _buffer?.OutputStream ?? string.Empty;
     private long TerminalVersion => _buffer?.Version ?? 0L;
 
     private bool EnsureMachineCreated()
@@ -131,7 +132,7 @@ public sealed class Apple1MachineSession : IMachineSession
         }
 
         _machine.Step();
-        Logger.Debug("Apple-1 single step executed; cycles={Cycles}; pc={Pc}", _machine.Cpu.CycleCount, _machine.Cpu.PC);
+        Logger.Debug("Apple-1 single step executed; cycles={Cycles}; pc=0x{PC:X4}", _machine.Cpu.CycleCount, _machine.Cpu.PC);
         PublishSnapshot();
         return Task.CompletedTask;
     }
@@ -251,7 +252,7 @@ public sealed class Apple1MachineSession : IMachineSession
             await RunUntil(
                 () =>
                     !_wiring.HasPendingKey &&
-                    TerminalText.Contains(echoTarget, StringComparison.Ordinal),
+                    TerminalOutputStream.Contains(echoTarget, StringComparison.Ordinal),
                 10000,
                 $"Input char '{charSpecific}'",
                 cancellationToken);
@@ -270,7 +271,8 @@ public sealed class Apple1MachineSession : IMachineSession
                 {
                     Apple1BootState.BasicReady => Apple1PromptDetector.LooksLikeBasicPrompt(TerminalText),
                     Apple1BootState.BootingBasic => Apple1PromptDetector.LooksLikeBasicPrompt(TerminalText),
-                    Apple1BootState.MonitorReady => Apple1PromptDetector.LooksLikeWozPrompt(TerminalText),
+                    Apple1BootState.MonitorReady => Apple1PromptDetector.LooksLikeWozPrompt(TerminalText)
+                        || _machine?.Cpu.PC is 0xFF29 or 0xFF2C,
                     _ => true
                 };
             },
@@ -429,7 +431,7 @@ public sealed class Apple1MachineSession : IMachineSession
 
             if (i % 5000 == 0)
             {
-                Logger.Trace("Apple-1 RunUntil progress: {ProgressMessage}; step={Step}; cycles={Cycles}; pc={Pc}", progressMessage, i, _machine!.Cpu.CycleCount, _machine.Cpu.PC);
+                Logger.Trace("Apple-1 RunUntil progress: {ProgressMessage}; step={Step}; cycles={Cycles}; pc=0x{PC:X4}", progressMessage, i, _machine!.Cpu.CycleCount, _machine.Cpu.PC);
                 PublishSnapshot();
                 StatusChanged?.Invoke(this, $"{progressMessage} ({i}/{maxInstructions})");
                 await Task.Yield();
@@ -437,7 +439,7 @@ public sealed class Apple1MachineSession : IMachineSession
 
             if (condition())
             {
-                Logger.Debug("Apple-1 RunUntil condition met: {ProgressMessage}; step={Step}; cycles={Cycles}; pc={Pc}", progressMessage, i, _machine!.Cpu.CycleCount, _machine.Cpu.PC);
+                Logger.Debug("Apple-1 RunUntil condition met: {ProgressMessage}; step={Step}; cycles={Cycles}; pc=0x{PC:X4}", progressMessage, i, _machine!.Cpu.CycleCount, _machine.Cpu.PC);
                 return true;
             }
         }
