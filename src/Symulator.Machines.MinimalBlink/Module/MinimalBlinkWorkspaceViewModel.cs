@@ -4,6 +4,7 @@ using System.Windows.Input;
 using Avalonia.Media;
 using Symulator.Application.Abstractions;
 using Symulator.Application.Assembly;
+using Symulator.Application.Solutions;
 using Symulator.Machines.MinimalBlink.Models;
 using Symulator.Machines.MinimalBlink.Programs;
 
@@ -13,6 +14,7 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
 {
     private readonly IMachineSession _session;
     private readonly AssemblyProgramCatalog _catalog = new();
+    private readonly SolutionDefinitionLoader _solutionLoader = new();
 
     private static string? FindAsmDirectory()
     {
@@ -26,6 +28,7 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         }
         return null;
     }
+
     private string _statusText = "Ready";
     private string _pc = "$0000";
     private string _a = "$00";
@@ -38,16 +41,22 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     private string? _lastError;
     private MinimalBlinkPredefinedProgram? _selectedProgram;
     private IBrush _ledColor = OffBrush;
-    private bool _isApplyingSnapshot;
     private bool[,]? _lcdPixels;
     private List<string>? _terminalLines;
     private string _terminalInputText = string.Empty;
     private string _asmSourceText = string.Empty;
     private string _programStatus = "Not compiled";
+    private string _selectedSolutionSummary = "No solution selected";
     private List<AssemblyListingLine>? _listingLines;
     private int? _currentListingLineIndex;
     private AssemblySourceProgram? _selectedAsmProgram;
+    private SolutionDefinition? _selectedSolution;
     private List<AssemblySourceProgram> _asmPrograms = new();
+    private bool _showCpuModule = true;
+    private bool _showLedModule;
+    private bool _showLcdModule;
+    private bool _showUartModule;
+    private bool _showI2cModule;
 
     private static readonly IBrush OnBrush = new SolidColorBrush(Color.Parse("#4DFF88"));
     private static readonly IBrush OffBrush = new SolidColorBrush(Color.Parse("#1a3a2a"));
@@ -66,7 +75,6 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         CompileCommand = new AsyncRelayCommand(CompileAsync);
         LoadAndResetCommand = new AsyncRelayCommand(LoadAndResetAsync);
 
-        // Load ASM programs from directory
         _ = InitializeAsmProgramsAsync();
     }
 
@@ -115,8 +123,6 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         set { _terminalInputText = value; OnPropertyChanged(); }
     }
 
-    // ── ASM Assembler / Program Lifecycle ──────────────────────────
-
     public string AsmSourceText
     {
         get => _asmSourceText;
@@ -127,6 +133,12 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     {
         get => _programStatus;
         set { _programStatus = value; OnPropertyChanged(); }
+    }
+
+    public string SelectedSolutionSummary
+    {
+        get => _selectedSolutionSummary;
+        set { _selectedSolutionSummary = value; OnPropertyChanged(); }
     }
 
     public List<AssemblyListingLine>? ListingLines
@@ -151,6 +163,36 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         set { _currentListingLineIndex = value; OnPropertyChanged(); }
     }
 
+    public bool ShowCpuModule
+    {
+        get => _showCpuModule;
+        set { _showCpuModule = value; OnPropertyChanged(); }
+    }
+
+    public bool ShowLedModule
+    {
+        get => _showLedModule;
+        set { _showLedModule = value; OnPropertyChanged(); }
+    }
+
+    public bool ShowLcdModule
+    {
+        get => _showLcdModule;
+        set { _showLcdModule = value; OnPropertyChanged(); }
+    }
+
+    public bool ShowUartModule
+    {
+        get => _showUartModule;
+        set { _showUartModule = value; OnPropertyChanged(); }
+    }
+
+    public bool ShowI2cModule
+    {
+        get => _showI2cModule;
+        set { _showI2cModule = value; OnPropertyChanged(); }
+    }
+
     public void UpdateCurrentInstructionFromPc(ushort pc)
     {
         var lines = ExecutableListingLines;
@@ -160,7 +202,6 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
             return;
         }
 
-        // Clear all markers first
         foreach (var line in lines)
             line.CurrentLineMarker = string.Empty;
 
@@ -178,6 +219,8 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         {
             CurrentListingLineIndex = null;
         }
+
+        OnPropertyChanged(nameof(ExecutableListingLines));
     }
 
     public List<AssemblySourceProgram> AsmPrograms
@@ -201,8 +244,10 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
             {
                 AsmSourceText = string.Empty;
                 ProgramStatus = "No ASM program selected";
+                SelectedSolutionSummary = "No solution selected";
                 ListingLines = null;
                 CurrentListingLineIndex = null;
+                ApplySolutionToVisibleModules(null);
                 return;
             }
 
@@ -210,7 +255,55 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
             ProgramStatus = $"Selected, not compiled: {value.Id}";
             ListingLines = null;
             CurrentListingLineIndex = null;
+            _ = LoadSelectedSolutionAsync(value);
         }
+    }
+
+    private async Task LoadSelectedSolutionAsync(AssemblySourceProgram program)
+    {
+        try
+        {
+            _selectedSolution = await _solutionLoader.LoadForSourceAsync(program.FilePath);
+            SelectedSolutionSummary = $"Solution: {_selectedSolution.Name}";
+            ApplySolutionToVisibleModules(_selectedSolution);
+        }
+        catch (Exception ex)
+        {
+            _selectedSolution = SolutionDefinition.CreateFallback(program.Id, Path.GetFileName(program.FilePath));
+            SelectedSolutionSummary = $"Solution fallback: {program.Id}";
+            ApplySolutionToVisibleModules(_selectedSolution);
+            System.Diagnostics.Debug.WriteLine($"Failed to load solution manifest: {ex.Message}");
+        }
+    }
+
+    private void ApplySolutionToVisibleModules(SolutionDefinition? solution)
+    {
+        if (solution is null)
+        {
+            ShowCpuModule = true;
+            ShowLedModule = false;
+            ShowLcdModule = false;
+            ShowUartModule = false;
+            ShowI2cModule = false;
+            return;
+        }
+
+        var visibleModuleIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in solution.Ui.Layout.Left) visibleModuleIds.Add(id);
+        foreach (var id in solution.Ui.Layout.Center) visibleModuleIds.Add(id);
+        foreach (var id in solution.Ui.Layout.Right) visibleModuleIds.Add(id);
+        foreach (var id in solution.Ui.Layout.Bottom) visibleModuleIds.Add(id);
+
+        bool HasDeviceType(string type) => solution.Devices.Any(d =>
+            d.Visible &&
+            visibleModuleIds.Contains(d.Id) &&
+            string.Equals(d.Type, type, StringComparison.OrdinalIgnoreCase));
+
+        ShowCpuModule = visibleModuleIds.Contains("cpu") || HasDeviceType("cpu");
+        ShowLedModule = HasDeviceType("led-mmio");
+        ShowLcdModule = HasDeviceType("hd44780-mmio") || HasDeviceType("hd44780-pcf8574");
+        ShowUartModule = HasDeviceType("uart-mmio");
+        ShowI2cModule = HasDeviceType("i2c-controller-mmio");
     }
 
     public async Task SendTerminalInputAsync()
@@ -220,7 +313,6 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         if (string.IsNullOrWhiteSpace(text))
             return;
 
-        // Echo locally so UI shows what was typed (before CPU echoes)
         var currentLines = _terminalLines ?? new List<string>();
         _terminalLines = new List<string>(currentLines) { $"> {text}" };
         OnPropertyChanged(nameof(TerminalLines));
@@ -327,7 +419,8 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         {
             var errors = string.Join("; ",
                 result.Diagnostics.Where(d => d.Severity == "Error").Select(d => d.Message));
-            ProgramStatus = $"Compile failed: {errors}"[..Math.Min(120, $"Compile failed: {errors}".Length)];
+            var message = $"Compile failed: {errors}";
+            ProgramStatus = message[..Math.Min(120, message.Length)];
             ListingLines = null;
             CurrentListingLineIndex = null;
             return MachineCommandResult.Failure(errors);
