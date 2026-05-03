@@ -24,13 +24,17 @@ public sealed class MinimalBlinkHardwareRuntime
     public MemoryMappedUartAdapter? UartAdapter { get; init; }
     public TerminalBuffer? Terminal { get; init; }
 
-    public bool HasDevice(string type) => type switch
+    public IReadOnlySet<string> DeviceTypes { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    public bool HasDevice(string type) => DeviceTypes.Contains(type);
+
+    public bool HasRuntimeInstance(string type) => type switch
     {
         "cpu" => true,
-        "led-mmio" => true,
+        "led-mmio" => true, // LED is always built with MinimalBlinkMemory
         "uart-mmio" => Uart is not null,
         "hd44780-mmio" => Lcd is not null,
         "i2c-controller-mmio" => I2cController is not null,
-        _ => false
+        _ => DeviceTypes.Contains(type)
     };
 }

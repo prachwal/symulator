@@ -5,8 +5,6 @@ using Avalonia.Media;
 using Symulator.Application.Abstractions;
 using Symulator.Application.Assembly;
 using Symulator.Application.Solutions;
-using Symulator.Machines.MinimalBlink.Models;
-using Symulator.Machines.MinimalBlink.Programs;
 
 namespace Symulator.Machines.MinimalBlink.Module;
 
@@ -39,7 +37,6 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     private long _ledToggleCount;
     private byte _ledLastValue;
     private string? _lastError;
-    private MinimalBlinkPredefinedProgram? _selectedProgram;
     private IBrush _ledColor = OffBrush;
     private bool[,]? _lcdPixels;
     private List<string>? _terminalLines;
@@ -65,9 +62,6 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     public MinimalBlinkWorkspaceViewModel(IMachineSession session)
     {
         _session = session;
-        PredefinedPrograms = MinimalBlinkPredefinedPrograms.All;
-        SelectedProgram = PredefinedPrograms.FirstOrDefault();
-        LoadProgramCommand = new AsyncRelayCommand(LoadProgramAsync);
         ResetCommand = new AsyncRelayCommand(ResetAsync);
         StepCommand = new AsyncRelayCommand(StepAsync);
         RunCommand = new AsyncRelayCommand(RunAsync);
@@ -102,8 +96,6 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
             AsmPrograms = new List<AssemblySourceProgram>();
         }
     }
-
-    public IReadOnlyList<MinimalBlinkPredefinedProgram> PredefinedPrograms { get; }
 
     public bool[,]? LcdPixels
     {
@@ -266,12 +258,19 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
             _selectedSolution = await _solutionLoader.LoadForSourceAsync(program.FilePath);
             SelectedSolutionSummary = $"Solution: {_selectedSolution.Name}";
             ApplySolutionToVisibleModules(_selectedSolution);
+
+            if (_session is MinimalBlinkMachineSession asmSession)
+                asmSession.SetSelectedSolution(_selectedSolution);
         }
         catch (Exception ex)
         {
             _selectedSolution = SolutionDefinition.CreateFallback(program.Id, Path.GetFileName(program.FilePath));
             SelectedSolutionSummary = $"Solution fallback: {program.Id}";
             ApplySolutionToVisibleModules(_selectedSolution);
+
+            if (_session is MinimalBlinkMachineSession asmSession)
+                asmSession.SetSelectedSolution(_selectedSolution);
+
             System.Diagnostics.Debug.WriteLine($"Failed to load solution manifest: {ex.Message}");
         }
     }
@@ -320,25 +319,6 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         await _session.SendInputAsync(text + "\n");
     }
 
-    public void UpdateLoadedProgram(string? loadedId, string? selectedId)
-    {
-        var target = selectedId ?? loadedId;
-        if (target is null) return;
-
-        var program = PredefinedPrograms.FirstOrDefault(p => p.Id == target);
-        if (program is not null && program != _selectedProgram)
-        {
-            _selectedProgram = program;
-            OnPropertyChanged(nameof(SelectedProgram));
-        }
-    }
-
-    public MinimalBlinkPredefinedProgram? SelectedProgram
-    {
-        get => _selectedProgram;
-        set { _selectedProgram = value; OnPropertyChanged(); }
-    }
-
     public string StatusText
     {
         get => _statusText;
@@ -367,21 +347,12 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
             LedColor = OffBrush;
     }
 
-    public ICommand LoadProgramCommand { get; }
     public ICommand ResetCommand { get; }
     public ICommand StepCommand { get; }
     public ICommand RunCommand { get; }
     public ICommand PauseCommand { get; }
     public ICommand CompileCommand { get; }
     public ICommand LoadAndResetCommand { get; }
-
-    private async Task<MachineCommandResult> LoadProgramAsync()
-    {
-        if (SelectedProgram is null)
-            return MachineCommandResult.Failure("No program selected");
-
-        return await _session.ExecuteMachineCommandAsync("minimal-blink.load-predefined-program", SelectedProgram.Id);
-    }
 
     private async Task<MachineCommandResult> ResetAsync()
     {

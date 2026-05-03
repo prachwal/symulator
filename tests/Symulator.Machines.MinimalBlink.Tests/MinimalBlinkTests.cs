@@ -1,6 +1,8 @@
 using FluentAssertions;
 using Symulator.Application.Abstractions;
+using Symulator.Application.Solutions;
 using Symulator.Machines.MinimalBlink.Cpu;
+using Symulator.Machines.MinimalBlink.Hardware;
 using Symulator.Machines.MinimalBlink.Memory;
 using Symulator.Machines.MinimalBlink.Models;
 using Symulator.Machines.MinimalBlink.Module;
@@ -523,5 +525,178 @@ public sealed class MinimalBlinkSessionTests
         // Should not crash and should not load a program
         var snapshot = session.Current;
         snapshot.Should().NotBeNull();
+    }
+}
+
+[TestClass]
+public sealed class MinimalBlinkHardwareSolutionBuilderTests
+{
+    private readonly MinimalBlinkHardwareSolutionBuilder _builder = new();
+
+    [TestMethod]
+    public void Build_Blink_HasLedAndNoUart()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "blink",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "led0", Type = "led-mmio", Name = "LED", Address = "0xFF00", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.HasDevice("led-mmio").Should().BeTrue();
+        runtime.HasDevice("uart-mmio").Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void Build_HelloUart_HasUartAndNoLed()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "hello-uart",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "uart0", Type = "uart-mmio", Name = "UART Terminal", BaseAddress = "0xFE40", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.HasDevice("uart-mmio").Should().BeTrue();
+        runtime.HasDevice("led-mmio").Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void Build_I2cWithPcf8574_DoesNotThrowUnsupportedDeviceType()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "i2c-lcd",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "i2c0", Type = "i2c-controller-mmio", Name = "I2C", BaseAddress = "0xFE30", Visible = true },
+                new DeviceDefinition { Id = "lcd0", Type = "hd44780-pcf8574", Name = "LCD", Address = "0x27", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.HasDevice("i2c-controller-mmio").Should().BeTrue();
+        runtime.HasDevice("hd44780-pcf8574").Should().BeTrue();
+        runtime.I2cBus.Should().NotBeNull();
+        runtime.Lcd.Should().NotBeNull("PCF8574 should create an Hd44780Lcd for rendering");
+        runtime.LcdBuffer.Should().NotBeNull("PCF8574 should create an LcdBuffer for rendering");
+    }
+
+    [TestMethod]
+    public void Build_UnknownDeviceType_Throws()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "unknown",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "bogus", Type = "non-existent-type", Name = "Bogus", Visible = true },
+            ]
+        };
+
+        _builder.Invoking(b => b.Build(solution))
+            .Should().Throw<InvalidOperationException>()
+            .WithMessage("*non-existent-type*");
+    }
+
+    [TestMethod]
+    public void Build_Blink_InvisibleDevices_NotIncludedInHasDevice()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "blink",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "led0", Type = "led-mmio", Name = "LED", Address = "0xFF00", Visible = false },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.HasDevice("led-mmio").Should().BeFalse("invisible devices should not be reported");
+    }
+}
+
+[TestClass]
+public sealed class MinimalBlinkMachineSessionResetTests
+{
+    [TestMethod]
+    public async Task Reset_AfterLegacyProgram_ReloadsLegacyProgram()
+    {
+        await using var session = new MinimalBlinkMachineSession();
+
+        // Load a legacy predefined program
+        var loadResult = await session.ExecuteMachineCommandAsync(
+            "minimal-blink.load-predefined-program", "led-on");
+        loadResult.IsSuccess.Should().BeTrue();
+
+        // Step a few times to change state
+        await session.StepInstructionAsync();
+        var snapshotBefore = session.Current;
+        var pcBefore = snapshotBefore.Cpu?.Pc;
+
+        // Reset
+        await session.ResetAsync();
+
+        // Verify the same program is loaded and PC is reset
+        var snapshotAfter = session.Current;
+        snapshotAfter.Cpu.Should().NotBeNull();
+        snapshotAfter.Cpu!.Pc.Should().Be("$0100");
+    }
+
+    [TestMethod]
+    public async Task Reset_WithoutAnyProgram_ShowsNoLoadedProgram()
+    {
+        await using var session = new MinimalBlinkMachineSession();
+
+        await session.ResetAsync();
+
+        var status = session.GetType().GetField("_status",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            ?.GetValue(session) as string;
+
+        status.Should().Be("Reset: no loaded program");
+    }
+
+    [TestMethod]
+    public async Task Step_WithoutLoadedProgram_DoesNotAutoLoad()
+    {
+        await using var session = new MinimalBlinkMachineSession();
+
+        await session.StepInstructionAsync();
+
+        var status = session.GetType().GetField("_status",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            ?.GetValue(session) as string;
+
+        status.Should().Be("No program loaded. Use Compile and Load & Reset.");
+    }
+
+    [TestMethod]
+    public async Task Run_WithoutLoadedProgram_DoesNotAutoLoad()
+    {
+        await using var session = new MinimalBlinkMachineSession();
+
+        await session.RunAsync();
+
+        var status = session.GetType().GetField("_status",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            ?.GetValue(session) as string;
+
+        status.Should().Be("No program loaded. Use Compile and Load & Reset.");
     }
 }

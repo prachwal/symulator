@@ -220,6 +220,25 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
             return Task.CompletedTask;
         }
 
+        // Legacy predefined program fallback
+        if (_loadedProgramId is not null)
+        {
+            Initialize();
+            var program = MinimalBlinkPredefinedPrograms.FindById(_loadedProgramId);
+            if (program is not null)
+            {
+                _memory!.ClearAll();
+                _memory.Load(program.LoadAddress, program.Bytes);
+                _cpu!.Reset();
+                _cpu.PC = program.StartAddress;
+                _isRunning = false;
+                _status = $"Reset: {program.Name}, PC=${_cpu.PC:X4}";
+                PublishSnapshot();
+                Logger.Info("Minimal Blink reset: {Name} (legacy)", program.Name);
+                return Task.CompletedTask;
+            }
+        }
+
         _status = "Reset: no loaded program";
         PublishSnapshot();
         return Task.CompletedTask;
@@ -460,8 +479,6 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
                     _cpu?.PC ?? 0,
                     string.Join(" ", _lcd.Ddram.Take(16).Select(b => b == 0 ? ".." : $"{(char)b}")));
             }
-
-            _workspaceVm.UpdateLoadedProgram(_loadedProgramId, _selectedProgramId);
 
             if (_terminal is not null)
             {

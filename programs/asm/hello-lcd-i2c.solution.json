@@ -1,0 +1,49 @@
+{
+  "id": "hello-lcd-i2c",
+  "name": "Hello LCD via PCF8574 (I2C)",
+  "source": "hello-lcd-i2c.asm",
+  "entryPoint": "0x0100",
+  "loadAddress": "0x0100",
+  "cpu": {
+    "type": "minimal-blink-cpu",
+    "clockHz": 1000000
+  },
+  "memory": {
+    "ram": [
+      {
+        "start": "0x0000",
+        "size": "0x0100"
+      }
+    ]
+  },
+  "devices": [
+    {
+      "id": "cpu",
+      "type": "cpu",
+      "name": "CPU",
+      "visible": true
+    },
+    {
+      "id": "i2c0",
+      "type": "i2c-controller-mmio",
+      "name": "I2C Controller",
+      "baseAddress": "0xFE30",
+      "visible": true
+    },
+    {
+      "id": "lcd0",
+      "type": "hd44780-pcf8574",
+      "name": "LCD 16x2 (I2C)",
+      "address": "0x27",
+      "visible": true
+    }
+  ],
+  "ui": {
+    "layout": {
+      "left": ["program-loader"],
+      "center": ["lcd0"],
+      "right": ["cpu", "i2c0"],
+      "bottom": ["asm-tabs"]
+    }
+  }
+}

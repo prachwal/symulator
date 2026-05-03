@@ -1,0 +1,42 @@
+{
+  "id": "hello-lcd",
+  "name": "Hello World (LCD)",
+  "source": "hello-lcd.asm",
+  "entryPoint": "0x0100",
+  "loadAddress": "0x0100",
+  "cpu": {
+    "type": "minimal-blink-cpu",
+    "clockHz": 1000000
+  },
+  "memory": {
+    "ram": [
+      {
+        "start": "0x0000",
+        "size": "0x0100"
+      }
+    ]
+  },
+  "devices": [
+    {
+      "id": "cpu",
+      "type": "cpu",
+      "name": "CPU",
+      "visible": true
+    },
+    {
+      "id": "lcd0",
+      "type": "hd44780-mmio",
+      "name": "LCD 16x2",
+      "baseAddress": "0xFE00",
+      "visible": true
+    }
+  ],
+  "ui": {
+    "layout": {
+      "left": ["program-loader"],
+      "center": ["lcd0"],
+      "right": ["cpu"],
+      "bottom": ["asm-tabs"]
+    }
+  }
+}

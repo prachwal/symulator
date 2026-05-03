@@ -85,7 +85,9 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
                     if (pcfDevice is not null)
                     {
                         byte pcfAddr = (byte)AddressParser.Parse16(pcfDevice.Address ?? "0x27");
-                        var lcd4Bit = new Hd44780Parallel4BitAdapter(lcd ?? new Hd44780Lcd());
+                        lcd ??= new Hd44780Lcd();
+                        lcdBuffer ??= new MinimalBlinkLcdBuffer();
+                        var lcd4Bit = new Hd44780Parallel4BitAdapter(lcd);
                         var backpack = new Pcf8574Hd44780Backpack(pcfAddr, lcd4Bit);
                         i2cBus.Attach(backpack);
                         Logger.Debug("Builder: PCF8574 attached at 0x{Addr:X2}", pcfAddr);
@@ -115,6 +117,10 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
                     break;
                 }
 
+                case "hd44780-pcf8574":
+                    Logger.Debug("Builder: PCF8574 LCD declared (handled via I2C)");
+                    break;
+
                 default:
                     throw new InvalidOperationException($"Unsupported device type: {device.Type}");
             }
@@ -122,10 +128,16 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
 
         var cpu = new MinimalBlinkCpu(memory);
 
+        var deviceTypes = solution.Devices
+            .Where(d => d.Visible)
+            .Select(d => d.Type)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         return new MinimalBlinkHardwareRuntime
         {
             Cpu = cpu,
             Memory = memory,
+            DeviceTypes = deviceTypes,
             Lcd = lcd,
             LcdBus = lcdBus,
             LcdBuffer = lcdBuffer,

@@ -98,29 +98,6 @@
                        FontSize="11"
                        TextWrapping="Wrap" />
           </StackPanel>
-
-          <Border BorderBrush="#263241"
-                  BorderThickness="1"
-                  Background="#0D1117"
-                  Padding="8">
-            <StackPanel Spacing="6">
-              <TextBlock Text="Legacy predefined programs"
-                         FontWeight="Bold"
-                         Foreground="#B0BCC8" />
-              <ComboBox ItemsSource="{Binding PredefinedPrograms}"
-                        SelectedItem="{Binding SelectedProgram}"
-                        MinWidth="250">
-                <ComboBox.ItemTemplate>
-                  <DataTemplate>
-                    <TextBlock Text="{Binding Name}" />
-                  </DataTemplate>
-                </ComboBox.ItemTemplate>
-              </ComboBox>
-              <Button Content="Load legacy program"
-                      Command="{Binding LoadProgramCommand}"
-                      HorizontalAlignment="Left" />
-            </StackPanel>
-          </Border>
         </StackPanel>
       </Border>
 
