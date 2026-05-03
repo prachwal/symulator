@@ -3,20 +3,22 @@
              xmlns:views="clr-namespace:Symulator.Machines.MinimalBlink.Views"
              x:Class="Symulator.Machines.MinimalBlink.Views.MinimalBlinkWorkspaceView">
 
-  <Grid RowDefinitions="Auto,*"
-        Background="#0B0F14">
+  <Grid RowDefinitions="Auto,*,Auto"
+        Background="#0B0F14"
+        Margin="8">
 
-    <!-- Header / global execution controls -->
+    <!-- Header -->
     <Border Grid.Row="0"
-            Background="#111820"
             BorderBrush="#31404F"
-            BorderThickness="0,0,0,1"
-            Padding="10">
+            BorderThickness="1"
+            Background="#111820"
+            Padding="8"
+            Margin="0,0,0,8">
       <Grid ColumnDefinitions="*,Auto">
         <StackPanel Grid.Column="0" Spacing="2">
           <TextBlock Text="Minimal Blink Computer"
-                     FontSize="18"
                      FontWeight="Bold"
+                     FontSize="16"
                      Foreground="#E6EDF3" />
           <TextBlock Text="{Binding StatusText}"
                      FontStyle="Italic"
@@ -27,329 +29,183 @@
                      FontSize="11" />
         </StackPanel>
 
-        <StackPanel Grid.Column="1"
-                    Orientation="Horizontal"
-                    Spacing="6"
-                    VerticalAlignment="Center">
-          <TextBlock Text="{Binding ProgramStatus}"
-                     FontSize="12"
-                     FontWeight="Bold"
-                     Foreground="#7CFF7C"
-                     VerticalAlignment="Center"
-                     TextWrapping="Wrap"
-                     MaxWidth="300" />
-        </StackPanel>
+        <TextBlock Grid.Column="1"
+                   Text="{Binding ProgramStatus}"
+                   VerticalAlignment="Center"
+                   Foreground="#7CFF7C"
+                   FontSize="12"
+                   FontWeight="Bold"
+                   TextWrapping="Wrap"
+                   MaxWidth="360" />
       </Grid>
     </Border>
 
-    <!-- Main workspace -->
+    <!-- Main compact area: program controls + devices/state. Execution controls stay in the shell toolbar. -->
     <Grid Grid.Row="1"
-          ColumnDefinitions="320,*,380"
-          Margin="10">
+          ColumnDefinitions="320,*"
+          MinHeight="260">
 
-      <!-- LEFT: Program lifecycle -->
+      <!-- Program lifecycle -->
       <Border Grid.Column="0"
-              Margin="0,0,10,0"
               BorderBrush="#31404F"
               BorderThickness="1"
               Background="#111820"
-              Padding="10">
-        <ScrollViewer>
-          <StackPanel Spacing="10">
+              Padding="10"
+              Margin="0,0,8,0">
+        <StackPanel Spacing="10">
+          <StackPanel Spacing="2">
+            <TextBlock Text="ASM Program"
+                       FontWeight="Bold"
+                       FontSize="15"
+                       Foreground="#E6EDF3" />
+            <TextBlock Text="Select → Compile → Load &amp; Reset → Step/Run"
+                       Foreground="#9DA7B3"
+                       FontSize="11" />
+            <TextBlock Text="{Binding ProgramStatus}"
+                       Foreground="#7CFF7C"
+                       FontSize="12"
+                       TextWrapping="Wrap" />
+          </StackPanel>
 
-            <StackPanel Spacing="4">
-              <TextBlock Text="ASM Program"
-                         FontSize="15"
-                         FontWeight="Bold"
-                         Foreground="#E6EDF3" />
-              <TextBlock Text="Select → Compile → Load &amp; Reset → Step/Run"
-                         FontSize="11"
-                         Foreground="#9DA7B3"
-                         TextWrapping="Wrap" />
-              <TextBlock Text="{Binding ProgramStatus}"
-                         FontSize="12"
-                         Foreground="#7CFF7C"
-                         TextWrapping="Wrap" />
+          <StackPanel Spacing="6">
+            <TextBlock Text="ASM source file"
+                       FontWeight="Bold"
+                       Foreground="#B0BCC8" />
+            <ComboBox ItemsSource="{Binding AsmPrograms}"
+                      SelectedItem="{Binding SelectedAsmProgram}"
+                      MinWidth="250">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding DisplayName}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Button Content="Compile"
+                      Command="{Binding CompileCommand}"
+                      MinWidth="90" />
+              <Button Content="Load &amp; Reset"
+                      Command="{Binding LoadAndResetCommand}"
+                      MinWidth="120" />
             </StackPanel>
 
-            <Border BorderBrush="#263241"
-                    BorderThickness="1"
-                    Padding="8"
-                    Background="#0D1117">
-              <StackPanel Spacing="8">
-                <TextBlock Text="ASM source file"
-                           FontWeight="Bold"
-                           Foreground="#B0BCC8" />
-
-                <ComboBox ItemsSource="{Binding AsmPrograms}"
-                          SelectedItem="{Binding SelectedAsmProgram}"
-                          MinWidth="250">
-                  <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                      <TextBlock Text="{Binding DisplayName}" />
-                    </DataTemplate>
-                  </ComboBox.ItemTemplate>
-                </ComboBox>
-
-                <StackPanel Orientation="Horizontal"
-                            Spacing="6">
-                  <Button Content="Compile"
-                          Command="{Binding CompileCommand}"
-                          MinWidth="90" />
-                  <Button Content="Load &amp; Reset"
-                          Command="{Binding LoadAndResetCommand}"
-                          MinWidth="120" />
-                </StackPanel>
-
-                <TextBlock Text="Compile does not change running memory. Load &amp; Reset loads the compiled image and sets PC."
-                           Foreground="#9DA7B3"
-                           FontSize="11"
-                           TextWrapping="Wrap" />
-              </StackPanel>
-            </Border>
-
-            <Border BorderBrush="#263241"
-                    BorderThickness="1"
-                    Padding="8"
-                    Background="#0D1117">
-              <StackPanel Spacing="8">
-                <TextBlock Text="Legacy predefined programs"
-                           FontWeight="Bold"
-                           Foreground="#B0BCC8" />
-
-                <ComboBox ItemsSource="{Binding PredefinedPrograms}"
-                          SelectedItem="{Binding SelectedProgram}"
-                          MinWidth="250">
-                  <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                      <TextBlock Text="{Binding Name}" />
-                    </DataTemplate>
-                  </ComboBox.ItemTemplate>
-                </ComboBox>
-
-                <Button Content="Load legacy program"
-                        Command="{Binding LoadProgramCommand}"
-                        HorizontalAlignment="Left" />
-
-                <TextBlock Text="Use only as fallback while ASM programs are being migrated."
-                           Foreground="#9DA7B3"
-                           FontSize="11"
-                           TextWrapping="Wrap" />
-              </StackPanel>
-            </Border>
-
-            <Border BorderBrush="#263241"
-                    BorderThickness="1"
-                    Padding="8"
-                    Background="#0D1117">
-              <StackPanel Spacing="6">
-                <TextBlock Text="Program lifecycle"
-                           FontWeight="Bold"
-                           Foreground="#B0BCC8" />
-
-                <TextBlock Text="1. Select ASM file"
-                           Foreground="#E6EDF3" />
-                <TextBlock Text="2. Compile"
-                           Foreground="#E6EDF3" />
-                <TextBlock Text="3. Load &amp; Reset"
-                           Foreground="#E6EDF3" />
-                <TextBlock Text="4. Step or Run"
-                           Foreground="#E6EDF3" />
-
-                <TextBlock Text="Changing selection should not silently replace the running program."
-                           Foreground="#FFCC66"
-                           FontSize="11"
-                           TextWrapping="Wrap"
-                           Margin="0,4,0,0" />
-              </StackPanel>
-            </Border>
-
+            <TextBlock Text="Compile does not change memory. Load &amp; Reset loads the compiled image and sets PC."
+                       Foreground="#9DA7B3"
+                       FontSize="11"
+                       TextWrapping="Wrap" />
           </StackPanel>
-        </ScrollViewer>
+
+          <Border BorderBrush="#263241"
+                  BorderThickness="1"
+                  Background="#0D1117"
+                  Padding="8">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Legacy predefined programs"
+                         FontWeight="Bold"
+                         Foreground="#B0BCC8" />
+              <ComboBox ItemsSource="{Binding PredefinedPrograms}"
+                        SelectedItem="{Binding SelectedProgram}"
+                        MinWidth="250">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Name}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <Button Content="Load legacy program"
+                      Command="{Binding LoadProgramCommand}"
+                      HorizontalAlignment="Left" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
       </Border>
 
-      <!-- CENTER: ASM editor and listing -->
+      <!-- CPU + devices -->
       <Grid Grid.Column="1"
-            RowDefinitions="*,*">
+            ColumnDefinitions="280,*,360">
 
-        <Border Grid.Row="0"
-                Margin="0,0,10,5"
-                BorderBrush="#31404F"
-                BorderThickness="1"
-                Background="#0D1117"
-                Padding="8">
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Top"
-                       Text="ASM Source"
-                       FontSize="15"
-                       FontWeight="Bold"
-                       Foreground="#E6EDF3"
-                       Margin="0,0,0,6" />
-
-            <TextBox Text="{Binding AsmSourceText, Mode=TwoWay}"
-                     FontFamily="Consolas"
-                     FontSize="12"
-                     Foreground="#B0BCC8"
-                     Background="#0D1117"
-                     BorderBrush="#263241"
-                     AcceptsReturn="True"
-                     TextWrapping="NoWrap"
-                     MinHeight="220" />
-          </DockPanel>
-        </Border>
-
-        <Border Grid.Row="1"
-                Margin="0,5,10,0"
-                BorderBrush="#31404F"
-                BorderThickness="1"
-                Background="#0D1117"
-                Padding="8">
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Top"
-                       Text="Assembly Listing / Debugger"
-                       FontSize="15"
-                       FontWeight="Bold"
-                       Foreground="#E6EDF3"
-                       Margin="0,0,0,6" />
-
-              <ScrollViewer>
-                <ItemsControl ItemsSource="{Binding ExecutableListingLines}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Border BorderBrush="#1F2933"
-                              BorderThickness="0,0,0,1"
-                              Padding="1">
-                        <Grid ColumnDefinitions="20,64,110,*">
-                          <TextBlock Grid.Column="0"
-                                     Text="{Binding CurrentLineMarker}"
-                                     FontFamily="Consolas"
-                                     FontSize="12"
-                                     Foreground="#FFCC66" />
-                          <TextBlock Grid.Column="1"
-                                     Text="{Binding Address, StringFormat='${0:X4}'}"
-                                     FontFamily="Consolas"
-                                     FontSize="12"
-                                     Foreground="#569CD6" />
-                          <TextBlock Grid.Column="2"
-                                     Text="{Binding BytesText}"
-                                     FontFamily="Consolas"
-                                     FontSize="12"
-                                     Foreground="#DCDCAA" />
-                          <TextBlock Grid.Column="3"
-                                     Text="{Binding InstructionText}"
-                                     FontFamily="Consolas"
-                                     FontSize="12"
-                                     Foreground="#B0BCC8"
-                                     TextWrapping="NoWrap" />
-                      </Grid>
-                    </Border>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </ScrollViewer>
-          </DockPanel>
-        </Border>
-      </Grid>
-
-      <!-- RIGHT: Devices and CPU state -->
-      <Grid Grid.Column="2"
-            RowDefinitions="Auto,Auto,Auto,*">
-
-        <!-- CPU -->
-        <Border Grid.Row="0"
-                Margin="0,0,0,10"
+        <!-- CPU and LED -->
+        <Border Grid.Column="0"
                 BorderBrush="#31404F"
                 BorderThickness="1"
                 Background="#111820"
-                Padding="10">
-          <StackPanel Spacing="8">
-            <TextBlock Text="CPU"
-                       FontSize="15"
-                       FontWeight="Bold"
-                       Foreground="#E6EDF3" />
-
-            <Grid ColumnDefinitions="Auto,*"
-                  RowDefinitions="Auto,Auto,Auto,Auto,Auto">
-              <TextBlock Grid.Row="0" Grid.Column="0" Text="PC:" Margin="0,0,12,3" Foreground="#9DA7B3" />
-              <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Pc}" FontFamily="Consolas" Foreground="#E6EDF3" />
-
-              <TextBlock Grid.Row="1" Grid.Column="0" Text="A:" Margin="0,0,12,3" Foreground="#9DA7B3" />
-              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding A}" FontFamily="Consolas" Foreground="#E6EDF3" />
-
-              <TextBlock Grid.Row="2" Grid.Column="0" Text="Z:" Margin="0,0,12,3" Foreground="#9DA7B3" />
-              <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Z}" Foreground="#E6EDF3" />
-
-              <TextBlock Grid.Row="3" Grid.Column="0" Text="Cycles:" Margin="0,0,12,3" Foreground="#9DA7B3" />
-              <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Cycles}" FontFamily="Consolas" Foreground="#E6EDF3" />
-
-              <TextBlock Grid.Row="4" Grid.Column="0" Text="Halted:" Margin="0,0,12,0" Foreground="#9DA7B3" />
-              <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Halted}" Foreground="#E6EDF3" />
-            </Grid>
-          </StackPanel>
-        </Border>
-
-        <!-- LED + LCD -->
-        <Border Grid.Row="1"
-                Margin="0,0,0,10"
-                BorderBrush="#31404F"
-                BorderThickness="1"
-                Background="#111820"
-                Padding="10">
-          <StackPanel Spacing="10">
+                Padding="10"
+                Margin="0,0,8,0">
+          <StackPanel Spacing="12">
+            <StackPanel Spacing="6">
+              <TextBlock Text="CPU"
+                         FontWeight="Bold"
+                         FontSize="15"
+                         Foreground="#E6EDF3" />
+              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="PC:" Margin="0,0,12,3" Foreground="#9DA7B3" />
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Pc}" FontFamily="Consolas" Foreground="#E6EDF3" />
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="A:" Margin="0,0,12,3" Foreground="#9DA7B3" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding A}" FontFamily="Consolas" Foreground="#E6EDF3" />
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Z:" Margin="0,0,12,3" Foreground="#9DA7B3" />
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Z}" Foreground="#E6EDF3" />
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Cycles:" Margin="0,0,12,3" Foreground="#9DA7B3" />
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Cycles}" FontFamily="Consolas" Foreground="#E6EDF3" />
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Halted:" Margin="0,0,12,0" Foreground="#9DA7B3" />
+                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Halted}" Foreground="#E6EDF3" />
+              </Grid>
+            </StackPanel>
 
             <StackPanel Spacing="6">
               <TextBlock Text="LED"
                          FontWeight="Bold"
                          Foreground="#4DFF88" />
-
               <Grid ColumnDefinitions="Auto,*">
                 <Ellipse Grid.Column="0"
-                         Width="26"
-                         Height="26"
+                         Width="24"
+                         Height="24"
                          Fill="{Binding LedColor}"
                          Stroke="#4DFF88"
                          StrokeThickness="1"
                          Margin="0,0,10,0" />
-
                 <StackPanel Grid.Column="1" Spacing="2">
-                  <TextBlock Text="{Binding LedOn, StringFormat='State: {0}'}"
-                             Foreground="#E6EDF3" />
-                  <TextBlock Text="{Binding LedToggleCount, StringFormat='Toggles: {0}'}"
-                             Foreground="#E6EDF3" />
-                  <TextBlock Text="{Binding LedLastValue, StringFormat='Last value: 0x{0:X2}'}"
-                             Foreground="#E6EDF3" />
+                  <TextBlock Text="{Binding LedOn, StringFormat='State: {0}'}" Foreground="#E6EDF3" />
+                  <TextBlock Text="{Binding LedToggleCount, StringFormat='Toggles: {0}'}" Foreground="#E6EDF3" />
+                  <TextBlock Text="{Binding LedLastValue, StringFormat='Last value: 0x{0:X2}'}" Foreground="#E6EDF3" />
                 </StackPanel>
               </Grid>
             </StackPanel>
+          </StackPanel>
+        </Border>
 
+        <!-- LCD -->
+        <Border Grid.Column="1"
+                BorderBrush="#31404F"
+                BorderThickness="1"
+                Background="#111820"
+                Padding="10"
+                Margin="0,0,8,0">
+          <StackPanel Spacing="6">
+            <TextBlock Text="LCD"
+                       FontWeight="Bold"
+                       Foreground="#B0BCC8" />
             <Border BorderBrush="#263241"
                     BorderThickness="1"
                     Padding="6"
                     Background="#182028"
                     HorizontalAlignment="Left">
-              <StackPanel Spacing="6">
-                <TextBlock Text="LCD"
-                           FontWeight="Bold"
-                           Foreground="#B0BCC8" />
-                <views:MinimalBlinkLcdControl Pixels="{Binding LcdPixels}" />
-              </StackPanel>
+              <views:MinimalBlinkLcdControl Pixels="{Binding LcdPixels}" />
             </Border>
-
           </StackPanel>
         </Border>
 
-        <!-- UART Terminal -->
-        <Border Grid.Row="2"
-                Margin="0,0,0,10"
+        <!-- UART -->
+        <Border Grid.Column="2"
                 BorderBrush="#31404F"
                 BorderThickness="1"
                 Background="#0D1117"
-                Padding="8">
+                Padding="10">
           <DockPanel>
             <TextBlock DockPanel.Dock="Top"
                        Text="UART Terminal"
-                       FontSize="15"
                        FontWeight="Bold"
+                       FontSize="15"
                        Foreground="#7CFF7C"
                        Margin="0,0,0,6" />
 
@@ -363,8 +219,7 @@
                      BorderBrush="#31404F"
                      Margin="0,6,0,0" />
 
-            <ScrollViewer Height="150"
-                          Background="#0D1117">
+            <ScrollViewer Height="150" Background="#0D1117">
               <ItemsControl ItemsSource="{Binding TerminalLines}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
@@ -379,27 +234,67 @@
             </ScrollViewer>
           </DockPanel>
         </Border>
-
-        <!-- Notes -->
-        <Border Grid.Row="3"
-                BorderBrush="#31404F"
-                BorderThickness="1"
-                Background="#111820"
-                Padding="10">
-          <StackPanel Spacing="6">
-            <TextBlock Text="Runtime notes"
-                       FontWeight="Bold"
-                       Foreground="#E6EDF3" />
-            <TextBlock Text="ASM selection is source-only. Compile creates an image. Load &amp; Reset loads that image into memory and restarts CPU."
-                       Foreground="#9DA7B3"
-                       TextWrapping="Wrap" />
-            <TextBlock Text="Current instruction highlighting requires PC → listing mapping in the ViewModel."
-                       Foreground="#9DA7B3"
-                       TextWrapping="Wrap" />
-          </StackPanel>
-        </Border>
-
       </Grid>
     </Grid>
+
+    <!-- Bottom-aligned compact tabs: source and executable compiled listing share one area. -->
+    <Border Grid.Row="2"
+            BorderBrush="#31404F"
+            BorderThickness="1"
+            Background="#0D1117"
+            Padding="6"
+            Margin="0,8,0,0"
+            VerticalAlignment="Bottom">
+      <TabControl Height="250">
+        <TabItem Header="ASM Source">
+          <TextBox Text="{Binding AsmSourceText, Mode=TwoWay}"
+                   FontFamily="Consolas"
+                   FontSize="12"
+                   Foreground="#B0BCC8"
+                   Background="#0D1117"
+                   BorderBrush="#263241"
+                   AcceptsReturn="True"
+                   TextWrapping="NoWrap" />
+        </TabItem>
+
+        <TabItem Header="Compiled Listing">
+          <ScrollViewer>
+            <ItemsControl ItemsSource="{Binding ExecutableListingLines}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border BorderBrush="#1F2933"
+                          BorderThickness="0,0,0,1"
+                          Padding="2">
+                    <Grid ColumnDefinitions="24,80,140,*">
+                      <TextBlock Grid.Column="0"
+                                 Text="{Binding CurrentLineMarker}"
+                                 FontFamily="Consolas"
+                                 FontSize="12"
+                                 Foreground="#FFCC66" />
+                      <TextBlock Grid.Column="1"
+                                 Text="{Binding Address, StringFormat='${0:X4}'}"
+                                 FontFamily="Consolas"
+                                 FontSize="12"
+                                 Foreground="#569CD6" />
+                      <TextBlock Grid.Column="2"
+                                 Text="{Binding BytesText}"
+                                 FontFamily="Consolas"
+                                 FontSize="12"
+                                 Foreground="#DCDCAA" />
+                      <TextBlock Grid.Column="3"
+                                 Text="{Binding InstructionText}"
+                                 FontFamily="Consolas"
+                                 FontSize="12"
+                                 Foreground="#B0BCC8"
+                                 TextWrapping="NoWrap" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </TabItem>
+      </TabControl>
+    </Border>
   </Grid>
 </UserControl>
