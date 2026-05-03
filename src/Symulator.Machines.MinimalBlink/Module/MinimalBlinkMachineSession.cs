@@ -77,11 +77,11 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         };
 
         var cpuSnap = new CpuStateSnapshot(
-            $"${_cpu.PC:X4}",  // PC
-            $"${_cpu.A:X2}",   // A → pole A
-            "--",              // X (unused)
-            "--",              // Y (unused)
-            "--",              // Flags (unused)
+            $"${_cpu.PC:X4}",
+            $"${_cpu.A:X2}",
+            "--",
+            "--",
+            "--",
             _cpu.Halted ? "HLT" : "RUN",
             _cpu.CycleCount,
             _cpu.Halted,
@@ -100,7 +100,6 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         _lcdBus = new Hd44780DirectBusAdapter(_lcd, MinimalBlinkMemory.LcdCommandPort);
         _memory.AttachLcd(_lcd, _lcdBus);
 
-        // I2C bus + PCF8574 backpack → 4-bit LCD adapter
         _lcd4BitAdapter = new Hd44780Parallel4BitAdapter(_lcd);
         _i2cBus = new I2cBus();
         _lcdBackpack = new Pcf8574Hd44780Backpack(0x27, _lcd4BitAdapter);
@@ -117,37 +116,7 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         _lcdBuffer = new MinimalBlinkLcdBuffer();
         _cpu = new MinimalBlinkCpu(_memory);
         _isInitialized = true;
-        Logger.Info("Minimal Blink Computer created with LCD");
-    }
-
-    private void AutoLoadDefault()
-    {
-        if (_cpu!.PC != 0)
-            return;
-
-        // Prefer compiled ASM image if available
-        if (_compiledImage is not null)
-        {
-            LoadAndResetCompiled();
-            return;
-        }
-
-        var program = _selectedProgramId is not null
-            ? MinimalBlinkPredefinedPrograms.FindById(_selectedProgramId)
-            : MinimalBlinkPredefinedPrograms.FindById("blink-led");
-
-        if (program is null)
-            return;
-
-        Logger.Debug("Minimal Blink auto-loading program: {Name}", program.Name);
-        _memory!.ClearAll();
-        _memory.Load(program.LoadAddress, program.Bytes);
-        _cpu.PC = program.StartAddress;
-        _loadedProgramId = program.Id;
-        _selectedProgramId ??= program.Id;
-        _status = $"Loaded: {program.Name}";
-        Logger.Info("Minimal Blink loaded program: {Name} at ${Start:X4} ({ByteCount} bytes)",
-            program.Name, program.StartAddress, program.Bytes.Length);
+        Logger.Info("Minimal Blink Computer created");
     }
 
     public void NotifyAsmProgramsLoaded(IReadOnlyList<AssemblySourceProgram> programs)
@@ -186,16 +155,18 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
     {
         if (_compiledImage is null)
         {
+            _status = "No compiled program. Use Compile first.";
             Logger.Warn("LoadAndReset called with no compiled image");
+            PublishSnapshot();
             return;
         }
+
         Initialize();
         _memory!.ClearAll();
         _memory.Load(_compiledImage.LoadAddress, _compiledImage.Bytes);
         _cpu!.Reset();
         _cpu.PC = _compiledImage.StartAddress;
 
-        // Deep copy the image for Reset
         _loadedAssemblyImage = new AssemblyProgramImage
         {
             ProgramId = _compiledImage.ProgramId,
@@ -207,9 +178,9 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         };
 
         _loadedProgramId = _compiledImage.ProgramId;
-        _selectedProgramId ??= _compiledImage.ProgramId;
+        _selectedProgramId = _compiledImage.ProgramId;
         _isRunning = false;
-        _status = $"Loaded: {_compiledImage.ProgramId}";
+        _status = $"Loaded: {_compiledImage.ProgramId}, PC=${_cpu.PC:X4}";
         Logger.Info("Minimal Blink load & reset: {Id} at ${Addr:X4} (PC=${PC:X4})",
             _compiledImage.ProgramId, _compiledImage.LoadAddress, _cpu.PC);
         PublishSnapshot();
@@ -226,7 +197,7 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         {
             _memory.Load(_loadedAssemblyImage.LoadAddress, _loadedAssemblyImage.Bytes);
             _cpu.PC = _loadedAssemblyImage.StartAddress;
-            _status = $"Reset: {_loadedAssemblyImage.ProgramId}";
+            _status = $"Reset: {_loadedAssemblyImage.ProgramId}, PC=${_cpu.PC:X4}";
         }
         else if (_loadedProgramId is not null)
         {
@@ -235,16 +206,17 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
             {
                 _memory.Load(program.LoadAddress, program.Bytes);
                 _cpu.PC = program.StartAddress;
-                _status = $"Reset: {program.Name}";
+                _status = $"Reset: {program.Name}, PC=${_cpu.PC:X4}";
             }
             else
             {
-                _status = "Reset";
+                _loadedProgramId = null;
+                _status = "Reset: no loaded program";
             }
         }
         else
         {
-            _status = "Reset";
+            _status = "Reset: no loaded program";
         }
 
         PublishSnapshot();
@@ -254,15 +226,21 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
 
     public Task StepInstructionAsync(CancellationToken cancellationToken = default)
     {
-        if (_cpu is null || _memory is null)
+        Initialize();
+
+        if (_cpu is null || _memory is null || (_loadedAssemblyImage is null && _loadedProgramId is null))
         {
-            Initialize();
-            AutoLoadDefault();
+            _status = "No program loaded. Use Compile and Load & Reset.";
+            PublishSnapshot();
             return Task.CompletedTask;
         }
 
-        if (_cpu.PC == 0 && !_isRunning)
-            AutoLoadDefault();
+        if (_cpu.PC == 0)
+        {
+            _status = "No executable PC. Use Load & Reset.";
+            PublishSnapshot();
+            return Task.CompletedTask;
+        }
 
         _cpu.Step();
         _lcd?.Tick(_cpu.CycleCount);
@@ -278,7 +256,12 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         if (_runTask is { IsCompleted: false })
             return;
 
-        AutoLoadDefault();
+        if (_cpu is null || _memory is null || (_loadedAssemblyImage is null && _loadedProgramId is null) || _cpu.PC == 0)
+        {
+            _status = "No program loaded. Use Compile and Load & Reset.";
+            PublishSnapshot();
+            return;
+        }
 
         _isRunning = true;
         _status = "Running";
@@ -388,11 +371,12 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
 
                     _memory!.ClearAll();
                     _memory.Load(loadAddress, program.Bytes);
-                    _cpu!.PC = program.StartAddress;
+                    _cpu!.Reset();
+                    _cpu.PC = program.StartAddress;
                     _loadedProgramId = program.Id;
                     _selectedProgramId = program.Id;
                     _loadedAssemblyImage = null;
-                    _status = $"Loaded: {program.Name}";
+                    _status = $"Loaded: {program.Name}, PC=${_cpu.PC:X4}";
                     Logger.Info("Minimal Blink loaded program: {Name} id={Id} at ${Start:X4} ({ByteCount} bytes)",
                         program.Name, program.Id, program.StartAddress, program.Bytes.Length);
                     PublishSnapshot();
@@ -410,6 +394,8 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
             case "minimal-blink.clear":
                 _memory?.ClearAll();
                 _cpu?.Reset();
+                _loadedProgramId = null;
+                _loadedAssemblyImage = null;
                 _status = "Cleared";
                 PublishSnapshot();
                 return MachineCommandResult.Success();
