@@ -453,7 +453,6 @@ public sealed class MinimalBlinkSessionAdvancedTests
         cpu.Should().NotBeNull();
         cpu!.A.Should().Be("$01", "LDA #$01 should set A=$01");
     }
-
 }
 
 [TestClass]
@@ -694,7 +693,7 @@ public sealed class MinimalBlinkMachineSessionResetTests
 public sealed class MinimalBlinkWorkflowTests
 {
     [TestMethod]
-    public async Task Run_AfterLoadPredefinedProgram_ShouldRun()
+    public async Task Run_AfterLoadPredefinedProgram_ShouldRunToHalt()
     {
         await using var session = new MinimalBlinkMachineSession();
 
@@ -704,8 +703,12 @@ public sealed class MinimalBlinkWorkflowTests
 
         await session.RunAsync();
 
+        for (var i = 0; i < 20 && !session.Current.IsHalted; i++)
+            await Task.Delay(10);
+
         var snapshot = session.Current;
-        snapshot.IsRunning.Should().BeTrue();
+        snapshot.Cpu.Should().NotBeNull();
+        snapshot.Cpu!.IsHalted.Should().BeTrue();
     }
 
     [TestMethod]
