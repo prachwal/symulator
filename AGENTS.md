@@ -1,5 +1,39 @@
 # Symulator — Agent Guide
 
+## GitHub Issue-Driven Workflow
+This repository is operated through GitHub issues. Do not design or implement work on the side when the user provides an issue reference.
+
+### Trigger
+- A user message containing only or primarily `#<number>` means: execute that GitHub issue end-to-end.
+- Resolve the issue number against `prachwal/symulator` unless the user explicitly names another repository.
+- First fetch and read the issue body, comments, linked PRs/commits, and relevant files before editing.
+
+### Required execution flow for `#<number>`
+1. Read the GitHub issue and extract the requested outcome, acceptance criteria, constraints, and affected areas.
+2. Inspect existing code and tests before proposing implementation.
+3. Implement only what is required by the issue. Do not create side designs, speculative modules, unrelated refactors, or extra documentation unless the issue explicitly asks for them.
+4. Add or update tests for the changed behavior using the project test stack.
+5. Run the smallest relevant test set first, then the required broader project tests listed below.
+6. If tests fail, fix the implementation and re-run the relevant tests. Do not close the issue on failure.
+7. Commit the completed implementation with a concise issue-linked message.
+8. Add a GitHub issue comment containing:
+   - summary of changed files and behavior,
+   - tests run and their result,
+   - commit SHA,
+   - remaining risks or limitations, if any.
+9. Close the issue only when implementation and tests are successful. If anything is blocked, leave the issue open and comment with the blocker.
+
+### Issue closure rule
+- Close issues only after code is committed and verification passed.
+- Do not close an issue after analysis-only work.
+- Do not close an issue when tests were skipped, unavailable, inconclusive, or failing, unless the issue explicitly requested only documentation/analysis and that work is complete.
+
+### Scope control
+- Treat the issue as the single source of truth.
+- If the issue is ambiguous, infer the smallest safe implementation from existing architecture and comments.
+- Prefer a small working patch over a broad redesign.
+- Record assumptions in the GitHub issue comment.
+
 ## Approach
 Make one focused change at a time. Prefer fixing existing code over new abstractions.
 
@@ -72,3 +106,5 @@ Each machine DLL owns its complete implementation (module, factory, session, wor
 - Add fake terminal output just to satisfy the UI.
 - Hardcode absolute paths.
 - Modify CPU core unless evidence points there.
+- Start side designs, architecture documents, speculative modules, or alternative plans when the user supplied a GitHub issue number.
+- Close a GitHub issue without a committed implementation and successful verification.
