@@ -267,18 +267,18 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         return Task.CompletedTask;
     }
 
-    public async Task RunAsync(CancellationToken cancellationToken = default)
+    public Task RunAsync(CancellationToken cancellationToken = default)
     {
         Initialize();
 
         if (_runTask is { IsCompleted: false })
-            return;
+            return Task.CompletedTask;
 
         if (_cpu is null || _memory is null || (_loadedAssemblyImage is null && _loadedProgramId is null))
         {
             _status = "No program loaded. Use Compile and Load & Reset.";
             PublishSnapshot();
-            return;
+            return Task.CompletedTask;
         }
 
         if (_cpu.Halted)
@@ -287,64 +287,76 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
             _status = "Halted";
             PublishSnapshot();
             Logger.Info("Minimal Blink Computer run not started because CPU is already halted");
-            return;
+            return Task.CompletedTask;
         }
+
+        _runCts?.Dispose();
+        _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var runToken = _runCts.Token;
 
         _isRunning = true;
         _status = "Running";
-        _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         PublishSnapshot();
         Logger.Info("Minimal Blink Computer run started");
 
-        _runTask = Task.Run(async () =>
-        {
-            try
-            {
-                while (!_runCts.IsCancellationRequested && !_cpu!.Halted)
-                {
-                    for (int i = 0; i < _instructionsPerBatch; i++)
-                    {
-                        if (_runCts.IsCancellationRequested || _cpu.Halted)
-                            break;
-                        _cpu.Step();
-                        TickDevices();
-                    }
+        _runTask = RunLoopAsync(runToken);
+        return Task.CompletedTask;
+    }
 
-                    PublishSnapshot();
-                    await Task.Delay(_uiRefreshDelayMs, _runCts.Token);
+    private async Task RunLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested && _cpu is not null && !_cpu.Halted)
+            {
+                for (int i = 0; i < _instructionsPerBatch; i++)
+                {
+                    if (cancellationToken.IsCancellationRequested || _cpu is null || _cpu.Halted)
+                        break;
+
+                    _cpu.Step();
+                    TickDevices();
                 }
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, "Minimal Blink Computer run loop error");
-                _status = $"Error: {ex.Message}";
-            }
-            finally
-            {
-                _isRunning = false;
-                if (_cpu!.Halted) _status = "Halted";
-                else _status = "Paused";
+
                 PublishSnapshot();
-                Logger.Info("Minimal Blink Computer run stopped");
+                await Task.Delay(_uiRefreshDelayMs, cancellationToken).ConfigureAwait(false);
             }
-        }, _runCts.Token);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Minimal Blink Computer run loop error");
+            _status = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isRunning = false;
+            _status = _cpu?.Halted == true ? "Halted" : "Paused";
+            PublishSnapshot();
+            Logger.Info("Minimal Blink Computer run stopped");
+        }
     }
 
     public async Task PauseAsync(CancellationToken cancellationToken = default)
     {
-        if (_runCts is not null)
-        {
-            await _runCts.CancelAsync();
-            _runCts.Dispose();
-            _runCts = null;
-        }
+        var cts = _runCts;
+        var task = _runTask;
 
-        if (_runTask is not null)
+        if (cts is not null)
+            await cts.CancelAsync();
+
+        if (task is not null)
         {
-            try { await _runTask.WaitAsync(TimeSpan.FromSeconds(2), cancellationToken); }
+            try { await task.WaitAsync(TimeSpan.FromSeconds(2), cancellationToken); }
             catch (TimeoutException) { Logger.Warn("Minimal Blink run task did not stop within 2s"); }
             _runTask = null;
+        }
+
+        if (cts is not null)
+        {
+            cts.Dispose();
+            if (ReferenceEquals(_runCts, cts))
+                _runCts = null;
         }
 
         _isRunning = false;
