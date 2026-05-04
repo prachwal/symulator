@@ -56,7 +56,7 @@ start:
 main_loop:
     ; Read hours
     LDA_ABS RTC_HOUR
-    JSR bcd_to_ascii   ; → $F2 = tens ASCII, $F3 = ones ASCII
+    CALL bcd_to_ascii  ; → $F2 = tens ASCII, $F3 = ones ASCII
     LDA $F2
     STA $F4            ; hours tens
     LDA $F3
@@ -64,7 +64,7 @@ main_loop:
 
     ; Read minutes
     LDA_ABS RTC_MIN
-    JSR bcd_to_ascii
+    CALL bcd_to_ascii
     LDA $F2
     STA $F6            ; minutes tens
     LDA $F3
@@ -72,7 +72,7 @@ main_loop:
 
     ; Read seconds
     LDA_ABS RTC_SEC
-    JSR bcd_to_ascii
+    CALL bcd_to_ascii
     LDA $F2
     STA $F8            ; seconds tens
     LDA $F3
@@ -141,4 +141,4 @@ tens_done:
     ADD #$30           ; digit → ASCII
     STA $F3
 
-    RTS
+    RET
