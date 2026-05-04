@@ -38,6 +38,19 @@ public sealed class Mos6502Cpu
         PC = address;
     }
 
+    public byte GetStatusByte(bool breakFlag = false)
+    {
+        byte status = 0x20;
+        if (Carry) status |= 0x01;
+        if (Zero) status |= 0x02;
+        if (InterruptDisable) status |= 0x04;
+        if (Decimal) status |= 0x08;
+        if (breakFlag) status |= 0x10;
+        if (Overflow) status |= 0x40;
+        if (Negative) status |= 0x80;
+        return status;
+    }
+
     public void Reset()
     {
         A = 0;
@@ -63,17 +76,18 @@ public sealed class Mos6502Cpu
         if (IsHalted)
             return 0;
 
+        if (_irqLineActive && !InterruptDisable)
+        {
+            int interruptCycles = ServiceIrq();
+            CycleCount += (ulong)interruptCycles;
+            return interruptCycles;
+        }
+
         byte opcode = Read(PC);
         PC++;
 
         int cycles = Execute(opcode);
         CycleCount += (ulong)cycles;
-
-        if (_irqLineActive && !InterruptDisable)
-        {
-            Irq();
-        }
-
         return cycles;
     }
 
@@ -84,11 +98,7 @@ public sealed class Mos6502Cpu
 
     public void Nmi()
     {
-        PushWord(PC);
-        PushStatus(false);
-        InterruptDisable = true;
-        PC = ReadWord(0xFFFA);
-        CycleCount += 7;
+        CycleCount += (ulong)ServiceNmi();
     }
 
     public void Irq()
@@ -96,11 +106,27 @@ public sealed class Mos6502Cpu
         if (InterruptDisable)
             return;
 
+        CycleCount += (ulong)ServiceIrq();
+    }
+
+    private int ServiceNmi()
+    {
         PushWord(PC);
         PushStatus(false);
         InterruptDisable = true;
+        Break = false;
+        PC = ReadWord(0xFFFA);
+        return 7;
+    }
+
+    private int ServiceIrq()
+    {
+        PushWord(PC);
+        PushStatus(false);
+        InterruptDisable = true;
+        Break = false;
         PC = ReadWord(0xFFFE);
-        CycleCount += 7;
+        return 7;
     }
 
     private byte Read(ushort addr)
@@ -147,32 +173,29 @@ public sealed class Mos6502Cpu
 
     private void PushStatus(bool breakFlag)
     {
-        byte status = 0x20;
-        if (Carry) status |= 0x01;
-        if (Zero) status |= 0x02;
-        if (InterruptDisable) status |= 0x04;
-        if (Decimal) status |= 0x08;
-        if (breakFlag) status |= 0x10;
-        if (Overflow) status |= 0x40;
-        if (Negative) status |= 0x80;
-        Push(status);
+        Push(GetStatusByte(breakFlag));
+    }
+
+    private void PullStatus()
+    {
+        SetStatusByte(Pop());
+    }
+
+    private void SetStatusByte(byte status)
+    {
+        Carry = (status & 0x01) != 0;
+        Zero = (status & 0x02) != 0;
+        InterruptDisable = (status & 0x04) != 0;
+        Decimal = (status & 0x08) != 0;
+        Break = false;
+        Overflow = (status & 0x40) != 0;
+        Negative = (status & 0x80) != 0;
     }
 
     private void SetZN(byte value)
     {
         Zero = value == 0;
         Negative = (value & 0x80) != 0;
-    }
-
-    private void PullStatus()
-    {
-        byte status = Pop();
-        Carry = (status & 0x01) != 0;
-        Zero = (status & 0x02) != 0;
-        InterruptDisable = (status & 0x04) != 0;
-        Decimal = (status & 0x08) != 0;
-        Overflow = (status & 0x40) != 0;
-        Negative = (status & 0x80) != 0;
     }
 
     private byte GetImmediate()
@@ -331,7 +354,7 @@ public sealed class Mos6502Cpu
             case 0x10: return BranchIf(!Negative);
 
             // --- BRK ---
-            case 0x00: { PC++; PushWord(PC); PushStatus(true); InterruptDisable = true; PC = ReadWord(0xFFFE); return 7; }
+            case 0x00: { PC++; PushWord(PC); PushStatus(true); InterruptDisable = true; Break = false; PC = ReadWord(0xFFFE); return 7; }
 
             // --- BVC ---
             case 0x50: return BranchIf(!Overflow);
@@ -551,48 +574,70 @@ public sealed class Mos6502Cpu
 
     private void AddWithCarry(byte value)
     {
-        ushort sum;
+        int carryIn = Carry ? 1 : 0;
+        int binarySum = A + value + carryIn;
+        bool overflow = ((~(A ^ value) & (A ^ binarySum)) & 0x80) != 0;
+
         if (Decimal)
         {
-            byte al = (byte)((A & 0x0F) + (value & 0x0F) + (Carry ? 1 : 0));
-            if (al > 9) al = (byte)((al - 10) | 0x10);
-            byte ah = (byte)(((A >> 4) & 0x0F) + ((value >> 4) & 0x0F) + (al > 15 ? 1 : 0));
-            if (ah > 9) ah = (byte)((ah - 10) | 0x10);
-            ushort bcdResult = (ushort)((ah << 4) | (al & 0x0F));
-            Carry = bcdResult > 0x99;
-            A = (byte)(bcdResult & 0xFF);
+            int low = (A & 0x0F) + (value & 0x0F) + carryIn;
+            int high = (A >> 4) + (value >> 4);
+
+            if (low > 9)
+            {
+                low += 6;
+                high++;
+            }
+
+            if (high > 9)
+                high += 6;
+
+            Carry = high > 0x0F;
+            Overflow = overflow;
+            A = (byte)(((high << 4) | (low & 0x0F)) & 0xFF);
         }
         else
         {
-            sum = (ushort)(A + value + (Carry ? 1 : 0));
-            Carry = sum > 0xFF;
-            Overflow = ((A ^ value) & 0x80) == 0 && ((A ^ (byte)sum) & 0x80) != 0;
-            A = (byte)(sum & 0xFF);
+            Carry = binarySum > 0xFF;
+            Overflow = overflow;
+            A = (byte)(binarySum & 0xFF);
         }
+
         SetZN(A);
     }
 
     private void SubtractWithCarry(byte value)
     {
-        ushort diff;
+        int carryIn = Carry ? 1 : 0;
+        int binarySum = A + (value ^ 0xFF) + carryIn;
+        byte binaryResult = (byte)(binarySum & 0xFF);
+        bool overflow = (((A ^ binaryResult) & (A ^ value)) & 0x80) != 0;
+
         if (Decimal)
         {
-            int al = (A & 0x0F) - (value & 0x0F) - (Carry ? 0 : 1);
-            int lowBorrow = (al & 0x10) != 0 ? 1 : 0;
-            if (lowBorrow != 0) al = (al - 6) & 0x0F;
-            int ah = ((A >> 4) & 0x0F) - ((value >> 4) & 0x0F) - lowBorrow;
-            int highBorrow = (ah & 0x10) != 0 ? 1 : 0;
-            if (highBorrow != 0) ah = (ah - 6) & 0x0F;
-            A = (byte)((ah << 4) | (al & 0x0F));
-            Carry = highBorrow == 0;
+            int low = (A & 0x0F) - (value & 0x0F) - (Carry ? 0 : 1);
+            int high = (A >> 4) - (value >> 4);
+
+            if (low < 0)
+            {
+                low -= 6;
+                high--;
+            }
+
+            if (high < 0)
+                high -= 6;
+
+            Carry = binarySum > 0xFF;
+            Overflow = overflow;
+            A = (byte)(((high << 4) & 0xF0) | (low & 0x0F));
         }
         else
         {
-            diff = (ushort)(A - value - (Carry ? 0 : 1));
-            Carry = diff <= 0xFF;
-            Overflow = ((A ^ value) & 0x80) != 0 && ((A ^ (byte)diff) & 0x80) != 0;
-            A = (byte)(diff & 0xFF);
+            Carry = binarySum > 0xFF;
+            Overflow = overflow;
+            A = binaryResult;
         }
+
         SetZN(A);
     }
 
