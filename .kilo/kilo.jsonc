@@ -1,3 +1,23 @@
 {
-  "$schema": "https://app.kilo.ai/config.json"
+  "$schema": "https://app.kilo.ai/config.json",
+  "instructions": [
+    "This repository is GitHub issue-driven. When the user provides #<number>, treat it as a command to fully implement that GitHub issue in prachwal/symulator.",
+    "Do not design work on the side, create speculative plans, or implement unrelated changes when an issue number is supplied.",
+    "For each issue: read the issue and comments, inspect relevant code, implement the smallest correct change, add or update MSTest/Moq/FluentAssertions tests, run the relevant test projects, commit, comment back on GitHub, and close only after successful verification.",
+    "If tests fail or required information is missing, leave the issue open and add a GitHub comment with the blocker, attempted fix, and exact test output summary.",
+    "Use AGENTS.md as the repository authority for build, test, architecture, and forbidden actions."
+  ],
+  "workflow": {
+    "triggerPattern": "#<github-issue-number>",
+    "defaultRepository": "prachwal/symulator",
+    "mode": "github-issue-first",
+    "closeIssueOnSuccess": true,
+    "requireTestsBeforeClose": true,
+    "forbidSideDesigns": true
+  },
+  "github": {
+    "repository": "prachwal/symulator",
+    "issueCommentRequired": true,
+    "commentTemplate": "Summary:\n- <changed behavior>\n\nChanged files:\n- <path>\n\nVerification:\n- <test command>: <result>\n\nCommit:\n- <sha>\n\nRisks / notes:\n- <none or details>"
+  }
 }
