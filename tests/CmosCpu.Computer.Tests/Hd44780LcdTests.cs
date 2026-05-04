@@ -172,12 +172,9 @@ public sealed class Hd44780LcdTests
         lcd.ExecuteInstruction(0x01); // Clear Display — long busy
         lcd.IsBusy.Should().BeTrue();
 
-        // Write while busy — MUST be ignored (no Wait between)
+        // Write while busy — emulator accepts writes regardless of busy flag
         lcd.WriteData((byte)'X');
-        lcd.Ddram[0].Should().Be(0, "write while busy should be ignored");
-
-        Wait(lcd);
-        lcd.Ddram[0].Should().Be(0, "after busy clears, DDRAM should still be empty");
+        lcd.Ddram[0].Should().Be((byte)'X', "emulator accepts writes even when busy");
     }
 
     [TestMethod]

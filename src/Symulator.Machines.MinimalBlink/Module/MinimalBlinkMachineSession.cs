@@ -39,6 +39,8 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
     private RtcClockCore? _rtcClock;
     private RtcI2cDevice? _rtcI2c;
     private RtcBusMappedDevice? _rtcBus;
+    private ulong _lastRtcTickCycles;
+    private const ulong RtcClockHz = 1_000_000;
     private string? _selectedProgramId;
     private string? _loadedProgramId;
     private AssemblyProgramImage? _loadedAssemblyImage;
@@ -139,13 +141,29 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         _rtcClock = rt.RtcClock;
         _rtcI2c = rt.RtcI2c;
         _rtcBus = rt.RtcBus;
+        _lastRtcTickCycles = 0;
         _isInitialized = true;
         Logger.Info("Minimal Blink hardware rebuilt from solution: {Id}", solution.Id);
     }
 
     private void TickDevices()
     {
-        _lcd?.Tick(_cpu?.CycleCount ?? 0);
+        var cycles = _cpu?.CycleCount ?? 0UL;
+        _lcd?.Tick(cycles);
+
+        if (_rtcClock is not null && _rtcClock.TimeMode == RtcTimeMode.Simulated)
+        {
+            if (cycles > _lastRtcTickCycles)
+            {
+                ulong delta = cycles - _lastRtcTickCycles;
+                var elapsed = TimeSpan.FromSeconds((double)delta / RtcClockHz);
+                if (elapsed.TotalMilliseconds >= 1)
+                {
+                    _rtcClock.Tick(elapsed);
+                    _lastRtcTickCycles = cycles;
+                }
+            }
+        }
     }
 
     public AssemblyProgramImage? GetCompiledImage() => _compiledImage;

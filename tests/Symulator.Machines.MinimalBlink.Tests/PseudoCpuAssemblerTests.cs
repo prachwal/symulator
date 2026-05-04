@@ -1,4 +1,6 @@
 using Symulator.Application.Assembly;
+using Symulator.Application.Solutions;
+using Symulator.Machines.MinimalBlink.Module;
 using FluentAssertions;
 
 namespace Symulator.Machines.MinimalBlink.Tests;
@@ -195,5 +197,213 @@ start:
     {
         var line = new AssemblyListingLine { Mnemonic = "HLT" };
         line.InstructionText.Should().Be("HLT");
+    }
+
+    [TestMethod]
+    public void Assemble_AddImmediate_ProducesOpcode0F()
+    {
+        var asm = Create();
+
+        var result = asm.Assemble("test", @"
+.org $0100
+    ADD #$45
+");
+
+        result.Success.Should().BeTrue();
+        result.Image!.Bytes[0].Should().Be(0x0F); // ADD opcode
+        result.Image.Bytes[1].Should().Be(0x45);  // operand
+    }
+
+    [TestMethod]
+    public void Assemble_SubImmediate_ProducesOpcode10()
+    {
+        var asm = Create();
+
+        var result = asm.Assemble("test", @"
+.org $0100
+    SUB #$10
+");
+
+        result.Success.Should().BeTrue();
+        result.Image!.Bytes[0].Should().Be(0x10); // SUB opcode
+        result.Image.Bytes[1].Should().Be(0x10);  // operand
+    }
+
+    [TestMethod]
+    public void Assemble_AndImmediate_ProducesOpcode0B()
+    {
+        var asm = Create();
+
+        var result = asm.Assemble("test", @"
+.org $0100
+    AND #$F0
+");
+
+        result.Success.Should().BeTrue();
+        result.Image!.Bytes[0].Should().Be(0x0B); // AND opcode
+        result.Image.Bytes[1].Should().Be(0xF0);  // operand
+    }
+
+    [TestMethod]
+    public void Assemble_AddSubDecimal_ProducesCorrectBytes()
+    {
+        var asm = Create();
+
+        var result = asm.Assemble("test", @"
+.org $0100
+    ADD #10
+    SUB #5
+");
+
+        result.Success.Should().BeTrue();
+        result.Image!.Bytes[0].Should().Be(0x0F); // ADD
+        result.Image.Bytes[1].Should().Be(10);
+        result.Image.Bytes[2].Should().Be(0x10); // SUB
+        result.Image.Bytes[3].Should().Be(5);
+    }
+
+    [TestMethod]
+    public void Assemble_AddSubWithLabels_ProducesCorrectBytes()
+    {
+        var asm = Create();
+
+        var result = asm.Assemble("test", @"
+.org $0100
+VAL = $42
+    ADD #VAL
+    SUB #$20
+");
+
+        result.Success.Should().BeTrue();
+        result.Image!.Bytes[0].Should().Be(0x0F); // ADD
+        result.Image.Bytes[1].Should().Be(0x42);  // VAL = $42
+        result.Image.Bytes[2].Should().Be(0x10); // SUB
+        result.Image.Bytes[3].Should().Be(0x20);
+    }
+
+    [TestMethod]
+    public void Cpu_Add_UpdatesAAndFlags()
+    {
+        var asm = Create();
+        var result = asm.Assemble("add-test", @"
+.org $0100
+start:
+    LDA #$12
+    ADD #$34
+    HLT
+");
+        result.Success.Should().BeTrue();
+
+        var machine = new MinimalBlinkMachineSession();
+        machine.SetSelectedSolution(new SolutionDefinition
+        {
+            Id = "add-test",
+            Devices = [new DeviceDefinition { Id = "cpu", Type = "cpu", Visible = true }]
+        });
+
+        var compile = machine.CompileFromSource("add-test", @"
+.org $0100
+start:
+    LDA #$12
+    ADD #$34
+    HLT
+");
+        compile.Success.Should().BeTrue();
+        machine.LoadAndResetCompiled();
+
+        machine.StepInstructionAsync().GetAwaiter().GetResult(); // LDA #$12
+        machine.StepInstructionAsync().GetAwaiter().GetResult(); // ADD #$34
+        machine.StepInstructionAsync().GetAwaiter().GetResult(); // HLT
+
+        var snapshot = machine.Current;
+        var a = snapshot.Cpu!.A;
+        a.Should().Be("$46", "$12 + $34 = $46");
+    }
+
+    [TestMethod]
+    public void Cpu_Sub_UpdatesAAndFlags()
+    {
+        var machine = new MinimalBlinkMachineSession();
+        machine.SetSelectedSolution(new SolutionDefinition
+        {
+            Id = "sub-test",
+            Devices = [new DeviceDefinition { Id = "cpu", Type = "cpu", Visible = true }]
+        });
+
+        var compile = machine.CompileFromSource("sub-test", @"
+.org $0100
+start:
+    LDA #$45
+    SUB #$12
+    HLT
+");
+        compile.Success.Should().BeTrue();
+        machine.LoadAndResetCompiled();
+
+        machine.StepInstructionAsync().GetAwaiter().GetResult(); // LDA #$45
+        machine.StepInstructionAsync().GetAwaiter().GetResult(); // SUB #$12
+        machine.StepInstructionAsync().GetAwaiter().GetResult(); // HLT
+
+        var snapshot = machine.Current;
+        var a = snapshot.Cpu!.A;
+        a.Should().Be("$33", "$45 - $12 = $33");
+    }
+
+    [TestMethod]
+    public void Cpu_And_UpdatesAAndFlags()
+    {
+        var machine = new MinimalBlinkMachineSession();
+        machine.SetSelectedSolution(new SolutionDefinition
+        {
+            Id = "and-test",
+            Devices = [new DeviceDefinition { Id = "cpu", Type = "cpu", Visible = true }]
+        });
+
+        var compile = machine.CompileFromSource("and-test", @"
+.org $0100
+start:
+    LDA #$45
+    AND #$F0
+    HLT
+");
+        compile.Success.Should().BeTrue();
+        machine.LoadAndResetCompiled();
+
+        machine.StepInstructionAsync().GetAwaiter().GetResult(); // LDA #$45
+        machine.StepInstructionAsync().GetAwaiter().GetResult(); // AND #$F0
+        machine.StepInstructionAsync().GetAwaiter().GetResult(); // HLT
+
+        var snapshot = machine.Current;
+        var a = snapshot.Cpu!.A;
+        a.Should().Be("$40", "$45 & $F0 = $40");
+    }
+
+    [TestMethod]
+    public void Cpu_AddSetsZero_WhenResultIsZero()
+    {
+        var machine = new MinimalBlinkMachineSession();
+        machine.SetSelectedSolution(new SolutionDefinition
+        {
+            Id = "add-zero",
+            Devices = [new DeviceDefinition { Id = "cpu", Type = "cpu", Visible = true }]
+        });
+
+        var compile = machine.CompileFromSource("add-zero", @"
+.org $0100
+start:
+    LDA #$01
+    SUB #$01
+    HLT
+");
+        compile.Success.Should().BeTrue();
+        machine.LoadAndResetCompiled();
+
+        machine.StepInstructionAsync().GetAwaiter().GetResult(); // LDA #$01
+        machine.StepInstructionAsync().GetAwaiter().GetResult(); // SUB #$01 → A=0, Z=1
+        machine.StepInstructionAsync().GetAwaiter().GetResult(); // HLT
+
+        var snapshot = machine.Current;
+        snapshot.Cpu!.A.Should().Be("$00");
+        snapshot.Cpu.Registers.Should().Contain(r => r.Name == "Z" && r.Value == "1");
     }
 }

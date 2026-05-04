@@ -68,12 +68,6 @@ public sealed class Hd44780Lcd
 
     public void ExecuteInstruction(byte cmd)
     {
-        if (IsBusy)
-        {
-            Logger.Debug("HD44780 ignored instruction while busy: 0x{Value:X2}", cmd);
-            return;
-        }
-
         if ((cmd & 0x80) != 0)
         {
             _addressCounter = (byte)(cmd & 0x7F);
@@ -151,11 +145,6 @@ public sealed class Hd44780Lcd
 
     public void WriteData(byte value)
     {
-        if (IsBusy)
-        {
-            Logger.Debug("HD44780 ignored data write while busy: 0x{Value:X2}", value);
-            return;
-        }
         if (_cgramMode)
             _cgram[_addressCounter & 0x3F] = value;
         else
