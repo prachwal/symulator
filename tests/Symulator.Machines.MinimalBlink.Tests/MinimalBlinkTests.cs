@@ -617,6 +617,87 @@ public sealed class MinimalBlinkHardwareSolutionBuilderTests
 
         runtime.HasDevice("led-mmio").Should().BeFalse("invisible devices should not be reported");
     }
+
+    [TestMethod]
+    public void Build_Blink_HasVisibleDeviceMatchesHasDevice()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "blink",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "led0", Type = "led-mmio", Name = "LED", Address = "0xFF00", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.HasVisibleDevice("led-mmio").Should().BeTrue();
+        runtime.HasVisibleDevice("cpu").Should().BeTrue();
+        runtime.HasVisibleDevice("uart-mmio").Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void Build_Blink_RuntimeDeviceTypesIncludesOnlyBuiltHardware()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "blink",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "led0", Type = "led-mmio", Name = "LED", Address = "0xFF00", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.RuntimeDeviceTypes.Should().Contain("cpu");
+        runtime.RuntimeDeviceTypes.Should().Contain("led-mmio");
+        runtime.RuntimeDeviceTypes.Should().NotContain("hd44780-mmio");
+        runtime.RuntimeDeviceTypes.Should().NotContain("uart-mmio");
+    }
+
+    [TestMethod]
+    public void Build_HelloLcd_RuntimeDeviceTypesIncludesLcd()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "hello-lcd",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "lcd0", Type = "hd44780-mmio", Name = "LCD 16x2", BaseAddress = "0xFE00", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.RuntimeDeviceTypes.Should().Contain("hd44780-mmio");
+        runtime.RuntimeDeviceTypes.Should().NotContain("uart-mmio");
+    }
+
+    [TestMethod]
+    public void Build_AllDevices_RuntimeDeviceTypesAndVisibleDeviceTypesAgree()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "all",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "led0", Type = "led-mmio", Name = "LED", Address = "0xFF00", Visible = true },
+                new DeviceDefinition { Id = "uart0", Type = "uart-mmio", Name = "UART", BaseAddress = "0xFE40", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.VisibleDeviceTypes.Should().BeEquivalentTo("cpu", "led-mmio", "uart-mmio");
+        foreach (var type in runtime.VisibleDeviceTypes)
+            runtime.HasVisibleDevice(type).Should().BeTrue();
+    }
 }
 
 [TestClass]

@@ -26,7 +26,25 @@ public sealed class MinimalBlinkHardwareRuntime
 
     public IReadOnlySet<string> DeviceTypes { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+    public IReadOnlySet<string> VisibleDeviceTypes => DeviceTypes;
+
+    public IReadOnlySet<string> RuntimeDeviceTypes
+    {
+        get
+        {
+            var all = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (Cpu is not null) all.Add("cpu");
+            if (Memory is not null) all.Add("led-mmio");
+            if (Lcd is not null) all.Add("hd44780-mmio");
+            if (Uart is not null) all.Add("uart-mmio");
+            if (I2cController is not null) all.Add("i2c-controller-mmio");
+            return all;
+        }
+    }
+
     public bool HasDevice(string type) => DeviceTypes.Contains(type);
+
+    public bool HasVisibleDevice(string type) => VisibleDeviceTypes.Contains(type);
 
     public bool HasRuntimeInstance(string type) => type switch
     {

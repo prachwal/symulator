@@ -12,6 +12,12 @@ public sealed class SolutionDefinition
     public List<DeviceDefinition> Devices { get; set; } = [];
     public UiDefinition Ui { get; set; } = new();
 
+    public IReadOnlySet<string> VisibleDeviceTypes =>
+        Devices.Where(d => d.Visible).Select(d => d.Type).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlySet<string> AllDeviceTypes =>
+        Devices.Select(d => d.Type).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
     public static SolutionDefinition CreateFallback(string id, string source)
     {
         return new SolutionDefinition
@@ -43,6 +49,12 @@ public sealed class SolutionDefinition
 
     public bool HasDevice(string type) =>
         Devices.Any(d => string.Equals(d.Type, type, StringComparison.OrdinalIgnoreCase));
+
+    public bool HasVisibleDevice(string type) =>
+        VisibleDeviceTypes.Contains(type);
+
+    public bool HasRuntimeDevice(string type) =>
+        AllDeviceTypes.Contains(type);
 
     public DeviceDefinition? GetDevice(string type) =>
         Devices.FirstOrDefault(d => string.Equals(d.Type, type, StringComparison.OrdinalIgnoreCase));
