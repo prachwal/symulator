@@ -1,5 +1,6 @@
 using CmosCpu.Computer.Devices;
 using CmosCpu.Computer.Devices.I2c;
+using CmosCpu.Computer.Devices.Rtc;
 using CmosCpu.Computer.Devices.Serial;
 using Symulator.Application.Solutions;
 using Symulator.Application.Terminal;
@@ -32,6 +33,8 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
         UartDevice? uart = null;
         MemoryMappedUartAdapter? uartAdapter = null;
         TerminalBuffer? terminal = null;
+        RtcClockCore? rtcClock = null;
+        RtcI2cDevice? rtcI2c = null;
 
         foreach (var device in solution.Devices)
         {
@@ -130,6 +133,27 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
                     Logger.Debug("Builder: PCF8574 LCD declared (handled via I2C)");
                     break;
 
+                case "rtc-i2c":
+                {
+                    rtcClock ??= new RtcClockCore(
+                        RtcTimeMode.Simulated,
+                        new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Unspecified));
+
+                    byte i2cAddr = string.IsNullOrEmpty(device.Address)
+                        ? (byte)0x68
+                        : (byte)AddressParser.Parse16(device.Address);
+
+                    rtcI2c = new RtcI2cDevice(rtcClock, i2cAddr);
+
+                    if (i2cBus is not null)
+                    {
+                        i2cBus.Attach(rtcI2c);
+                    }
+
+                    Logger.Debug("Builder: RTC I2C attached at address 0x{Addr:X2}", i2cAddr);
+                    break;
+                }
+
                 default:
                     throw new InvalidOperationException(
                         $"Solution '{solution.Id}' unsupported device type '{device.Type}' (id='{device.Id}').");
@@ -166,6 +190,8 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
             Uart = uart,
             UartAdapter = uartAdapter,
             Terminal = terminal,
+            RtcClock = rtcClock,
+            RtcI2c = rtcI2c,
         };
     }
 }

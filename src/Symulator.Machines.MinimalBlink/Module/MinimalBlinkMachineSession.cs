@@ -1,5 +1,6 @@
 using CmosCpu.Computer.Devices;
 using CmosCpu.Computer.Devices.I2c;
+using CmosCpu.Computer.Devices.Rtc;
 using CmosCpu.Computer.Devices.Serial;
 using NLog;
 using Symulator.Application.Abstractions;
@@ -35,6 +36,8 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
     private UartDevice? _uart;
     private MemoryMappedUartAdapter? _uartAdapter;
     private TerminalBuffer? _terminal;
+    private RtcClockCore? _rtcClock;
+    private RtcI2cDevice? _rtcI2c;
     private string? _selectedProgramId;
     private string? _loadedProgramId;
     private AssemblyProgramImage? _loadedAssemblyImage;
@@ -90,7 +93,8 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
             _cpu.Halted,
             registers);
 
-        return new EmulatorStateSnapshot("minimal-blink", _isRunning, _cpu.Halted, cpuSnap, string.Empty, (long)_cpu.CycleCount);
+        return new EmulatorStateSnapshot("minimal-blink", _isRunning, _cpu.Halted, cpuSnap, string.Empty, (long)_cpu.CycleCount,
+            Rtc: _rtcClock?.CreateSnapshot(i2cAddress: _rtcI2c?.Address));
     }
 
     private void Initialize()
@@ -128,6 +132,8 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         _uart = rt.Uart;
         _uartAdapter = rt.UartAdapter;
         _terminal = rt.Terminal;
+        _rtcClock = rt.RtcClock;
+        _rtcI2c = rt.RtcI2c;
         _isInitialized = true;
         Logger.Info("Minimal Blink hardware rebuilt from solution: {Id}", solution.Id);
     }

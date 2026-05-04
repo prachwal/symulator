@@ -1,5 +1,6 @@
 using CmosCpu.Computer.Devices;
 using CmosCpu.Computer.Devices.I2c;
+using CmosCpu.Computer.Devices.Rtc;
 using CmosCpu.Computer.Devices.Serial;
 using Symulator.Application.Terminal;
 using Symulator.Machines.MinimalBlink.Cpu;
@@ -24,6 +25,12 @@ public sealed class MinimalBlinkHardwareRuntime
     public MemoryMappedUartAdapter? UartAdapter { get; init; }
     public TerminalBuffer? Terminal { get; init; }
 
+    public RtcClockCore? RtcClock { get; init; }
+    public RtcI2cDevice? RtcI2c { get; init; }
+
+    public RtcSnapshot? RtcSnapshot => RtcClock?.CreateSnapshot(
+        i2cAddress: RtcI2c?.Address);
+
     public IReadOnlySet<string> DeviceTypes { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     public IReadOnlySet<string> VisibleDeviceTypes => DeviceTypes;
@@ -38,6 +45,7 @@ public sealed class MinimalBlinkHardwareRuntime
             if (Lcd is not null) all.Add("hd44780-mmio");
             if (Uart is not null) all.Add("uart-mmio");
             if (I2cController is not null) all.Add("i2c-controller-mmio");
+            if (RtcClock is not null) all.Add("rtc-i2c");
             return all;
         }
     }

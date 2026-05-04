@@ -788,6 +788,73 @@ public sealed class MinimalBlinkHardwareSolutionBuilderTests
         foreach (var type in runtime.VisibleDeviceTypes)
             runtime.HasVisibleDevice(type).Should().BeTrue();
     }
+
+    [TestMethod]
+    public void Build_RtcI2c_ShouldCreateRtcClockAndAttachToI2cBus()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "rtc-test",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "i2c0", Type = "i2c-controller-mmio", Name = "I2C", BaseAddress = "0xFE30", Visible = true },
+                new DeviceDefinition { Id = "rtc0", Type = "rtc-i2c", Name = "RTC DS3231", Address = "0x68", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.RtcClock.Should().NotBeNull();
+        runtime.RtcI2c.Should().NotBeNull();
+        runtime.RtcI2c!.Address.Should().Be(0x68);
+        runtime.HasDevice("rtc-i2c").Should().BeTrue();
+        runtime.RuntimeDeviceTypes.Should().Contain("rtc-i2c");
+    }
+
+    [TestMethod]
+    public void Build_RtcI2c_SnapshotContainsTimeAndMetadata()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "rtc-snap",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "i2c0", Type = "i2c-controller-mmio", Name = "I2C", BaseAddress = "0xFE30", Visible = true },
+                new DeviceDefinition { Id = "rtc0", Type = "rtc-i2c", Name = "RTC DS3231", Address = "0x68", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+        var snapshot = runtime.RtcSnapshot;
+
+        snapshot.Should().NotBeNull();
+        snapshot!.TimeMode.Should().Be(CmosCpu.Computer.Devices.Rtc.RtcTimeMode.Simulated);
+        snapshot.I2cAddress.Should().Be(0x68);
+        snapshot.DirectBusBaseAddress.Should().BeNull();
+        snapshot.Registers[0].Should().Be(0x00); // seconds
+    }
+
+    [TestMethod]
+    public void Build_RtcI2cWithoutI2cBus_ShouldStillCreateClock()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "rtc-standalone",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "rtc0", Type = "rtc-i2c", Name = "RTC", Address = "0x68", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.RtcClock.Should().NotBeNull("RTC clock should be created even without I2C bus");
+        runtime.RtcI2c.Should().NotBeNull();
+        runtime.RtcSnapshot.Should().NotBeNull();
+    }
 }
 
 [TestClass]
