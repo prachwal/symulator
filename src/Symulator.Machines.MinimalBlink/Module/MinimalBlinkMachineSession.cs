@@ -281,6 +281,15 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
             return;
         }
 
+        if (_cpu.Halted)
+        {
+            _isRunning = false;
+            _status = "Halted";
+            PublishSnapshot();
+            Logger.Info("Minimal Blink Computer run not started because CPU is already halted");
+            return;
+        }
+
         _isRunning = true;
         _status = "Running";
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
