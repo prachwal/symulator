@@ -1,0 +1,21 @@
+{
+  "type": "rtc",
+  "model": "ds3231-compatible",
+  "name": "rtc0",
+  "timeMode": "simulated",
+  "initialTime": "1977-04-11T00:00:00",
+  "i2c": {
+    "enabled": true,
+    "address": "0x68"
+  },
+  "bus": {
+    "enabled": true,
+    "mode": "linear",
+    "baseAddress": "0xD100",
+    "size": "0x40"
+  },
+  "interrupt": {
+    "enabled": false,
+    "line": "IRQ"
+  }
+}
