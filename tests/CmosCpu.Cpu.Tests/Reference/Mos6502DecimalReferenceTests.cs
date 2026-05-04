@@ -7,9 +7,7 @@ public sealed class Mos6502DecimalReferenceTests
 {
     private const string RomName = "decimal_test.bin";
     private const ushort LoadAddress = 0x0000;
-    // TODO: confirm reset vector for decimal_test.bin from the Klaus Dormann suite.
-    // The main functional test uses $0400. If decimal_test.bin differs, update this.
-    private const ushort ResetVector = 0x0400;
+    private const ushort ResetVector = 0x0200;
     private const int MaxSteps = 100_000_000;
 
     [TestMethod]
@@ -24,8 +22,6 @@ public sealed class Mos6502DecimalReferenceTests
             return;
         }
 
-        // TODO: confirm success sentinel for decimal_test.bin.
-        // Assumes same convention as functional test: $00 at $8000 = success.
         ReferenceTestResult result = Reference6502TestRunner.Run(
             romPath,
             LoadAddress,
@@ -33,10 +29,11 @@ public sealed class Mos6502DecimalReferenceTests
             MaxSteps,
             (ram, cpu) =>
             {
-                byte status = ram.ReadByte(0x8000);
-                if (status == 0x00)
+                byte error = ram.ReadByte(0x0B);
+                if (error == 0x00)
                     return ReferenceTestState.Success;
-                if (status != 0xFF)
+                byte nextOpcode = ram.ReadByte(cpu.PC);
+                if (nextOpcode == 0xDB)
                     return ReferenceTestState.Failed;
                 return ReferenceTestState.Continue;
             });
