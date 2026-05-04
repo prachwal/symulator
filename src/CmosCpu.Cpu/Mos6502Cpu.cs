@@ -354,8 +354,24 @@ public sealed class Mos6502Cpu
             case 0x10: return BranchIf(!Negative);
 
             // --- BRK ---
-            case 0x00: { PC++; PushWord(PC); PushStatus(true); InterruptDisable = true; Break = false; PC = ReadWord(0xFFFE); return 7; }
+            case 0x00:
+            {
+                PC++;
+                PushWord(PC);
+                PushStatus(true);
+                InterruptDisable = true;
+                Break = false;
 
+                var vector = ReadWord(0xFFFE);
+                if (vector == 0x0000)
+                {
+                    IsHalted = true;
+                    return 7;
+                }
+
+                PC = vector;
+                return 7;
+            }
             // --- BVC ---
             case 0x50: return BranchIf(!Overflow);
 

@@ -74,6 +74,10 @@ public sealed class ComputerRunControllerTests
     {
         var machine = ComputerMachineFactory.CreateFromProfile(TestProfile);
         var rom = new byte[0x1000];
+        // Infinite NOP + JMP loop so machine keeps running until Stop()
+        rom[0x000] = 0x4C; // JMP $F000
+        rom[0x001] = 0x00;
+        rom[0x002] = 0xF0;
         rom[0xFFC] = 0x00;
         rom[0xFFD] = 0xF0;
         machine.Memory.LoadRom(0xF000, rom);
@@ -98,6 +102,10 @@ public sealed class ComputerRunControllerTests
     {
         var machine = ComputerMachineFactory.CreateFromProfile(TestProfile);
         var rom = new byte[0x1000];
+        // Infinite NOP + JMP loop so machine keeps running until Stop()
+        rom[0x000] = 0x4C; // JMP $F000
+        rom[0x001] = 0x00;
+        rom[0x002] = 0xF0;
         rom[0xFFC] = 0x00;
         rom[0xFFD] = 0xF0;
         machine.Memory.LoadRom(0xF000, rom);
