@@ -5,12 +5,19 @@ public sealed class SolutionDefinition
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Source { get; set; } = string.Empty;
+    public string? SourceFilePath { get; set; }
     public string EntryPoint { get; set; } = "0x0100";
     public string LoadAddress { get; set; } = "0x0100";
     public CpuDefinition Cpu { get; set; } = new();
     public MemoryDefinition Memory { get; set; } = new();
     public List<DeviceDefinition> Devices { get; set; } = [];
     public UiDefinition Ui { get; set; } = new();
+
+    public IReadOnlySet<string> VisibleDeviceTypes =>
+        Devices.Where(d => d.Visible).Select(d => d.Type).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlySet<string> AllDeviceTypes =>
+        Devices.Select(d => d.Type).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     public static SolutionDefinition CreateFallback(string id, string source)
     {
@@ -43,6 +50,12 @@ public sealed class SolutionDefinition
 
     public bool HasDevice(string type) =>
         Devices.Any(d => string.Equals(d.Type, type, StringComparison.OrdinalIgnoreCase));
+
+    public bool HasVisibleDevice(string type) =>
+        VisibleDeviceTypes.Contains(type);
+
+    public bool HasRuntimeDevice(string type) =>
+        AllDeviceTypes.Contains(type);
 
     public DeviceDefinition? GetDevice(string type) =>
         Devices.FirstOrDefault(d => string.Equals(d.Type, type, StringComparison.OrdinalIgnoreCase));

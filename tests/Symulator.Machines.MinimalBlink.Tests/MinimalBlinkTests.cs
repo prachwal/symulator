@@ -597,7 +597,97 @@ public sealed class MinimalBlinkHardwareSolutionBuilderTests
 
         _builder.Invoking(b => b.Build(solution))
             .Should().Throw<InvalidOperationException>()
-            .WithMessage("*non-existent-type*");
+            .WithMessage("*non-existent-type*bogus*");
+    }
+
+    [TestMethod]
+    public void Build_WrongLedAddress_ErrorMessageIncludesDeviceIdTypeAndField()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "blink",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "led0", Type = "led-mmio", Name = "LED", Address = "0xBEEF", Visible = true },
+            ]
+        };
+
+        _builder.Invoking(b => b.Build(solution))
+            .Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().ContainAll("led0", "led-mmio", "address", "FF00", "BEEF");
+    }
+
+    [TestMethod]
+    public void Build_WrongLcdAddress_ErrorMessageIncludesDeviceIdTypeAndField()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "hello-lcd",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "lcd0", Type = "hd44780-mmio", Name = "LCD 16x2", BaseAddress = "0xDEAD", Visible = true },
+            ]
+        };
+
+        _builder.Invoking(b => b.Build(solution))
+            .Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().ContainAll("lcd0", "hd44780-mmio", "baseAddress", "FE00", "DEAD");
+    }
+
+    [TestMethod]
+    public void Build_WrongUartAddress_ErrorMessageIncludesDeviceIdTypeAndField()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "hello-uart",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "uart0", Type = "uart-mmio", Name = "UART", BaseAddress = "0xCAFE", Visible = true },
+            ]
+        };
+
+        _builder.Invoking(b => b.Build(solution))
+            .Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().ContainAll("uart0", "uart-mmio", "baseAddress", "FE40", "CAFE");
+    }
+
+    [TestMethod]
+    public void Build_Pcf8574WithoutI2cController_ErrorMessageIncludesDeviceId()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "pcf-no-i2c",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "lcd0", Type = "hd44780-pcf8574", Name = "LCD", Address = "0x27", Visible = true },
+            ]
+        };
+
+        _builder.Invoking(b => b.Build(solution))
+            .Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().ContainAll("pcf-no-i2c", "lcd0", "hd44780-pcf8574", "requires", "i2c-controller-mmio");
+    }
+
+    [TestMethod]
+    public void Build_UnknownDeviceType_ErrorMessageIncludesSolutionId()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "bogus-solution",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "bogus", Type = "non-existent-type", Name = "Bogus", Visible = true },
+            ]
+        };
+
+        _builder.Invoking(b => b.Build(solution))
+            .Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().ContainAll("bogus-solution", "non-existent-type", "bogus");
     }
 
     [TestMethod]
@@ -616,6 +706,154 @@ public sealed class MinimalBlinkHardwareSolutionBuilderTests
         var runtime = _builder.Build(solution);
 
         runtime.HasDevice("led-mmio").Should().BeFalse("invisible devices should not be reported");
+    }
+
+    [TestMethod]
+    public void Build_Blink_HasVisibleDeviceMatchesHasDevice()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "blink",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "led0", Type = "led-mmio", Name = "LED", Address = "0xFF00", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.HasVisibleDevice("led-mmio").Should().BeTrue();
+        runtime.HasVisibleDevice("cpu").Should().BeTrue();
+        runtime.HasVisibleDevice("uart-mmio").Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void Build_Blink_RuntimeDeviceTypesIncludesOnlyBuiltHardware()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "blink",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "led0", Type = "led-mmio", Name = "LED", Address = "0xFF00", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.RuntimeDeviceTypes.Should().Contain("cpu");
+        runtime.RuntimeDeviceTypes.Should().Contain("led-mmio");
+        runtime.RuntimeDeviceTypes.Should().NotContain("hd44780-mmio");
+        runtime.RuntimeDeviceTypes.Should().NotContain("uart-mmio");
+    }
+
+    [TestMethod]
+    public void Build_HelloLcd_RuntimeDeviceTypesIncludesLcd()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "hello-lcd",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "lcd0", Type = "hd44780-mmio", Name = "LCD 16x2", BaseAddress = "0xFE00", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.RuntimeDeviceTypes.Should().Contain("hd44780-mmio");
+        runtime.RuntimeDeviceTypes.Should().NotContain("uart-mmio");
+    }
+
+    [TestMethod]
+    public void Build_AllDevices_RuntimeDeviceTypesAndVisibleDeviceTypesAgree()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "all",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "led0", Type = "led-mmio", Name = "LED", Address = "0xFF00", Visible = true },
+                new DeviceDefinition { Id = "uart0", Type = "uart-mmio", Name = "UART", BaseAddress = "0xFE40", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.VisibleDeviceTypes.Should().BeEquivalentTo("cpu", "led-mmio", "uart-mmio");
+        foreach (var type in runtime.VisibleDeviceTypes)
+            runtime.HasVisibleDevice(type).Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void Build_RtcI2c_ShouldCreateRtcClockAndAttachToI2cBus()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "rtc-test",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "i2c0", Type = "i2c-controller-mmio", Name = "I2C", BaseAddress = "0xFE30", Visible = true },
+                new DeviceDefinition { Id = "rtc0", Type = "rtc-i2c", Name = "RTC DS3231", Address = "0x68", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.RtcClock.Should().NotBeNull();
+        runtime.RtcI2c.Should().NotBeNull();
+        runtime.RtcI2c!.Address.Should().Be(0x68);
+        runtime.HasDevice("rtc-i2c").Should().BeTrue();
+        runtime.RuntimeDeviceTypes.Should().Contain("rtc-i2c");
+    }
+
+    [TestMethod]
+    public void Build_RtcI2c_SnapshotContainsTimeAndMetadata()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "rtc-snap",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "i2c0", Type = "i2c-controller-mmio", Name = "I2C", BaseAddress = "0xFE30", Visible = true },
+                new DeviceDefinition { Id = "rtc0", Type = "rtc-i2c", Name = "RTC DS3231", Address = "0x68", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+        var snapshot = runtime.RtcSnapshot;
+
+        snapshot.Should().NotBeNull();
+        snapshot!.TimeMode.Should().Be(CmosCpu.Computer.Devices.Rtc.RtcTimeMode.Simulated);
+        snapshot.I2cAddress.Should().Be(0x68);
+        snapshot.DirectBusBaseAddress.Should().BeNull();
+        snapshot.Registers[0].Should().Be(0x00); // seconds
+    }
+
+    [TestMethod]
+    public void Build_RtcI2cWithoutI2cBus_ShouldStillCreateClock()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "rtc-standalone",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "rtc0", Type = "rtc-i2c", Name = "RTC", Address = "0x68", Visible = true },
+            ]
+        };
+
+        var runtime = _builder.Build(solution);
+
+        runtime.RtcClock.Should().NotBeNull("RTC clock should be created even without I2C bus");
+        runtime.RtcI2c.Should().NotBeNull();
+        runtime.RtcSnapshot.Should().NotBeNull();
     }
 }
 

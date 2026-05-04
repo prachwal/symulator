@@ -1,3 +1,5 @@
+using CmosCpu.Computer.Devices.Rtc;
+
 namespace Symulator.Application.Abstractions;
 
 public sealed record MachineDescriptor(string Id, string Name, string Family, string DefaultProfilePath, string Description = "");
@@ -21,4 +23,5 @@ public sealed record EmulatorStateSnapshot(
     bool IsHalted,
     CpuStateSnapshot? Cpu,
     string TerminalText,
-    long TotalInstructions);
+    long TotalInstructions,
+    RtcSnapshot? Rtc = null);

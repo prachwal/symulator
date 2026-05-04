@@ -31,6 +31,8 @@ public sealed class SolutionDefinitionLoader
         var definition = await JsonSerializer.DeserializeAsync<SolutionDefinition>(stream, JsonOptions, ct)
             ?? throw new InvalidOperationException($"Solution manifest is empty: {manifestPath}");
 
+        definition.SourceFilePath = manifestPath;
+
         if (string.IsNullOrWhiteSpace(definition.Id))
             definition.Id = id;
 
