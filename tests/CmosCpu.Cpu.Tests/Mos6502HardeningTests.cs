@@ -45,21 +45,41 @@ public sealed class Mos6502HardeningTests
     }
 
     [TestMethod]
-    public void Step_ShouldIncludePendingIrqCyclesInReturnedCyclesAndCycleCount()
+    public void Step_ShouldServicePendingIrqBeforeFetchingNextOpcode()
     {
         var cpu = CreateCpu(new byte[] { 0x58, 0xEA }, out var ram);
         ram.WriteByte(0xFFFE, 0x00);
         ram.WriteByte(0xFFFF, 0x90);
 
         cpu.Step().Should().Be(2);
+        cpu.PC.Should().Be(0x8001);
         cpu.SetIrqLine(true);
 
         int cycles = cpu.Step();
 
-        cycles.Should().Be(9);
+        cycles.Should().Be(7);
         cpu.PC.Should().Be(0x9000);
         cpu.InterruptDisable.Should().BeTrue();
-        cpu.CycleCount.Should().Be(18UL);
+        cpu.CycleCount.Should().Be(16UL);
+        ram.ReadByte(0x01FC).Should().Be(0x80);
+        ram.ReadByte(0x01FB).Should().Be(0x01);
+    }
+
+    [TestMethod]
+    public void Cli_ShouldNotServiceAlreadyAssertedIrqUntilFollowingStep()
+    {
+        var cpu = CreateCpu(new byte[] { 0x58, 0xEA }, out var ram);
+        ram.WriteByte(0xFFFE, 0x00);
+        ram.WriteByte(0xFFFF, 0x90);
+        cpu.SetIrqLine(true);
+
+        cpu.Step().Should().Be(2);
+
+        cpu.PC.Should().Be(0x8001);
+        cpu.InterruptDisable.Should().BeFalse();
+
+        cpu.Step().Should().Be(7);
+        cpu.PC.Should().Be(0x9000);
     }
 
     [TestMethod]
