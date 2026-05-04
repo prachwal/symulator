@@ -43,7 +43,7 @@ public sealed class RtcDiagnosticsTests
         runtime.RtcSnapshot.DirectBusBaseAddress.Should().BeNull();
         runtime.RtcSnapshot.DirectBusMode.Should().BeNull();
         runtime.RtcSnapshot.Registers.Should().NotBeEmpty();
-        runtime.RtcSnapshot.CurrentTime.Should().Be(new DateTime(2024, 1, 1, 0, 0, 0));
+        runtime.RtcSnapshot.CurrentTime.Should().Be(new DateTime(1977, 4, 11, 0, 0, 0));
         runtime.RtcI2c.Should().NotBeNull();
         runtime.RtcClock.Should().NotBeNull();
         runtime.RtcBus.Should().BeNull();
@@ -301,7 +301,7 @@ done:
         runtime.Lcd.Should().NotBeNull("LCD must be built for clock display");
         runtime.RtcSnapshot.Should().NotBeNull();
 
-        runtime.RtcSnapshot!.TimeMode.Should().Be(RtcTimeMode.Simulated);
+        runtime.RtcSnapshot!.TimeMode.Should().Be(RtcTimeMode.Host, "rtc-clock.solution.json sets timeMode: host");
         runtime.RtcSnapshot.DirectBusBaseAddress.Should().Be(0xD100);
         runtime.RtcSnapshot.DirectBusMode.Should().Be(RtcBusMode.Linear);
 
@@ -451,8 +451,8 @@ done:
 
         var runtime = new MinimalBlinkHardwareSolutionBuilder().Build(solution);
 
-        // Initial time: 2024-01-01 00:00:00 (simulated mode)
-        runtime.RtcSnapshot!.CurrentTime.Should().Be(new DateTime(2024, 1, 1, 0, 0, 0));
+        // Default Simulated time: 1977-04-11 00:00:00
+        runtime.RtcSnapshot!.CurrentTime.Should().Be(new DateTime(1977, 4, 11, 0, 0, 0));
 
         // Advance time by 3661 seconds (1h 1m 1s)
         runtime.RtcClock!.Tick(TimeSpan.FromSeconds(3661));
@@ -538,15 +538,22 @@ done:
     [TestMethod]
     public async Task RtcClockAsm_CompilesAndBcdConversionWorks()
     {
-        var sourcePath = Path.Combine(TestPaths.ProgramsAsm, "rtc-clock.asm");
+        // Use inline solution with simulated mode so we can set a known time
+        var solution = new SolutionDefinition
+        {
+            Id = "rtc-clock-bcd",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Visible = true },
+                new DeviceDefinition { Id = "rtc0", Type = "rtc-mmio", BaseAddress = "0xD100", Visible = true,
+                    Options = new Dictionary<string, string> { ["timeMode"] = "simulated" } },
+            ]
+        };
 
-        var solution = await new SolutionDefinitionLoader().LoadForSourceAsync(sourcePath);
         var runtime = new MinimalBlinkHardwareSolutionBuilder().Build(solution);
 
-        // Set RTC to 12:34:56 to test BCD conversion
         runtime.RtcClock!.CurrentTime = new DateTime(2024, 6, 15, 12, 34, 56);
 
-        // Read RTC registers directly to verify bus mapping
         byte hours = runtime.RtcSnapshot!.Registers[2];
         byte minutes = runtime.RtcSnapshot.Registers[1];
         byte seconds = runtime.RtcSnapshot.Registers[0];
