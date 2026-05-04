@@ -24,6 +24,8 @@ public sealed class PseudoCpuAssembler
         ["BNE"]        = (0x0C, 1, "label"),
         ["JSR"]        = (0x0D, 2, "address"),
         ["RTS"]        = (0x0E, 0, "implied"),
+        ["ADD"]        = (0x0F, 1, "#value"),
+        ["SUB"]        = (0x10, 1, "#value"),
     };
 
     // Predefined symbols for MinimalBlink

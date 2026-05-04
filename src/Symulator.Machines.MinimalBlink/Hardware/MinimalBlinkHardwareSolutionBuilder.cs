@@ -21,6 +21,24 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
     private static string DeviceError(DeviceDefinition device, string field, string expected, string actual) =>
         $"Device '{device.Id}' (type={device.Type}) field '{field}': expected {expected}, got '{actual}'";
 
+    private static RtcTimeMode ParseTimeMode(DeviceDefinition device, RtcTimeMode fallback = RtcTimeMode.Simulated)
+    {
+        var modeStr = device.Options?.GetValueOrDefault("timeMode");
+        if (string.IsNullOrEmpty(modeStr))
+            return fallback;
+        return string.Equals(modeStr, "host", StringComparison.OrdinalIgnoreCase)
+            ? RtcTimeMode.Host
+            : RtcTimeMode.Simulated;
+    }
+
+    private static Hd44780TimingMode ParseLcdTimingMode(DeviceDefinition device)
+    {
+        var mode = device.Options?.GetValueOrDefault("timing");
+        return string.Equals(mode, "strict", StringComparison.OrdinalIgnoreCase)
+            ? Hd44780TimingMode.Strict
+            : Hd44780TimingMode.Ideal;
+    }
+
     public MinimalBlinkHardwareRuntime Build(SolutionDefinition solution)
     {
         var memory = new MinimalBlinkMemory();
@@ -69,7 +87,10 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
                             DeviceError(device, "baseAddress",
                                 $"0x{MinimalBlinkMemory.LcdCommandPort:X4}", $"0x{baseAddr:X4}"));
 
-                    lcd = new Hd44780Lcd();
+                    var lcdTiming = ParseLcdTimingMode(device);
+                    Logger.Debug("Builder: LCD timing mode={Mode}", lcdTiming);
+
+                    lcd = new Hd44780Lcd(timingMode: lcdTiming);
                     lcdBus = new Hd44780DirectBusAdapter(lcd, baseAddr);
                     lcdBuffer = new MinimalBlinkLcdBuffer();
                     memory.AttachLcd(lcd, lcdBus);
@@ -136,9 +157,8 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
 
                 case "rtc-i2c":
                 {
-                    rtcClock ??= new RtcClockCore(
-                        RtcTimeMode.Simulated,
-                        new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Unspecified));
+                    var rtcTimeModeI2c = ParseTimeMode(device);
+                    rtcClock ??= new RtcClockCore(rtcTimeModeI2c);
 
                     byte i2cAddr = string.IsNullOrEmpty(device.Address)
                         ? (byte)0x68
@@ -151,15 +171,14 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
                         i2cBus.Attach(rtcI2c);
                     }
 
-                    Logger.Debug("Builder: RTC I2C attached at address 0x{Addr:X2}", i2cAddr);
+                    Logger.Debug("Builder: RTC I2C attached at address 0x{Addr:X2} timeMode={Mode}", i2cAddr, rtcTimeModeI2c);
                     break;
                 }
 
                 case "rtc-mmio":
                 {
-                    rtcClock ??= new RtcClockCore(
-                        RtcTimeMode.Simulated,
-                        new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Unspecified));
+                    var rtcTimeModeBus = ParseTimeMode(device);
+                    rtcClock ??= new RtcClockCore(rtcTimeModeBus);
 
                     ushort baseAddr = string.IsNullOrEmpty(device.BaseAddress)
                         ? (ushort)0xD100

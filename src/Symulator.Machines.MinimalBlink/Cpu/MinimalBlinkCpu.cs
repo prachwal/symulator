@@ -205,6 +205,30 @@ public sealed class MinimalBlinkCpu
                 return 6;
             }
 
+            case 0x0F: // ADD #imm
+            {
+                byte val = _memory.ReadByte((ushort)(PC));
+                PC++;
+                byte result = (byte)(A + val);
+                Z = result == 0;
+                N = (result & 0x80) != 0;
+                A = result;
+                CycleCount += 2;
+                return 2;
+            }
+
+            case 0x10: // SUB #imm
+            {
+                byte val = _memory.ReadByte((ushort)(PC));
+                PC++;
+                byte result = (byte)(A - val);
+                Z = result == 0;
+                N = (result & 0x80) != 0;
+                A = result;
+                CycleCount += 2;
+                return 2;
+            }
+
             default:
                 Halted = true;
                 LastError = $"Unknown opcode: 0x{opcode:X2}";

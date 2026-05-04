@@ -7,6 +7,7 @@ namespace CmosCpu.Computer.Tests;
 public sealed class Hd44780LcdTests
 {
     private static Hd44780Lcd Create() => new();
+    private static Hd44780Lcd CreateStrict() => new(timingMode: Hd44780TimingMode.Strict);
     private ulong _tickCounter;
 
     private void Wait(Hd44780Lcd lcd)
@@ -166,18 +167,28 @@ public sealed class Hd44780LcdTests
     }
 
     [TestMethod]
-    public void BusyFlag_IgnoresWritesWhileBusy()
+    public void BusyFlag_StrictMode_IgnoresWritesWhileBusy()
     {
-        var lcd = Create();
+        var lcd = CreateStrict();
         lcd.ExecuteInstruction(0x01); // Clear Display — long busy
         lcd.IsBusy.Should().BeTrue();
 
-        // Write while busy — MUST be ignored (no Wait between)
         lcd.WriteData((byte)'X');
-        lcd.Ddram[0].Should().Be(0, "write while busy should be ignored");
+        lcd.Ddram[0].Should().Be(0, "write while busy should be ignored in Strict mode");
 
         Wait(lcd);
         lcd.Ddram[0].Should().Be(0, "after busy clears, DDRAM should still be empty");
+    }
+
+    [TestMethod]
+    public void BusyFlag_IdealMode_AcceptsWritesWhileBusy()
+    {
+        var lcd = Create();
+        lcd.ExecuteInstruction(0x01);
+        lcd.IsBusy.Should().BeTrue();
+
+        lcd.WriteData((byte)'X');
+        lcd.Ddram[0].Should().Be((byte)'X', "Ideal mode accepts writes even when busy");
     }
 
     [TestMethod]

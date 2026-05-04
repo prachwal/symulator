@@ -33,12 +33,14 @@ public sealed class Hd44780Lcd
     private bool _readPending;
     private byte _readLatch;
     private readonly uint _clockHz;
+    private readonly Hd44780TimingMode _timingMode;
 
     public event Action<Hd44780Lcd>? DisplayChanged;
 
-    public Hd44780Lcd(uint clockHz = DefaultClockHz)
+    public Hd44780Lcd(Hd44780TimingMode timingMode = Hd44780TimingMode.Ideal, uint clockHz = DefaultClockHz)
     {
         _clockHz = clockHz > 0 ? clockHz : DefaultClockHz;
+        _timingMode = timingMode;
         Reset();
     }
 
@@ -68,11 +70,8 @@ public sealed class Hd44780Lcd
 
     public void ExecuteInstruction(byte cmd)
     {
-        if (IsBusy)
-        {
-            Logger.Debug("HD44780 ignored instruction while busy: 0x{Value:X2}", cmd);
+        if (_timingMode == Hd44780TimingMode.Strict && IsBusy)
             return;
-        }
 
         if ((cmd & 0x80) != 0)
         {
@@ -151,11 +150,9 @@ public sealed class Hd44780Lcd
 
     public void WriteData(byte value)
     {
-        if (IsBusy)
-        {
-            Logger.Debug("HD44780 ignored data write while busy: 0x{Value:X2}", value);
+        if (_timingMode == Hd44780TimingMode.Strict && IsBusy)
             return;
-        }
+
         if (_cgramMode)
             _cgram[_addressCounter & 0x3F] = value;
         else
