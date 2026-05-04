@@ -31,6 +31,14 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
             : RtcTimeMode.Simulated;
     }
 
+    private static Hd44780TimingMode ParseLcdTimingMode(DeviceDefinition device)
+    {
+        var mode = device.Options?.GetValueOrDefault("timing");
+        return string.Equals(mode, "strict", StringComparison.OrdinalIgnoreCase)
+            ? Hd44780TimingMode.Strict
+            : Hd44780TimingMode.Ideal;
+    }
+
     public MinimalBlinkHardwareRuntime Build(SolutionDefinition solution)
     {
         var memory = new MinimalBlinkMemory();
@@ -79,7 +87,10 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
                             DeviceError(device, "baseAddress",
                                 $"0x{MinimalBlinkMemory.LcdCommandPort:X4}", $"0x{baseAddr:X4}"));
 
-                    lcd = new Hd44780Lcd();
+                    var lcdTiming = ParseLcdTimingMode(device);
+                    Logger.Debug("Builder: LCD timing mode={Mode}", lcdTiming);
+
+                    lcd = new Hd44780Lcd(timingMode: lcdTiming);
                     lcdBus = new Hd44780DirectBusAdapter(lcd, baseAddr);
                     lcdBuffer = new MinimalBlinkLcdBuffer();
                     memory.AttachLcd(lcd, lcdBus);

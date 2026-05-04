@@ -17,7 +17,8 @@
     { "id": "cpu", "type": "cpu", "name": "CPU", "visible": true },
     { "id": "rtc0", "type": "rtc-mmio", "name": "RTC DS3231", "baseAddress": "0xD100", "visible": true,
       "options": { "timeMode": "host" } },
-    { "id": "lcd0", "type": "hd44780-mmio", "name": "LCD 16x2", "baseAddress": "0xFE00", "visible": true }
+    { "id": "lcd0", "type": "hd44780-mmio", "name": "LCD 16x2", "baseAddress": "0xFE00", "visible": true,
+      "options": { "timing": "ideal" } }
   ],
   "ui": {
     "layout": {
