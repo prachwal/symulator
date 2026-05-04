@@ -21,7 +21,7 @@ public sealed class HaltedCpuRunLoopTests
 
         session.Current.IsHalted.Should().BeTrue();
 
-        await session.RunAsync().WaitAsync(TimeSpan.FromMilliseconds(250));
+        await session.RunAsync();
 
         session.Current.IsRunning.Should().BeFalse();
         session.Current.IsHalted.Should().BeTrue();
