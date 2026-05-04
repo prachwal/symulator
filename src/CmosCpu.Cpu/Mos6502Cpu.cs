@@ -76,16 +76,17 @@ public sealed class Mos6502Cpu
         if (IsHalted)
             return 0;
 
+        if (_irqLineActive && !InterruptDisable)
+        {
+            int interruptCycles = ServiceIrq();
+            CycleCount += (ulong)interruptCycles;
+            return interruptCycles;
+        }
+
         byte opcode = Read(PC);
         PC++;
 
         int cycles = Execute(opcode);
-
-        if (_irqLineActive && !InterruptDisable)
-        {
-            cycles += ServiceIrq();
-        }
-
         CycleCount += (ulong)cycles;
         return cycles;
     }
