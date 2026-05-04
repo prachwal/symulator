@@ -5,6 +5,7 @@ public sealed class SolutionDefinition
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Source { get; set; } = string.Empty;
+    public string? SourceFilePath { get; set; }
     public string EntryPoint { get; set; } = "0x0100";
     public string LoadAddress { get; set; } = "0x0100";
     public CpuDefinition Cpu { get; set; } = new();

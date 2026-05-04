@@ -597,7 +597,97 @@ public sealed class MinimalBlinkHardwareSolutionBuilderTests
 
         _builder.Invoking(b => b.Build(solution))
             .Should().Throw<InvalidOperationException>()
-            .WithMessage("*non-existent-type*");
+            .WithMessage("*non-existent-type*bogus*");
+    }
+
+    [TestMethod]
+    public void Build_WrongLedAddress_ErrorMessageIncludesDeviceIdTypeAndField()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "blink",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "led0", Type = "led-mmio", Name = "LED", Address = "0xBEEF", Visible = true },
+            ]
+        };
+
+        _builder.Invoking(b => b.Build(solution))
+            .Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().ContainAll("led0", "led-mmio", "address", "FF00", "BEEF");
+    }
+
+    [TestMethod]
+    public void Build_WrongLcdAddress_ErrorMessageIncludesDeviceIdTypeAndField()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "hello-lcd",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "lcd0", Type = "hd44780-mmio", Name = "LCD 16x2", BaseAddress = "0xDEAD", Visible = true },
+            ]
+        };
+
+        _builder.Invoking(b => b.Build(solution))
+            .Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().ContainAll("lcd0", "hd44780-mmio", "baseAddress", "FE00", "DEAD");
+    }
+
+    [TestMethod]
+    public void Build_WrongUartAddress_ErrorMessageIncludesDeviceIdTypeAndField()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "hello-uart",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "uart0", Type = "uart-mmio", Name = "UART", BaseAddress = "0xCAFE", Visible = true },
+            ]
+        };
+
+        _builder.Invoking(b => b.Build(solution))
+            .Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().ContainAll("uart0", "uart-mmio", "baseAddress", "FE40", "CAFE");
+    }
+
+    [TestMethod]
+    public void Build_Pcf8574WithoutI2cController_ErrorMessageIncludesDeviceId()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "pcf-no-i2c",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "lcd0", Type = "hd44780-pcf8574", Name = "LCD", Address = "0x27", Visible = true },
+            ]
+        };
+
+        _builder.Invoking(b => b.Build(solution))
+            .Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().ContainAll("pcf-no-i2c", "lcd0", "hd44780-pcf8574", "requires", "i2c-controller-mmio");
+    }
+
+    [TestMethod]
+    public void Build_UnknownDeviceType_ErrorMessageIncludesSolutionId()
+    {
+        var solution = new SolutionDefinition
+        {
+            Id = "bogus-solution",
+            Devices =
+            [
+                new DeviceDefinition { Id = "cpu", Type = "cpu", Name = "CPU", Visible = true },
+                new DeviceDefinition { Id = "bogus", Type = "non-existent-type", Name = "Bogus", Visible = true },
+            ]
+        };
+
+        _builder.Invoking(b => b.Build(solution))
+            .Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().ContainAll("bogus-solution", "non-existent-type", "bogus");
     }
 
     [TestMethod]

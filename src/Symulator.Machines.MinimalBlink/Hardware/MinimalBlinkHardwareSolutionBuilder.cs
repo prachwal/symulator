@@ -14,6 +14,12 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+    private static string DeviceError(DeviceDefinition device, string field, string message) =>
+        $"Device '{device.Id}' (type={device.Type}) field '{field}': {message}";
+
+    private static string DeviceError(DeviceDefinition device, string field, string expected, string actual) =>
+        $"Device '{device.Id}' (type={device.Type}) field '{field}': expected {expected}, got '{actual}'";
+
     public MinimalBlinkHardwareRuntime Build(SolutionDefinition solution)
     {
         var memory = new MinimalBlinkMemory();
@@ -41,7 +47,8 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
                         var addr = AddressParser.Parse16(device.EffectiveAddress);
                         if (addr != MinimalBlinkMemory.LedPort)
                             throw new InvalidOperationException(
-                                $"LED MMIO address must be 0x{MinimalBlinkMemory.LedPort:X4}, got 0x{addr:X4}");
+                                DeviceError(device, "address",
+                                    $"0x{MinimalBlinkMemory.LedPort:X4}", $"0x{addr:X4}"));
                     }
                     Logger.Debug("Builder: LED attached");
                     break;
@@ -55,7 +62,8 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
 
                     if (baseAddr != MinimalBlinkMemory.LcdCommandPort)
                         throw new InvalidOperationException(
-                            $"LCD MMIO base address must be 0x{MinimalBlinkMemory.LcdCommandPort:X4}, got 0x{baseAddr:X4}");
+                            DeviceError(device, "baseAddress",
+                                $"0x{MinimalBlinkMemory.LcdCommandPort:X4}", $"0x{baseAddr:X4}"));
 
                     lcd = new Hd44780Lcd();
                     lcdBus = new Hd44780DirectBusAdapter(lcd, baseAddr);
@@ -74,13 +82,13 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
 
                     if (baseAddr != MinimalBlinkMemory.I2cBase)
                         throw new InvalidOperationException(
-                            $"I2C MMIO base address must be 0x{MinimalBlinkMemory.I2cBase:X4}, got 0x{baseAddr:X4}");
+                            DeviceError(device, "baseAddress",
+                                $"0x{MinimalBlinkMemory.I2cBase:X4}", $"0x{baseAddr:X4}"));
 
                     i2cBus = new I2cBus();
                     i2cCtrl = new MemoryMappedI2cController(i2cBus);
                     memory.AttachI2c(i2cCtrl);
 
-                    // Attach PCF8574 backpack if also declared
                     var pcfDevice = solution.Devices.FirstOrDefault(d => d.Type == "hd44780-pcf8574");
                     if (pcfDevice is not null)
                     {
@@ -106,7 +114,8 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
 
                     if (baseAddr != MinimalBlinkMemory.UartBase)
                         throw new InvalidOperationException(
-                            $"UART MMIO base address must be 0x{MinimalBlinkMemory.UartBase:X4}, got 0x{baseAddr:X4}");
+                            DeviceError(device, "baseAddress",
+                                $"0x{MinimalBlinkMemory.UartBase:X4}", $"0x{baseAddr:X4}"));
 
                     uart = new UartDevice();
                     uartAdapter = new MemoryMappedUartAdapter(uart);
@@ -122,15 +131,19 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
                     break;
 
                 default:
-                    throw new InvalidOperationException($"Unsupported device type: {device.Type}");
+                    throw new InvalidOperationException(
+                        $"Solution '{solution.Id}' unsupported device type '{device.Type}' (id='{device.Id}').");
             }
         }
 
-        // Validate device dependencies
         if (solution.HasDevice("hd44780-pcf8574") && i2cBus is null)
         {
+            var pcfDev = solution.Devices.FirstOrDefault(d => d.Type == "hd44780-pcf8574");
             throw new InvalidOperationException(
-                "Device 'hd44780-pcf8574' requires 'i2c-controller-mmio'.");
+                pcfDev is not null
+                    ? DeviceError(pcfDev, "dependency",
+                        $"requires device type 'i2c-controller-mmio', but none is declared in solution '{solution.Id}'")
+                    : $"Solution '{solution.Id}': device 'hd44780-pcf8574' requires 'i2c-controller-mmio'.");
         }
 
         var cpu = new MinimalBlinkCpu(memory);
