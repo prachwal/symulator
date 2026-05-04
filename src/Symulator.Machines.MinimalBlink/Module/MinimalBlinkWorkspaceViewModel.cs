@@ -4,8 +4,7 @@ using System.Windows.Input;
 using Avalonia.Media;
 using Symulator.Application.Abstractions;
 using Symulator.Application.Assembly;
-using Symulator.Machines.MinimalBlink.Models;
-using Symulator.Machines.MinimalBlink.Programs;
+using Symulator.Application.Solutions;
 
 namespace Symulator.Machines.MinimalBlink.Module;
 
@@ -13,6 +12,7 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
 {
     private readonly IMachineSession _session;
     private readonly AssemblyProgramCatalog _catalog = new();
+    private readonly SolutionDefinitionLoader _solutionLoader = new();
 
     private static string? FindAsmDirectory()
     {
@@ -26,6 +26,7 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         }
         return null;
     }
+
     private string _statusText = "Ready";
     private string _pc = "$0000";
     private string _a = "$00";
@@ -36,18 +37,25 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     private long _ledToggleCount;
     private byte _ledLastValue;
     private string? _lastError;
-    private MinimalBlinkPredefinedProgram? _selectedProgram;
     private IBrush _ledColor = OffBrush;
-    private bool _isApplyingSnapshot;
     private bool[,]? _lcdPixels;
     private List<string>? _terminalLines;
     private string _terminalInputText = string.Empty;
     private string _asmSourceText = string.Empty;
     private string _programStatus = "Not compiled";
+    private string _selectedSolutionSummary = "No solution selected";
     private List<AssemblyListingLine>? _listingLines;
     private int? _currentListingLineIndex;
     private AssemblySourceProgram? _selectedAsmProgram;
+    private SolutionDefinition? _selectedSolution;
     private List<AssemblySourceProgram> _asmPrograms = new();
+    private bool _showCpuModule = true;
+    private bool _showLedModule;
+    private bool _showLcdModule;
+    private bool _showUartModule;
+    private bool _showI2cModule;
+    private bool _isSolutionLoading;
+    private int _solutionLoadVersion;
 
     private static readonly IBrush OnBrush = new SolidColorBrush(Color.Parse("#4DFF88"));
     private static readonly IBrush OffBrush = new SolidColorBrush(Color.Parse("#1a3a2a"));
@@ -56,18 +64,34 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     public MinimalBlinkWorkspaceViewModel(IMachineSession session)
     {
         _session = session;
-        PredefinedPrograms = MinimalBlinkPredefinedPrograms.All;
-        SelectedProgram = PredefinedPrograms.FirstOrDefault();
-        LoadProgramCommand = new AsyncRelayCommand(LoadProgramAsync);
         ResetCommand = new AsyncRelayCommand(ResetAsync);
         StepCommand = new AsyncRelayCommand(StepAsync);
         RunCommand = new AsyncRelayCommand(RunAsync);
         PauseCommand = new AsyncRelayCommand(PauseAsync);
-        CompileCommand = new AsyncRelayCommand(CompileAsync);
-        LoadAndResetCommand = new AsyncRelayCommand(LoadAndResetAsync);
+        CompileCommand = new AsyncRelayCommand(CompileAsync, () => !IsSolutionLoading);
+        LoadAndResetCommand = new AsyncRelayCommand(LoadAndResetAsync, () => !IsSolutionLoading);
 
-        // Load ASM programs from directory
         _ = InitializeAsmProgramsAsync();
+    }
+
+    public bool IsSolutionLoading
+    {
+        get => _isSolutionLoading;
+        private set
+        {
+            if (_isSolutionLoading == value)
+                return;
+
+            _isSolutionLoading = value;
+            OnPropertyChanged();
+            RaiseCommandsCanExecuteChanged();
+        }
+    }
+
+    private void RaiseCommandsCanExecuteChanged()
+    {
+        if (CompileCommand is AsyncRelayCommand c1) c1.RaiseCanExecuteChanged();
+        if (LoadAndResetCommand is AsyncRelayCommand c2) c2.RaiseCanExecuteChanged();
     }
 
     private async Task InitializeAsmProgramsAsync()
@@ -95,8 +119,6 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         }
     }
 
-    public IReadOnlyList<MinimalBlinkPredefinedProgram> PredefinedPrograms { get; }
-
     public bool[,]? LcdPixels
     {
         get => _lcdPixels;
@@ -115,8 +137,6 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         set { _terminalInputText = value; OnPropertyChanged(); }
     }
 
-    // ── ASM Assembler / Program Lifecycle ──────────────────────────
-
     public string AsmSourceText
     {
         get => _asmSourceText;
@@ -127,6 +147,12 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     {
         get => _programStatus;
         set { _programStatus = value; OnPropertyChanged(); }
+    }
+
+    public string SelectedSolutionSummary
+    {
+        get => _selectedSolutionSummary;
+        set { _selectedSolutionSummary = value; OnPropertyChanged(); }
     }
 
     public List<AssemblyListingLine>? ListingLines
@@ -151,6 +177,48 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         set { _currentListingLineIndex = value; OnPropertyChanged(); }
     }
 
+    public bool ShowCpuModule
+    {
+        get => _showCpuModule;
+        set { _showCpuModule = value; OnPropertyChanged(); }
+    }
+
+    public bool ShowLedModule
+    {
+        get => _showLedModule;
+        set { _showLedModule = value; OnPropertyChanged(); }
+    }
+
+    public bool ShowLcdModule
+    {
+        get => _showLcdModule;
+        set { _showLcdModule = value; OnPropertyChanged(); }
+    }
+
+    public bool ShowUartModule
+    {
+        get => _showUartModule;
+        set
+        {
+            _showUartModule = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowNoCenterModule));
+        }
+    }
+
+    public bool ShowI2cModule
+    {
+        get => _showI2cModule;
+        set
+        {
+            _showI2cModule = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowNoCenterModule));
+        }
+    }
+
+    public bool ShowNoCenterModule => !ShowUartModule && !ShowI2cModule;
+
     public void UpdateCurrentInstructionFromPc(ushort pc)
     {
         var lines = ExecutableListingLines;
@@ -160,7 +228,6 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
             return;
         }
 
-        // Clear all markers first
         foreach (var line in lines)
             line.CurrentLineMarker = string.Empty;
 
@@ -178,6 +245,8 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         {
             CurrentListingLineIndex = null;
         }
+
+        OnPropertyChanged(nameof(ExecutableListingLines));
     }
 
     public List<AssemblySourceProgram> AsmPrograms
@@ -199,10 +268,14 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
 
             if (value is null)
             {
+                System.Threading.Interlocked.Increment(ref _solutionLoadVersion);
+                IsSolutionLoading = false;
                 AsmSourceText = string.Empty;
                 ProgramStatus = "No ASM program selected";
+                SelectedSolutionSummary = "No solution selected";
                 ListingLines = null;
                 CurrentListingLineIndex = null;
+                ApplySolutionToVisibleModules(null);
                 return;
             }
 
@@ -210,7 +283,77 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
             ProgramStatus = $"Selected, not compiled: {value.Id}";
             ListingLines = null;
             CurrentListingLineIndex = null;
+            IsSolutionLoading = true;
+
+            var loadVersion = System.Threading.Interlocked.Increment(ref _solutionLoadVersion);
+            _ = LoadSelectedSolutionAsync(value, loadVersion);
         }
+    }
+
+    private async Task LoadSelectedSolutionAsync(AssemblySourceProgram program, int loadVersion)
+    {
+        try
+        {
+            var solution = await _solutionLoader.LoadForSourceAsync(program.FilePath);
+            if (loadVersion != _solutionLoadVersion)
+                return;
+
+            _selectedSolution = solution;
+            SelectedSolutionSummary = $"Solution: {_selectedSolution.Name}";
+            ApplySolutionToVisibleModules(_selectedSolution);
+
+            if (_session is MinimalBlinkMachineSession asmSession)
+                asmSession.SetSelectedSolution(_selectedSolution);
+        }
+        catch (Exception ex)
+        {
+            if (loadVersion != _solutionLoadVersion)
+                return;
+
+            _selectedSolution = SolutionDefinition.CreateFallback(program.Id, Path.GetFileName(program.FilePath));
+            SelectedSolutionSummary = $"Solution fallback: {program.Id}";
+            ApplySolutionToVisibleModules(_selectedSolution);
+
+            if (_session is MinimalBlinkMachineSession asmSession)
+                asmSession.SetSelectedSolution(_selectedSolution);
+
+            System.Diagnostics.Debug.WriteLine($"Failed to load solution manifest: {ex.Message}");
+        }
+        finally
+        {
+            if (loadVersion == _solutionLoadVersion)
+                IsSolutionLoading = false;
+        }
+    }
+
+    private void ApplySolutionToVisibleModules(SolutionDefinition? solution)
+    {
+        if (solution is null)
+        {
+            ShowCpuModule = true;
+            ShowLedModule = false;
+            ShowLcdModule = false;
+            ShowUartModule = false;
+            ShowI2cModule = false;
+            return;
+        }
+
+        var visibleModuleIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in solution.Ui.Layout.Left) visibleModuleIds.Add(id);
+        foreach (var id in solution.Ui.Layout.Center) visibleModuleIds.Add(id);
+        foreach (var id in solution.Ui.Layout.Right) visibleModuleIds.Add(id);
+        foreach (var id in solution.Ui.Layout.Bottom) visibleModuleIds.Add(id);
+
+        bool HasDeviceType(string type) => solution.Devices.Any(d =>
+            d.Visible &&
+            visibleModuleIds.Contains(d.Id) &&
+            string.Equals(d.Type, type, StringComparison.OrdinalIgnoreCase));
+
+        ShowCpuModule = visibleModuleIds.Contains("cpu") || HasDeviceType("cpu");
+        ShowLedModule = HasDeviceType("led-mmio");
+        ShowLcdModule = HasDeviceType("hd44780-mmio") || HasDeviceType("hd44780-pcf8574");
+        ShowUartModule = HasDeviceType("uart-mmio");
+        ShowI2cModule = HasDeviceType("i2c-controller-mmio");
     }
 
     public async Task SendTerminalInputAsync()
@@ -220,31 +363,11 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         if (string.IsNullOrWhiteSpace(text))
             return;
 
-        // Echo locally so UI shows what was typed (before CPU echoes)
         var currentLines = _terminalLines ?? new List<string>();
         _terminalLines = new List<string>(currentLines) { $"> {text}" };
         OnPropertyChanged(nameof(TerminalLines));
 
         await _session.SendInputAsync(text + "\n");
-    }
-
-    public void UpdateLoadedProgram(string? loadedId, string? selectedId)
-    {
-        var target = selectedId ?? loadedId;
-        if (target is null) return;
-
-        var program = PredefinedPrograms.FirstOrDefault(p => p.Id == target);
-        if (program is not null && program != _selectedProgram)
-        {
-            _selectedProgram = program;
-            OnPropertyChanged(nameof(SelectedProgram));
-        }
-    }
-
-    public MinimalBlinkPredefinedProgram? SelectedProgram
-    {
-        get => _selectedProgram;
-        set { _selectedProgram = value; OnPropertyChanged(); }
     }
 
     public string StatusText
@@ -275,21 +398,12 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
             LedColor = OffBrush;
     }
 
-    public ICommand LoadProgramCommand { get; }
     public ICommand ResetCommand { get; }
     public ICommand StepCommand { get; }
     public ICommand RunCommand { get; }
     public ICommand PauseCommand { get; }
     public ICommand CompileCommand { get; }
     public ICommand LoadAndResetCommand { get; }
-
-    private async Task<MachineCommandResult> LoadProgramAsync()
-    {
-        if (SelectedProgram is null)
-            return MachineCommandResult.Failure("No program selected");
-
-        return await _session.ExecuteMachineCommandAsync("minimal-blink.load-predefined-program", SelectedProgram.Id);
-    }
 
     private async Task<MachineCommandResult> ResetAsync()
     {
@@ -317,6 +431,9 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
 
     private async Task<MachineCommandResult> CompileAsync()
     {
+        if (IsSolutionLoading)
+            return MachineCommandResult.Failure("Solution is still loading, please wait.");
+
         var asmSession = _session as MinimalBlinkMachineSession;
         if (asmSession is null || SelectedAsmProgram is null)
             return MachineCommandResult.Failure("No ASM program selected");
@@ -327,7 +444,8 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         {
             var errors = string.Join("; ",
                 result.Diagnostics.Where(d => d.Severity == "Error").Select(d => d.Message));
-            ProgramStatus = $"Compile failed: {errors}"[..Math.Min(120, $"Compile failed: {errors}".Length)];
+            var message = $"Compile failed: {errors}";
+            ProgramStatus = message[..Math.Min(120, message.Length)];
             ListingLines = null;
             CurrentListingLineIndex = null;
             return MachineCommandResult.Failure(errors);
@@ -341,6 +459,9 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
 
     private async Task<MachineCommandResult> LoadAndResetAsync()
     {
+        if (IsSolutionLoading)
+            return MachineCommandResult.Failure("Solution is still loading, please wait.");
+
         var asmSession = _session as MinimalBlinkMachineSession;
         if (asmSession is null)
             return MachineCommandResult.Failure("Not a MinimalBlink session");
@@ -369,19 +490,28 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
 internal sealed class AsyncRelayCommand : ICommand
 {
     private readonly Func<Task<MachineCommandResult>> _execute;
+    private readonly Func<bool>? _canExecute;
     private bool _isExecuting;
 
-    public AsyncRelayCommand(Func<Task<MachineCommandResult>> execute)
+    public AsyncRelayCommand(Func<Task<MachineCommandResult>> execute, Func<bool>? canExecute = null)
     {
         _execute = execute;
+        _canExecute = canExecute;
     }
 
     public event EventHandler? CanExecuteChanged;
 
-    public bool CanExecute(object? parameter) => !_isExecuting;
+    public bool CanExecute(object? parameter)
+    {
+        if (_isExecuting) return false;
+        if (_canExecute is not null && !_canExecute()) return false;
+        return true;
+    }
+
     public async void Execute(object? parameter)
     {
-        if (_isExecuting) return;
+        if (!CanExecute(parameter)) return;
+
         _isExecuting = true;
         RaiseCanExecuteChanged();
         try

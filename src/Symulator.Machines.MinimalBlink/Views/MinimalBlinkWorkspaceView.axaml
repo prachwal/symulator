@@ -36,14 +36,13 @@
                    FontSize="12"
                    FontWeight="Bold"
                    TextWrapping="Wrap"
-                   MaxWidth="360" />
+                   MaxWidth="420" />
       </Grid>
     </Border>
 
-    <!-- Main compact area: program controls + devices/state. Execution controls stay in the shell toolbar. -->
     <Grid Grid.Row="1"
-          ColumnDefinitions="320,*"
-          MinHeight="260">
+          ColumnDefinitions="320,*,340"
+          MinHeight="270">
 
       <!-- Program lifecycle -->
       <Border Grid.Column="0"
@@ -64,6 +63,10 @@
             <TextBlock Text="{Binding ProgramStatus}"
                        Foreground="#7CFF7C"
                        FontSize="12"
+                       TextWrapping="Wrap" />
+            <TextBlock Text="{Binding SelectedSolutionSummary}"
+                       Foreground="#9DA7B3"
+                       FontSize="11"
                        TextWrapping="Wrap" />
           </StackPanel>
 
@@ -95,149 +98,182 @@
                        FontSize="11"
                        TextWrapping="Wrap" />
           </StackPanel>
-
-          <Border BorderBrush="#263241"
-                  BorderThickness="1"
-                  Background="#0D1117"
-                  Padding="8">
-            <StackPanel Spacing="6">
-              <TextBlock Text="Legacy predefined programs"
-                         FontWeight="Bold"
-                         Foreground="#B0BCC8" />
-              <ComboBox ItemsSource="{Binding PredefinedPrograms}"
-                        SelectedItem="{Binding SelectedProgram}"
-                        MinWidth="250">
-                <ComboBox.ItemTemplate>
-                  <DataTemplate>
-                    <TextBlock Text="{Binding Name}" />
-                  </DataTemplate>
-                </ComboBox.ItemTemplate>
-              </ComboBox>
-              <Button Content="Load legacy program"
-                      Command="{Binding LoadProgramCommand}"
-                      HorizontalAlignment="Left" />
-            </StackPanel>
-          </Border>
         </StackPanel>
       </Border>
 
-      <!-- CPU + devices -->
-      <Grid Grid.Column="1"
-            ColumnDefinitions="280,*,360">
+      <!-- UART terminal is visible only when the selected solution declares an UART module. -->
+      <Border Grid.Column="1"
+              IsVisible="{Binding ShowUartModule}"
+              BorderBrush="#31404F"
+              BorderThickness="1"
+              Background="#0D1117"
+              Padding="10"
+              Margin="0,0,8,0">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top"
+                     Text="UART Terminal"
+                     FontWeight="Bold"
+                     FontSize="15"
+                     Foreground="#7CFF7C"
+                     Margin="0,0,0,6" />
 
-        <!-- CPU and LED -->
-        <Border Grid.Column="0"
+          <TextBox DockPanel.Dock="Bottom"
+                   Text="{Binding TerminalInputText, Mode=TwoWay}"
+                   Watermark="Type and press Enter"
+                   KeyDown="OnTerminalKeyDown"
+                   FontFamily="Consolas"
+                   Foreground="#7CFF7C"
+                   Background="#0D1117"
+                   BorderBrush="#31404F"
+                   Margin="0,6,0,0" />
+
+          <ScrollViewer Background="#0D1117">
+            <ItemsControl ItemsSource="{Binding TerminalLines}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding}"
+                             FontFamily="Consolas"
+                             FontSize="12"
+                             Foreground="#B0BCC8"
+                             TextWrapping="NoWrap" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
+
+      <Border Grid.Column="1"
+              IsVisible="{Binding ShowI2cModule}"
+              BorderBrush="#31404F"
+              BorderThickness="1"
+              Background="#111820"
+              Padding="10"
+              Margin="0,0,8,0">
+        <StackPanel Spacing="6">
+          <TextBlock Text="I2C Controller"
+                     FontWeight="Bold"
+                     FontSize="15"
+                     Foreground="#B0BCC8" />
+          <TextBlock Text="MMIO: $FE30-$FE33"
+                     FontFamily="Consolas"
+                     Foreground="#E6EDF3" />
+          <TextBlock Text="Device module is declared by solution JSON. Runtime builder will be implemented in the next hardware-builder phase."
+                     Foreground="#9DA7B3"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Column="1"
+              IsVisible="{Binding ShowNoCenterModule}"
+              BorderBrush="#31404F"
+              BorderThickness="1"
+              Background="#0D1117"
+              Padding="10"
+              Margin="0,0,8,0">
+        <StackPanel Spacing="6">
+          <TextBlock Text="No center module"
+                     FontWeight="Bold"
+                     FontSize="15"
+                     Foreground="#9DA7B3" />
+          <TextBlock Text="The selected solution does not declare UART or another center panel."
+                     Foreground="#9DA7B3"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <!-- Hardware stack: visible modules are controlled by selected .solution.json. -->
+      <StackPanel Grid.Column="2" Spacing="8">
+
+        <Border Width="340"
+                Height="118"
+                IsVisible="{Binding ShowLcdModule}"
                 BorderBrush="#31404F"
                 BorderThickness="1"
                 Background="#111820"
-                Padding="10"
-                Margin="0,0,8,0">
-          <StackPanel Spacing="12">
-            <StackPanel Spacing="6">
-              <TextBlock Text="CPU"
-                         FontWeight="Bold"
-                         FontSize="15"
-                         Foreground="#E6EDF3" />
-              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="PC:" Margin="0,0,12,3" Foreground="#9DA7B3" />
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Pc}" FontFamily="Consolas" Foreground="#E6EDF3" />
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="A:" Margin="0,0,12,3" Foreground="#9DA7B3" />
-                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding A}" FontFamily="Consolas" Foreground="#E6EDF3" />
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Z:" Margin="0,0,12,3" Foreground="#9DA7B3" />
-                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Z}" Foreground="#E6EDF3" />
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Cycles:" Margin="0,0,12,3" Foreground="#9DA7B3" />
-                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Cycles}" FontFamily="Consolas" Foreground="#E6EDF3" />
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="Halted:" Margin="0,0,12,0" Foreground="#9DA7B3" />
-                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Halted}" Foreground="#E6EDF3" />
-              </Grid>
-            </StackPanel>
-
-            <StackPanel Spacing="6">
-              <TextBlock Text="LED"
-                         FontWeight="Bold"
-                         Foreground="#4DFF88" />
-              <Grid ColumnDefinitions="Auto,*">
-                <Ellipse Grid.Column="0"
-                         Width="24"
-                         Height="24"
-                         Fill="{Binding LedColor}"
-                         Stroke="#4DFF88"
-                         StrokeThickness="1"
-                         Margin="0,0,10,0" />
-                <StackPanel Grid.Column="1" Spacing="2">
-                  <TextBlock Text="{Binding LedOn, StringFormat='State: {0}'}" Foreground="#E6EDF3" />
-                  <TextBlock Text="{Binding LedToggleCount, StringFormat='Toggles: {0}'}" Foreground="#E6EDF3" />
-                  <TextBlock Text="{Binding LedLastValue, StringFormat='Last value: 0x{0:X2}'}" Foreground="#E6EDF3" />
-                </StackPanel>
-              </Grid>
-            </StackPanel>
-          </StackPanel>
-        </Border>
-
-        <!-- LCD -->
-        <Border Grid.Column="1"
-                BorderBrush="#31404F"
-                BorderThickness="1"
-                Background="#111820"
-                Padding="10"
-                Margin="0,0,8,0">
+                Padding="10">
           <StackPanel Spacing="6">
-            <TextBlock Text="LCD"
+            <TextBlock Text="LCD 16x2"
                        FontWeight="Bold"
+                       FontSize="15"
                        Foreground="#B0BCC8" />
             <Border BorderBrush="#263241"
                     BorderThickness="1"
                     Padding="6"
                     Background="#182028"
-                    HorizontalAlignment="Left">
+                    HorizontalAlignment="Stretch">
               <views:MinimalBlinkLcdControl Pixels="{Binding LcdPixels}" />
             </Border>
           </StackPanel>
         </Border>
 
-        <!-- UART -->
-        <Border Grid.Column="2"
+        <Border Width="340"
+                Height="118"
+                IsVisible="{Binding ShowCpuModule}"
                 BorderBrush="#31404F"
                 BorderThickness="1"
-                Background="#0D1117"
+                Background="#111820"
                 Padding="10">
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Top"
-                       Text="UART Terminal"
+          <Grid RowDefinitions="Auto,*">
+            <TextBlock Grid.Row="0"
+                       Text="CPU"
                        FontWeight="Bold"
                        FontSize="15"
-                       Foreground="#7CFF7C"
+                       Foreground="#E6EDF3"
                        Margin="0,0,0,6" />
+            <Grid Grid.Row="1"
+                  ColumnDefinitions="Auto,*,Auto,*"
+                  RowDefinitions="Auto,Auto,Auto">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="PC" Margin="0,0,8,3" Foreground="#9DA7B3" />
+              <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Pc}" FontFamily="Consolas" Foreground="#E6EDF3" />
+              <TextBlock Grid.Row="0" Grid.Column="2" Text="A" Margin="14,0,8,3" Foreground="#9DA7B3" />
+              <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding A}" FontFamily="Consolas" Foreground="#E6EDF3" />
 
-            <TextBox DockPanel.Dock="Bottom"
-                     Text="{Binding TerminalInputText, Mode=TwoWay}"
-                     Watermark="Type and press Enter"
-                     KeyDown="OnTerminalKeyDown"
-                     FontFamily="Consolas"
-                     Foreground="#7CFF7C"
-                     Background="#0D1117"
-                     BorderBrush="#31404F"
-                     Margin="0,6,0,0" />
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Z" Margin="0,0,8,3" Foreground="#9DA7B3" />
+              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Z}" Foreground="#E6EDF3" />
+              <TextBlock Grid.Row="1" Grid.Column="2" Text="HLT" Margin="14,0,8,3" Foreground="#9DA7B3" />
+              <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding Halted}" Foreground="#E6EDF3" />
 
-            <ScrollViewer Height="150" Background="#0D1117">
-              <ItemsControl ItemsSource="{Binding TerminalLines}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <TextBlock Text="{Binding}"
-                               FontFamily="Consolas"
-                               FontSize="12"
-                               Foreground="#B0BCC8"
-                               TextWrapping="NoWrap" />
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </ScrollViewer>
-          </DockPanel>
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="CY" Margin="0,0,8,0" Foreground="#9DA7B3" />
+              <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding Cycles}" FontFamily="Consolas" Foreground="#E6EDF3" />
+            </Grid>
+          </Grid>
         </Border>
-      </Grid>
+
+        <Border Width="340"
+                Height="118"
+                IsVisible="{Binding ShowLedModule}"
+                BorderBrush="#31404F"
+                BorderThickness="1"
+                Background="#111820"
+                Padding="10">
+          <Grid RowDefinitions="Auto,*">
+            <TextBlock Grid.Row="0"
+                       Text="LED"
+                       FontWeight="Bold"
+                       FontSize="15"
+                       Foreground="#4DFF88"
+                       Margin="0,0,0,6" />
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
+              <Ellipse Grid.Column="0"
+                       Width="28"
+                       Height="28"
+                       Fill="{Binding LedColor}"
+                       Stroke="#4DFF88"
+                       StrokeThickness="1"
+                       VerticalAlignment="Top"
+                       Margin="0,3,12,0" />
+              <StackPanel Grid.Column="1" Spacing="2">
+                <TextBlock Text="{Binding LedOn, StringFormat='State: {0}'}" Foreground="#E6EDF3" />
+                <TextBlock Text="{Binding LedToggleCount, StringFormat='Toggles: {0}'}" Foreground="#E6EDF3" />
+                <TextBlock Text="{Binding LedLastValue, StringFormat='Last value: 0x{0:X2}'}" Foreground="#E6EDF3" />
+              </StackPanel>
+            </Grid>
+          </Grid>
+        </Border>
+      </StackPanel>
     </Grid>
 
-    <!-- Bottom-aligned compact tabs: source and executable compiled listing share one area. -->
     <Border Grid.Row="2"
             BorderBrush="#31404F"
             BorderThickness="1"

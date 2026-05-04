@@ -1,0 +1,42 @@
+{
+  "id": "blink",
+  "name": "Blink LED",
+  "source": "blink.asm",
+  "entryPoint": "0x0100",
+  "loadAddress": "0x0100",
+  "cpu": {
+    "type": "minimal-blink-cpu",
+    "clockHz": 1000000
+  },
+  "memory": {
+    "ram": [
+      {
+        "start": "0x0000",
+        "size": "0x0100"
+      }
+    ]
+  },
+  "devices": [
+    {
+      "id": "cpu",
+      "type": "cpu",
+      "name": "CPU",
+      "visible": true
+    },
+    {
+      "id": "led0",
+      "type": "led-mmio",
+      "name": "LED",
+      "address": "0xFF00",
+      "visible": true
+    }
+  ],
+  "ui": {
+    "layout": {
+      "left": ["program-loader"],
+      "center": [],
+      "right": ["cpu", "led0"],
+      "bottom": ["asm-tabs"]
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "id": "hello-uart",
+  "name": "Hello UART Terminal",
+  "source": "hello-uart.asm",
+  "entryPoint": "0x0100",
+  "loadAddress": "0x0100",
+  "cpu": {
+    "type": "minimal-blink-cpu",
+    "clockHz": 1000000
+  },
+  "memory": {
+    "ram": [
+      {
+        "start": "0x0000",
+        "size": "0x0100"
+      }
+    ]
+  },
+  "devices": [
+    {
+      "id": "cpu",
+      "type": "cpu",
+      "name": "CPU",
+      "visible": true
+    },
+    {
+      "id": "uart0",
+      "type": "uart-mmio",
+      "name": "UART Terminal",
+      "baseAddress": "0xFE40",
+      "registers": {
+        "data": "0xFE40",
+        "status": "0xFE41",
+        "control": "0xFE42"
+      },
+      "visible": true
+    }
+  ],
+  "ui": {
+    "layout": {
+      "left": ["program-loader"],
+      "center": ["uart0"],
+      "right": ["cpu"],
+      "bottom": ["asm-tabs"]
+    }
+  }
+}
