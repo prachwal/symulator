@@ -61,8 +61,9 @@ public sealed class Mos6502HardeningTests
         cpu.PC.Should().Be(0x9000);
         cpu.InterruptDisable.Should().BeTrue();
         cpu.CycleCount.Should().Be(16UL);
-        ram.ReadByte(0x01FC).Should().Be(0x80);
-        ram.ReadByte(0x01FB).Should().Be(0x01);
+        ram.ReadByte(0x01FD).Should().Be(0x80);
+        ram.ReadByte(0x01FC).Should().Be(0x01);
+        ram.ReadByte(0x01FB).Should().Be(0x20);
     }
 
     [TestMethod]
