@@ -27,9 +27,12 @@ public sealed class MinimalBlinkHardwareRuntime
 
     public RtcClockCore? RtcClock { get; init; }
     public RtcI2cDevice? RtcI2c { get; init; }
+    public RtcBusMappedDevice? RtcBus { get; init; }
 
     public RtcSnapshot? RtcSnapshot => RtcClock?.CreateSnapshot(
-        i2cAddress: RtcI2c?.Address);
+        i2cAddress: RtcI2c?.Address,
+        directBusBaseAddress: RtcBus?.BaseAddress,
+        directBusMode: RtcBus?.Mode);
 
     public IReadOnlySet<string> DeviceTypes { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -46,6 +49,7 @@ public sealed class MinimalBlinkHardwareRuntime
             if (Uart is not null) all.Add("uart-mmio");
             if (I2cController is not null) all.Add("i2c-controller-mmio");
             if (RtcClock is not null) all.Add("rtc-i2c");
+            if (RtcBus is not null) all.Add("rtc-mmio");
             return all;
         }
     }
@@ -61,6 +65,8 @@ public sealed class MinimalBlinkHardwareRuntime
         "uart-mmio" => Uart is not null,
         "hd44780-mmio" => Lcd is not null,
         "i2c-controller-mmio" => I2cController is not null,
+        "rtc-i2c" => RtcClock is not null,
+        "rtc-mmio" => RtcBus is not null,
         _ => DeviceTypes.Contains(type)
     };
 }

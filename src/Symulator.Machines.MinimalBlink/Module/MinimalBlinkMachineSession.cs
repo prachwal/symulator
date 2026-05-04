@@ -38,6 +38,7 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
     private TerminalBuffer? _terminal;
     private RtcClockCore? _rtcClock;
     private RtcI2cDevice? _rtcI2c;
+    private RtcBusMappedDevice? _rtcBus;
     private string? _selectedProgramId;
     private string? _loadedProgramId;
     private AssemblyProgramImage? _loadedAssemblyImage;
@@ -94,7 +95,10 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
             registers);
 
         return new EmulatorStateSnapshot("minimal-blink", _isRunning, _cpu.Halted, cpuSnap, string.Empty, (long)_cpu.CycleCount,
-            Rtc: _rtcClock?.CreateSnapshot(i2cAddress: _rtcI2c?.Address));
+            Rtc: _rtcClock?.CreateSnapshot(
+                i2cAddress: _rtcI2c?.Address,
+                directBusBaseAddress: _rtcBus?.BaseAddress,
+                directBusMode: _rtcBus?.Mode));
     }
 
     private void Initialize()
@@ -134,6 +138,7 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
         _terminal = rt.Terminal;
         _rtcClock = rt.RtcClock;
         _rtcI2c = rt.RtcI2c;
+        _rtcBus = rt.RtcBus;
         _isInitialized = true;
         Logger.Info("Minimal Blink hardware rebuilt from solution: {Id}", solution.Id);
     }
@@ -490,6 +495,31 @@ public sealed class MinimalBlinkMachineSession : IMachineSession
             {
                 var snap = _terminal.GetSnapshot();
                 _workspaceVm.TerminalLines = new List<string>(snap.Lines);
+            }
+
+            if (snapshot.Rtc is not null)
+            {
+                _workspaceVm.ShowRtcModule = true;
+                _workspaceVm.RtcCurrentTime = snapshot.Rtc.CurrentTime.ToString("yyyy-MM-dd HH:mm:ss");
+                _workspaceVm.RtcTimeMode = snapshot.Rtc.TimeMode.ToString();
+                _workspaceVm.RtcI2cAddress = snapshot.Rtc.I2cAddress.HasValue
+                    ? $"0x{snapshot.Rtc.I2cAddress.Value:X2}"
+                    : "-";
+                _workspaceVm.RtcBusAddress = snapshot.Rtc.DirectBusBaseAddress.HasValue
+                    ? $"0x{snapshot.Rtc.DirectBusBaseAddress.Value:X4} ({snapshot.Rtc.DirectBusMode})"
+                    : "-";
+                _workspaceVm.RtcRegisters = snapshot.Rtc.Registers
+                    .Select((value, index) => new CpuRegisterSnapshot($"0x{index:X2}", $"0x{value:X2}"))
+                    .ToList();
+            }
+            else
+            {
+                _workspaceVm.ShowRtcModule = false;
+                _workspaceVm.RtcCurrentTime = string.Empty;
+                _workspaceVm.RtcTimeMode = string.Empty;
+                _workspaceVm.RtcI2cAddress = string.Empty;
+                _workspaceVm.RtcBusAddress = string.Empty;
+                _workspaceVm.RtcRegisters = [];
             }
         };
 

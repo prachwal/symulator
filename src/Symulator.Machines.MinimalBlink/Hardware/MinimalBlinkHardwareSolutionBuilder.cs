@@ -35,6 +35,7 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
         TerminalBuffer? terminal = null;
         RtcClockCore? rtcClock = null;
         RtcI2cDevice? rtcI2c = null;
+        RtcBusMappedDevice? rtcBus = null;
 
         foreach (var device in solution.Devices)
         {
@@ -154,6 +155,29 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
                     break;
                 }
 
+                case "rtc-mmio":
+                {
+                    rtcClock ??= new RtcClockCore(
+                        RtcTimeMode.Simulated,
+                        new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Unspecified));
+
+                    ushort baseAddr = string.IsNullOrEmpty(device.BaseAddress)
+                        ? (ushort)0xD100
+                        : AddressParser.Parse16(device.BaseAddress);
+
+                    var modeStr = device.Options?.GetValueOrDefault("busMode") ?? "linear";
+                    var mode = string.Equals(modeStr, "indexed", StringComparison.OrdinalIgnoreCase)
+                        ? RtcBusMode.Indexed
+                        : RtcBusMode.Linear;
+
+                    rtcBus = new RtcBusMappedDevice(rtcClock, baseAddr, mode);
+
+                    memory.AttachRtcBus(rtcBus);
+
+                    Logger.Debug("Builder: RTC direct bus attached at 0x{Addr:X4} mode={Mode}", baseAddr, mode);
+                    break;
+                }
+
                 default:
                     throw new InvalidOperationException(
                         $"Solution '{solution.Id}' unsupported device type '{device.Type}' (id='{device.Id}').");
@@ -192,6 +216,7 @@ public sealed class MinimalBlinkHardwareSolutionBuilder
             Terminal = terminal,
             RtcClock = rtcClock,
             RtcI2c = rtcI2c,
+            RtcBus = rtcBus,
         };
     }
 }

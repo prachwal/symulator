@@ -54,8 +54,14 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
     private bool _showLcdModule;
     private bool _showUartModule;
     private bool _showI2cModule;
+    private bool _showRtcModule;
     private bool _isSolutionLoading;
     private int _solutionLoadVersion;
+    private string _rtcCurrentTime = string.Empty;
+    private string _rtcTimeMode = string.Empty;
+    private string _rtcI2cAddress = string.Empty;
+    private string _rtcBusAddress = string.Empty;
+    private IReadOnlyList<CpuRegisterSnapshot> _rtcRegisters = [];
 
     private static readonly IBrush OnBrush = new SolidColorBrush(Color.Parse("#4DFF88"));
     private static readonly IBrush OffBrush = new SolidColorBrush(Color.Parse("#1a3a2a"));
@@ -219,6 +225,42 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
 
     public bool ShowNoCenterModule => !ShowUartModule && !ShowI2cModule;
 
+    public bool ShowRtcModule
+    {
+        get => _showRtcModule;
+        set { _showRtcModule = value; OnPropertyChanged(); }
+    }
+
+    public string RtcCurrentTime
+    {
+        get => _rtcCurrentTime;
+        set { _rtcCurrentTime = value; OnPropertyChanged(); }
+    }
+
+    public string RtcTimeMode
+    {
+        get => _rtcTimeMode;
+        set { _rtcTimeMode = value; OnPropertyChanged(); }
+    }
+
+    public string RtcI2cAddress
+    {
+        get => _rtcI2cAddress;
+        set { _rtcI2cAddress = value; OnPropertyChanged(); }
+    }
+
+    public string RtcBusAddress
+    {
+        get => _rtcBusAddress;
+        set { _rtcBusAddress = value; OnPropertyChanged(); }
+    }
+
+    public IReadOnlyList<CpuRegisterSnapshot> RtcRegisters
+    {
+        get => _rtcRegisters;
+        set { _rtcRegisters = value; OnPropertyChanged(); }
+    }
+
     public void UpdateCurrentInstructionFromPc(ushort pc)
     {
         var lines = ExecutableListingLines;
@@ -335,6 +377,7 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
             ShowLcdModule = false;
             ShowUartModule = false;
             ShowI2cModule = false;
+            ShowRtcModule = false;
             return;
         }
 
@@ -354,6 +397,7 @@ public sealed class MinimalBlinkWorkspaceViewModel : INotifyPropertyChanged
         ShowLcdModule = HasDeviceType("hd44780-mmio") || HasDeviceType("hd44780-pcf8574");
         ShowUartModule = HasDeviceType("uart-mmio");
         ShowI2cModule = HasDeviceType("i2c-controller-mmio");
+        ShowRtcModule = HasDeviceType("rtc-i2c") || HasDeviceType("rtc-mmio");
     }
 
     public async Task SendTerminalInputAsync()

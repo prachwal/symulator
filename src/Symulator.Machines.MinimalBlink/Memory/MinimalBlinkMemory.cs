@@ -1,5 +1,6 @@
 using CmosCpu.Computer.Devices;
 using CmosCpu.Computer.Devices.I2c;
+using CmosCpu.Computer.Devices.Rtc;
 using CmosCpu.Computer.Devices.Serial;
 using Symulator.Machines.MinimalBlink.Models;
 
@@ -27,6 +28,7 @@ public sealed class MinimalBlinkMemory
     public Hd44780Lcd? LcdDevice { get; private set; }
     public MemoryMappedI2cController? I2cController { get; private set; }
     public MemoryMappedUartAdapter? UartAdapter { get; private set; }
+    public RtcBusMappedDevice? RtcBus { get; private set; }
 
     public void AttachLcd(Hd44780Lcd lcd, Hd44780DirectBusAdapter bus)
     {
@@ -44,6 +46,11 @@ public sealed class MinimalBlinkMemory
         UartAdapter = adapter;
     }
 
+    public void AttachRtcBus(RtcBusMappedDevice device)
+    {
+        RtcBus = device;
+    }
+
     public byte ReadByte(ushort address)
     {
         if (address <= RamEnd)
@@ -56,6 +63,8 @@ public sealed class MinimalBlinkMemory
             return I2cController.Read((ushort)(address - I2cBase));
         if (UartAdapter is not null && address >= UartBase && address <= UartEnd)
             return UartAdapter.Read((ushort)(address - UartBase));
+        if (RtcBus is not null && RtcBus.Handles(address))
+            return RtcBus.Read(address);
         return 0;
     }
 
@@ -73,6 +82,8 @@ public sealed class MinimalBlinkMemory
             I2cController.Write((ushort)(address - I2cBase), value);
         else if (UartAdapter is not null && address >= UartBase && address <= UartEnd)
             UartAdapter.Write((ushort)(address - UartBase), value);
+        else if (RtcBus is not null && RtcBus.Handles(address))
+            RtcBus.Write(address, value);
     }
 
     public void Load(ushort start, byte[] data)
