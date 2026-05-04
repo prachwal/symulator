@@ -1,7 +1,7 @@
 ---
 description: Avalonia + C#/.NET executor for symulator project with careful binary/ROM work
 mode: primary
-model: deepseek/deepseek-v4-flash
+model: kilo/deepseek/deepseek-v4-flash
 temperature: 0.05
 top_p: 0.8
 steps: 18
