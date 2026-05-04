@@ -104,7 +104,7 @@ public static class Reference6502TestRunner
             System.Reflection.Assembly.GetExecutingAssembly().Location);
         return Path.Combine(
             assemblyDir!,
-            "..", "..", "..", "..",
+            "..", "..", "..",
             "Reference", "roms", romName);
     }
 }
